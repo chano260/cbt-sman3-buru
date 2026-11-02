@@ -12,4 +12,8 @@ test('Android Exambro project enforces screen pinning, anti-screenshot FLAG_SECU
   assert.ok(mainKt.includes('FLAG_SECURE'));
   assert.ok(mainKt.includes('startLockTask()'));
   assert.ok(mainKt.includes('X-Exambro-App'));
+
+  const apkPath = path.join(__dirname, '..', 'public', 'Exambro-SMAN3-Buru.apk');
+  assert.ok(fs.existsSync(apkPath), 'Signed Exambro-SMAN3-Buru.apk must exist in public/');
+  assert.ok(fs.statSync(apkPath).size > 5000, 'APK file must be non-empty');
 });

@@ -331,6 +331,11 @@
   <script>
     let currentOverview = null;
     let currentPrintData = null;
+    let staffToken = sessionStorage.getItem('cbt_operator_token') || '';
+
+    function authHeaders(extra = {}) {
+      return { ...extra, 'Authorization': `Bearer ${staffToken}` };
+    }
 
     async function doOperatorLogin() {
       const username = document.getElementById('loginUser').value;
@@ -347,6 +352,8 @@
         el.style.display = 'block';
         return;
       }
+      staffToken = data.staffToken;
+      sessionStorage.setItem('cbt_operator_token', staffToken);
       document.getElementById('loginOverlay').style.display = 'none';
       loadOverview();
       loadPrintData();
@@ -361,7 +368,12 @@
     }
 
     async function loadOverview() {
-      const res = await fetch('/api/operator/overview');
+      if (!staffToken) return;
+      const res = await fetch('/api/operator/overview', { headers: authHeaders() });
+      if (res.status === 401) {
+        document.getElementById('loginOverlay').style.display = 'flex';
+        return;
+      }
       const data = await res.json();
       currentOverview = data;
 
@@ -446,23 +458,23 @@
     }
 
     async function refreshToken() {
-      await fetch('/api/operator/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      await fetch('/api/operator/token', { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: '{}' });
       loadOverview();
     }
 
     async function unlockSession(sessionId) {
-      await fetch(`/api/pengawas/unlock/${sessionId}`, { method: 'POST' });
+      await fetch(`/api/pengawas/unlock/${sessionId}`, { method: 'POST', headers: authHeaders() });
       loadOverview();
     }
 
     async function resetSession(sessionId) {
-      await fetch(`/api/pengawas/reset-login/${sessionId}`, { method: 'POST' });
+      await fetch(`/api/pengawas/reset-login/${sessionId}`, { method: 'POST', headers: authHeaders() });
       loadOverview();
     }
 
     function exportActiveExamExcel() {
       if (!currentOverview || !currentOverview.activeExam) return;
-      window.location.href = `/api/guru/exams/${currentOverview.activeExam.id}/export-excel`;
+      window.location.href = `/api/guru/exams/${currentOverview.activeExam.id}/export-excel?staffToken=${encodeURIComponent(staffToken)}`;
     }
 
     async function addStudent() {
@@ -477,7 +489,7 @@
       };
       const res = await fetch('/api/operator/students', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       });
       if (res.ok) {
@@ -491,7 +503,7 @@
     }
 
     async function deleteStudent(id) {
-      await fetch(`/api/operator/students/${id}`, { method: 'DELETE' });
+      await fetch(`/api/operator/students/${id}`, { method: 'DELETE', headers: authHeaders() });
       loadOverview();
     }
 
@@ -506,14 +518,14 @@
       };
       const res = await fetch('/api/operator/exams', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       });
       if (res.ok) loadOverview();
     }
 
     async function activateExam(id) {
-      await fetch(`/api/operator/exams/${id}/activate`, { method: 'POST' });
+      await fetch(`/api/operator/exams/${id}/activate`, { method: 'POST', headers: authHeaders() });
       loadOverview();
     }
 
@@ -530,7 +542,7 @@
       };
       const res = await fetch('/api/operator/staff', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       });
       if (res.ok) loadOverview();
@@ -538,8 +550,10 @@
 
     // ==================== PUSAT CETAK 4 DOKUMEN ADMINISTRASI ====================
     async function loadPrintData() {
+      if (!staffToken) return;
       const room = document.getElementById('printRoomFilter').value;
-      const res = await fetch(`/api/operator/print-data?room=${encodeURIComponent(room)}`);
+      const res = await fetch(`/api/operator/print-data?room=${encodeURIComponent(room)}`, { headers: authHeaders() });
+      if (!res.ok) return;
       currentPrintData = await res.json();
       renderPrintPreview();
     }

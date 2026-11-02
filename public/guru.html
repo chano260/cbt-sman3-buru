@@ -170,6 +170,11 @@
 
   <script>
     let currentExamId = null;
+    let staffToken = sessionStorage.getItem('cbt_guru_token') || '';
+
+    function authHeaders(extra = {}) {
+      return { ...extra, 'Authorization': `Bearer ${staffToken}` };
+    }
 
     async function doGuruLogin() {
       const username = document.getElementById('loginUser').value;
@@ -186,6 +191,8 @@
         el.style.display = 'block';
         return;
       }
+      staffToken = data.staffToken;
+      sessionStorage.setItem('cbt_guru_token', staffToken);
       document.getElementById('guruNameChip').textContent = data.user.full_name;
       document.getElementById('loginOverlay').style.display = 'none';
       loadExams();
@@ -206,7 +213,12 @@
     }
 
     async function loadExams() {
-      const res = await fetch('/api/guru/exams');
+      if (!staffToken) return;
+      const res = await fetch('/api/guru/exams', { headers: authHeaders() });
+      if (res.status === 401) {
+        document.getElementById('loginOverlay').style.display = 'flex';
+        return;
+      }
       const data = await res.json();
       const sel = document.getElementById('examSelector');
       sel.innerHTML = data.exams.map(e => `
@@ -227,8 +239,9 @@
     }
 
     async function loadQuestions() {
-      if (!currentExamId) return;
-      const res = await fetch(`/api/guru/exams/${currentExamId}/questions`);
+      if (!currentExamId || !staffToken) return;
+      const res = await fetch(`/api/guru/exams/${currentExamId}/questions`, { headers: authHeaders() });
+      if (!res.ok) return;
       const data = await res.json();
       const qs = data.questions || [];
       const pgCount = qs.filter(q => q.type === 'PG').length;
@@ -284,6 +297,7 @@
 
       const res = await fetch(`/api/guru/exams/${currentExamId}/import-word`, {
         method: 'POST',
+        headers: authHeaders(),
         body: formData
       });
       const data = await res.json();
@@ -314,7 +328,7 @@
       };
       const res = await fetch(`/api/guru/exams/${currentExamId}/questions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       });
       if (res.ok) {
@@ -324,13 +338,14 @@
     }
 
     async function deleteQuestion(qId) {
-      await fetch(`/api/guru/questions/${qId}`, { method: 'DELETE' });
+      await fetch(`/api/guru/questions/${qId}`, { method: 'DELETE', headers: authHeaders() });
       loadExams();
     }
 
     async function loadScores() {
-      if (!currentExamId) return;
-      const res = await fetch(`/api/guru/exams/${currentExamId}/scores`);
+      if (!currentExamId || !staffToken) return;
+      const res = await fetch(`/api/guru/exams/${currentExamId}/scores`, { headers: authHeaders() });
+      if (!res.ok) return;
       const data = await res.json();
       document.getElementById('guruScoresBody').innerHTML = (data.scores || []).map(s => `
         <tr>
@@ -347,8 +362,8 @@
     }
 
     function downloadExcel() {
-      if (!currentExamId) return;
-      window.location.href = `/api/guru/exams/${currentExamId}/export-excel`;
+      if (!currentExamId || !staffToken) return;
+      window.location.href = `/api/guru/exams/${currentExamId}/export-excel?staffToken=${encodeURIComponent(staffToken)}`;
     }
 
     loadExams();

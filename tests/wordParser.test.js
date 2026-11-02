@@ -39,3 +39,27 @@ test('generateWordTemplateBuffer produces a valid .docx buffer that parseDocxBuf
   assert.ok(parsed.some(q => q.type === 'PG'));
   assert.ok(parsed.some(q => q.type === 'ESAI'));
 });
+
+test('parseQuestionsFromText handles sub-numbered statements inside question stem and multiline options', () => {
+  const complexSample = `
+  [PG]
+  1. Perhatikan pernyataan berikut:
+  1. Penambahan katalis menurunkan energi aktivasi
+  2. Mempercepat tercapainya kesetimbangan
+  Pernyataan yang benar adalah...
+  A. Pernyataan 1 saja
+  yang paling tepat
+  B. Pernyataan 2 saja
+  C. Keduanya benar
+  D. Keduanya salah
+  E. Tidak ada yang benar
+  KUNCI: C
+  `;
+  const result = parseQuestionsFromText(complexSample);
+  assert.equal(result.length, 1);
+  assert.ok(result[0].question_text.includes('1. Penambahan katalis'));
+  assert.ok(result[0].question_text.includes('2. Mempercepat tercapainya'));
+  assert.equal(result[0].option_a, 'Pernyataan 1 saja yang paling tepat');
+  assert.equal(result[0].answer_key, 'C');
+});
+

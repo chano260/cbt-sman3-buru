@@ -14,6 +14,7 @@ function parseQuestionsFromText(rawText) {
 
   const pushCurrent = () => {
     if (!current || !current.question_text.trim()) return;
+    delete current.lastTarget;
     if (current.type === 'PG') {
       current.answer_key = (current.answer_key || 'A').toUpperCase();
     } else {
@@ -52,27 +53,36 @@ function parseQuestionsFromText(rawText) {
     const optMatch = currentMode === 'PG' && line.match(/^([A-Ea-e])\s*[\.\)]\s*(.+)$/);
     if (optMatch && current) {
       const letter = optMatch[1].toLowerCase();
-      current[`option_${letter}`] = optMatch[2].trim();
+      const targetKey = `option_${letter}`;
+      current[targetKey] = optMatch[2].trim();
+      current.lastTarget = targetKey;
       continue;
     }
 
     // Cek awal nomor soal baru: "1. Teks..." atau "31) Teks..."
+    // Pada mode PG, jika soal saat ini belum memiliki opsi A sama sekali, baris "1. ..." atau "2. ..."
+    // adalah sub-pernyataan di dalam batang soal, BUKAN soal baru!
     const numMatch = line.match(/^(\d+)\s*[\.\)]\s*(.+)$/);
     if (numMatch) {
-      pushCurrent();
-      current = {
-        type: currentMode,
-        number: Number(numMatch[1]),
-        question_text: numMatch[2].trim(),
-        image_data: null,
-        option_a: '',
-        option_b: '',
-        option_c: '',
-        option_d: '',
-        option_e: '',
-        answer_key: currentMode === 'PG' ? 'A' : null
-      };
-      continue;
+      const isCompletePg = current && current.type === 'PG' && Boolean(current.option_a);
+      const isEsai = current && current.type === 'ESAI';
+      if (!current || isCompletePg || isEsai) {
+        pushCurrent();
+        current = {
+          type: currentMode,
+          number: Number(numMatch[1]),
+          question_text: numMatch[2].trim(),
+          image_data: null,
+          option_a: '',
+          option_b: '',
+          option_c: '',
+          option_d: '',
+          option_e: '',
+          answer_key: currentMode === 'PG' ? 'A' : null,
+          lastTarget: 'question_text'
+        };
+        continue;
+      }
     }
 
     // Jika baris mengandung tag gambar base64 hasil ekstraksi mammoth
@@ -81,15 +91,19 @@ function parseQuestionsFromText(rawText) {
       continue;
     }
 
-    // Lanjutan teks soal multi-baris
+    // Lanjutan teks multi-baris (ke opsi terakhir atau ke batang soal)
     if (current) {
-      current.question_text += '\n' + line;
+      const target = current.lastTarget || 'question_text';
+      if (target === 'question_text') {
+        current.question_text += '\n' + line;
+      } else {
+        current[target] = (current[target] + ' ' + line).trim();
+      }
     }
   }
 
   pushCurrent();
 
-  // Urutkan ulang nomor jika diperlukan tetapi pertahankan nomor asli bila valid
   return questions.map((q, idx) => ({
     ...q,
     number: q.number || idx + 1
@@ -111,7 +125,6 @@ async function parseDocxBuffer(buffer) {
     }
   );
 
-  // Ubah HTML ke baris teks sambil mempertahankan token gambar
   const textWithImages = htmlRes.value
     .replace(/<img[^>]*src="IMG_TOKEN_(\d+)"[^>]*>/gi, (_, idx) => `\nIMG_DATA:${images[Number(idx)]}\n`)
     .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n')

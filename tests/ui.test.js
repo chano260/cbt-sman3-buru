@@ -16,5 +16,10 @@ test('All 5 web interfaces load with 200 OK and contain zero external CDN links 
     const html = await res.text();
     assert.ok(!html.includes('https://fonts.googleapis.com'), `${page} must not depend on external fonts`);
     assert.ok(!html.includes('https://cdn.'), `${page} must not depend on external CDN`);
+    if (page === '/ujian.html') {
+      assert.ok(!html.includes('value="26-03-001"'), 'ujian.html must not hardcode Student #1 exam_number');
+      assert.ok(html.includes('sessionStorage'), 'ujian.html must persist active session in sessionStorage');
+    }
   }
+
 });

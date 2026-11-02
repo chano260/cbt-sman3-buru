@@ -131,6 +131,12 @@
   </div>
 
   <script>
+    let staffToken = sessionStorage.getItem('cbt_pengawas_token') || '';
+
+    function authHeaders(extra = {}) {
+      return { ...extra, 'Authorization': `Bearer ${staffToken}` };
+    }
+
     async function doPengawasLogin() {
       const username = document.getElementById('loginUser').value;
       const password = document.getElementById('loginPass').value;
@@ -146,6 +152,8 @@
         el.style.display = 'block';
         return;
       }
+      staffToken = data.staffToken;
+      sessionStorage.setItem('cbt_pengawas_token', staffToken);
       document.getElementById('pengawasSub').textContent = `${data.user.full_name} • ${data.user.room || 'Ruang 01'}`;
       document.getElementById('repPengawas').value = data.user.full_name;
       if (data.user.room) {
@@ -156,8 +164,13 @@
     }
 
     async function loadRoomData() {
+      if (!staffToken) return;
       const room = document.getElementById('roomSelect').value;
-      const res = await fetch(`/api/pengawas/room?room=${encodeURIComponent(room)}`);
+      const res = await fetch(`/api/pengawas/room?room=${encodeURIComponent(room)}`, { headers: authHeaders() });
+      if (res.status === 401) {
+        document.getElementById('loginOverlay').style.display = 'flex';
+        return;
+      }
       const data = await res.json();
 
       if (data.activeExam) {
@@ -215,12 +228,12 @@
     }
 
     async function unlockStudent(sessionId) {
-      await fetch(`/api/pengawas/unlock/${sessionId}`, { method: 'POST' });
+      await fetch(`/api/pengawas/unlock/${sessionId}`, { method: 'POST', headers: authHeaders() });
       loadRoomData();
     }
 
     async function resetStudentLogin(sessionId) {
-      await fetch(`/api/pengawas/reset-login/${sessionId}`, { method: 'POST' });
+      await fetch(`/api/pengawas/reset-login/${sessionId}`, { method: 'POST', headers: authHeaders() });
       alert('Login siswa berhasil di-reset. Siswa dapat login kembali di HP baru dan jawabannya tetap tersimpan.');
       loadRoomData();
     }
@@ -234,7 +247,7 @@
       };
       const res = await fetch('/api/pengawas/report', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       });
       if (res.ok) {

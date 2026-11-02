@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Exambro Ujian CBT — SMA Negeri 3 Buru</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    body {
+      user-select: none;
+      -webkit-user-select: none;
+      background: #f8fafc;
+    }
+    .exam-topbar {
+      background: #0f172a;
+      color: #fff;
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .lock-indicator {
+      color: #34d399;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .exam-header {
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+    .timer-badge {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1.5px solid #fecaca;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+    }
+    .exam-container {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 16px 16px 90px;
+    }
+    .num-strip {
+      display: flex;
+      gap: 7px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 14px;
+    }
+    .num-dot {
+      min-width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1.5px solid #cbd5e1;
+      background: #fff;
+      color: #475569;
+      font-size: 12.5px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0 8px;
+      flex-shrink: 0;
+    }
+    .num-dot.done {
+      background: #dcfce7;
+      border-color: #86efac;
+      color: #15803d;
+    }
+    .num-dot.essay {
+      background: #fef3c7;
+      border-color: #fde68a;
+      color: #b45309;
+    }
+    .num-dot.active {
+      background: #2563eb !important;
+      border-color: #2563eb !important;
+      color: #fff !important;
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+    }
+
+    .question-box {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+    .q-type-pill {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 10px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+    .q-type-pg { background: #eff6ff; color: #2563eb; }
+    .q-type-esai { background: #fef3c7; color: #b45309; }
+
+    .q-body-text {
+      font-size: 15.5px;
+      font-weight: 600;
+      color: #0f172a;
+      line-height: 1.65;
+      margin-bottom: 18px;
+      white-space: pre-line;
+    }
+
+    .choice-btn {
+      width: 100%;
+      text-align: left;
+      background: #fff;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 14px;
+      padding: 13px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e293b;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+    .choice-letter {
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      background: #f1f5f9;
+      color: #475569;
+      font-weight: 800;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .choice-btn.selected {
+      border-color: #2563eb;
+      background: #eff6ff;
+      color: #1e3a8a;
+    }
+    .choice-btn.selected .choice-letter {
+      background: #2563eb;
+      color: #fff;
+    }
+
+    .essay-paper-instruction {
+      background: linear-gradient(135deg, #fffbeb, #fef3c7);
+      border: 1.5px solid #fde68a;
+      border-radius: 14px;
+      padding: 16px;
+      color: #78350f;
+    }
+    .essay-paper-instruction h4 {
+      font-size: 13.5px;
+      font-weight: 800;
+      color: #b45309;
+      margin-bottom: 6px;
+    }
+    .essay-paper-instruction p {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* LOCKED RED SCREEN OVERLAY */
+    .locked-screen {
+      position: fixed;
+      inset: 0;
+      background: #991b1b;
+      color: #fff;
+      z-index: 200;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 28px;
+    }
+  </style>
+</head>
+<body oncontextmenu="return false;">
+  <!-- BAR STATUS PENGUNCI EXAMBRO -->
+  <div class="exam-topbar">
+    <span class="lock-indicator">🔒 EXAMBRO TERKUNCI • SMA NEGERI 3 BURU</span>
+    <span id="saveStatusIndicator" style="color:#93c5fd;">● Siap Ujian</span>
+  </div>
+
+  <!-- LAYAR 1: LOGIN PESERTA UJIAN + TOKEN -->
+  <div id="studentLoginScreen" class="exam-container" style="padding-top:32px;">
+    <div class="question-box" style="padding:26px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+        <div class="brand-logo" style="width:44px;height:44px;font-size:17px;">S3</div>
+        <div>
+          <h2 style="font-size:18px;font-weight:800;">Exambro SMA Negeri 3 Buru</h2>
+          <span style="font-size:12px;color:var(--muted);">Login Peserta Ujian Berbasis Android</span>
+        </div>
+      </div>
+
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px;font-size:12px;color:#1e3a8a;margin-bottom:16px;">
+        🔒 <b>Perhatian:</b> Selama ujian berlangsung, dilarang keluar aplikasi, membuka layar belah, atau berpindah aplikasi. Jika melanggar, layar ujian otomatis <b>TERKUNCI</b>.
+      </div>
+
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>Nomor Peserta Ujian</label>
+        <input id="inpExamNo" class="input" value="26-03-001" placeholder="Contoh: 26-03-001">
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>Password Kartu Login</label>
+        <input id="inpPassword" type="password" class="input" value="BURU01" placeholder="Password ujian">
+      </div>
+      <div class="form-group" style="margin-bottom:18px;">
+        <label>Token Ujian (Dari Pengawas Ruangan)</label>
+        <input id="inpToken" class="input" style="font-weight:800;letter-spacing:0.12em;text-transform:uppercase;" placeholder="Ketik 5 huruf Token">
+      </div>
+
+      <div id="stLoginError" style="color:var(--red);font-size:12.5px;font-weight:700;margin-bottom:12px;display:none;"></div>
+      <button class="btn btn-primary" style="width:100%;padding:13px;font-size:14px;" onclick="startStudentExam()">🔒 Kunci Layar & Mulai Ujian →</button>
+    </div>
+  </div>
+
+  <!-- LAYAR 2: PENGERJAAN SOAL PG & ESAI -->
+  <div id="studentExamScreen" style="display:none;">
+    <div class="exam-header">
+      <div>
+        <div style="font-size:14px;font-weight:800;" id="hdrStudentName">-</div>
+        <div style="font-size:11.5px;color:var(--muted);" id="hdrExamInfo">-</div>
+      </div>
+      <div class="timer-badge" id="hdrTimer">01:30:00</div>
+    </div>
+
+    <div class="exam-container">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:12.5px;font-weight:800;color:var(--slate);" id="qProgressLabel">Soal 1</span>
+        <span style="font-size:11.5px;color:var(--muted);">Hijau = PG Terjawab • Kuning = Soal Esai</span>
+      </div>
+
+      <!-- Strip Navigasi Nomor Soal -->
+      <div class="num-strip" id="numberStrip"></div>
+
+      <!-- Kartu Soal Aktif -->
+      <div class="question-box" id="activeQuestionCard"></div>
+
+      <!-- Navigasi Bawah -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;">
+        <button class="btn btn-outline" id="btnPrevQ" style="padding:13px;" onclick="prevQuestion()">← Sebelumnya</button>
+        <button class="btn btn-primary" id="btnNextQ" style="padding:13px;" onclick="nextQuestion()">Selanjutnya →</button>
+      </div>
+
+      <div style="margin-top:20px;text-align:center;">
+        <button class="btn btn-green" id="btnFinishExam" style="width:100%;padding:13px;display:none;" onclick="confirmFinishExam()">✓ Selesai & Kumpulkan Jawaban Ujian</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LAYAR 3: UJIAN SELESAI (TANPA MENAMPILKAN NILAI!) -->
+  <div id="studentFinishedScreen" class="exam-container" style="display:none;padding-top:40px;">
+    <div class="question-box" style="text-align:center;padding:32px 22px;">
+      <div style="width:64px;height:64px;border-radius:50%;background:#dcfce7;color:#15803d;font-size:32px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">✓</div>
+      <h2 style="font-size:20px;font-weight:800;margin-bottom:8px;">Ujian Telah Selesai</h2>
+      <p style="font-size:14px;color:var(--slate);margin-bottom:18px;" id="finishMsgText">
+        Seluruh jawaban Pilihan Ganda Anda telah tersimpan dengan aman di Server CBT SMA Negeri 3 Buru.
+      </p>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:14px;font-size:13px;color:#92400e;margin-bottom:20px;">
+        📝 <b>Jangan Lupa:</b> Pastikan <b>Lembar Jawaban Kertas untuk Soal Esai</b> sudah diberi Nama & Nomor Peserta, lalu serahkan kepada Pengawas Ruangan sebelum meninggalkan kelas.
+      </div>
+      <a href="/ujian.html" class="btn btn-outline" style="width:100%;">Kembali ke Halaman Login</a>
+    </div>
+  </div>
+
+  <!-- LAYAR MERAH TERKUNCI SAAT TERDETEKSI KELUAR APLIKASI -->
+  <div id="lockedRedOverlay" class="locked-screen">
+    <div style="font-size:52px;margin-bottom:12px;">🚨</div>
+    <h1 style="font-size:24px;font-weight:900;margin-bottom:8px;">LAYAR UJIAN ANDA DIKUNCI!</h1>
+    <p style="font-size:14.5px;max-width:440px;opacity:0.92;margin-bottom:20px;" id="lockedReasonText">
+      Sistem Exambro mendeteksi Anda mencoba keluar dari layar ujian atau berpindah aplikasi.
+    </p>
+    <div style="background:rgba(0,0,0,0.28);padding:16px 22px;border-radius:14px;font-size:13px;max-width:420px;margin-bottom:20px;">
+      Silakan angkat tangan dan lapor kepada <b>Pengawas Ruangan</b> untuk membuka kunci ujian Anda dari HP Pengawas.
+    </div>
+    <div style="font-size:12px;opacity:0.8;">Menunggu persetujuan Buka Kunci dari Pengawas Ruangan...</div>
+  </div>
+
+  <script>
+    let sessionId = null;
+    let examData = null;
+    let questions = [];
+    let answers = {};
+    let currentIndex = 0;
+    let remainingSeconds = 0;
+    let timerInterval = null;
+    let pollStatusInterval = null;
+    let examActive = false;
+
+    // Isi otomatis token contoh saat uji coba jika tersedia
+    fetch('/api/server-info')
+      .then(r => r.json())
+      .then(d => {
+        if (d.activeExam && !document.getElementById('inpToken').value) {
+          document.getElementById('inpToken').value = d.activeExam.token;
+        }
+      })
+      .catch(() => {});
+
+    async function startStudentExam() {
+      const exam_number = document.getElementById('inpExamNo').value;
+      const password = document.getElementById('inpPassword').value;
+      const token = document.getElementById('inpToken').value;
+      const errEl = document.getElementById('stLoginError');
+      errEl.style.display = 'none';
+
+      const res = await fetch('/api/ujian/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exam_number, password, token })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errEl.textContent = data.error || 'Gagal memulai ujian';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      sessionId = data.sessionId;
+      // Aktifkan Fullscreen / Android Native LockTask Bridge jika ada
+      if (window.AndroidExambro && typeof window.AndroidExambro.enterLockMode === 'function') {
+        window.AndroidExambro.enterLockMode();
+      } else if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+
+      await loadExamSession();
+      document.getElementById('studentLoginScreen').style.display = 'none';
+      document.getElementById('studentExamScreen').style.display = 'block';
+      examActive = true;
+
+      startTimersAndSecurityWatch();
+    }
+
+    async function loadExamSession() {
+      const res = await fetch(`/api/ujian/session/${sessionId}`);
+      const data = await res.json();
+      examData = data;
+      questions = data.questions || [];
+      answers = data.answers || {};
+      remainingSeconds = data.session.remaining_seconds || 5400;
+
+      document.getElementById('hdrStudentName').textContent = `${data.student.full_name} (${data.student.class_name})`;
+      document.getElementById('hdrExamInfo').textContent = `${data.exam.subject} • ${data.student.room} (Meja ${data.student.seat_number})`;
+
+      if (data.session.status === 'LOCKED') {
+        showLockedScreen(data.session.last_violation_reason);
+      } else if (data.session.status === 'FINISHED') {
+        showFinishedScreen();
+      } else {
+        hideLockedScreen();
+        renderQuestionStrip();
+        renderCurrentQuestion();
+      }
+    }
+
+    function renderQuestionStrip() {
+      const strip = document.getElementById('numberStrip');
+      strip.innerHTML = questions.map((q, idx) => {
+        const isCurrent = idx === currentIndex;
+        const isEssay = q.type === 'ESAI';
+        const isDone = !isEssay && Boolean(answers[q.id]);
+        const cls = [
+          'num-dot',
+          isCurrent ? 'active' : '',
+          isEssay ? 'essay' : '',
+          isDone ? 'done' : ''
+        ].join(' ');
+        return `<div class="${cls}" onclick="jumpToQuestion(${idx})">${isEssay ? `${q.number} Esai` : q.number}</div>`;
+      }).join('');
+    }
+
+    function renderCurrentQuestion() {
+      if (questions.length === 0) return;
+      const q = questions[currentIndex];
+      document.getElementById('qProgressLabel').textContent = `Soal Nomor ${q.number} (${currentIndex + 1} dari ${questions.length})`;
+
+      const card = document.getElementById('activeQuestionCard');
+      if (q.type === 'ESAI') {
+        card.innerHTML = `
+          <span class="q-type-pill q-type-esai">Bagian B: Soal Esai / Uraian (No. ${q.number})</span>
+          <div class="q-body-text">${q.question_text}</div>
+          ${q.image_data ? `<img src="${q.image_data}" style="max-width:100%;border-radius:10px;margin-bottom:14px;">` : ''}
+          <div class="essay-paper-instruction">
+            <h4>📝 INSTRUKSI PENGERJAAN SOAL ESAI:</h4>
+            <p>
+              Tuliskan jawaban lengkap untuk <b>Soal Esai Nomor ${q.number}</b> ini pada <b>Lembar Jawaban Kertas</b> yang telah dibagikan oleh Pengawas Ruangan. Pastikan mencantumkan Nama, Kelas, dan Nomor Soal dengan jelas.
+            </p>
+          </div>
+        `;
+      } else {
+        const selected = answers[q.id] || '';
+        const opts = [
+          ['A', q.option_a],
+          ['B', q.option_b],
+          ['C', q.option_c],
+          ['D', q.option_d],
+          ['E', q.option_e]
+        ].filter(([, text]) => text !== null && text !== '');
+
+        card.innerHTML = `
+          <span class="q-type-pill q-type-pg">Bagian A: Pilihan Ganda (No. ${q.number})</span>
+          <div class="q-body-text">${q.question_text}</div>
+          ${q.image_data ? `<img src="${q.image_data}" style="max-width:100%;border-radius:10px;margin-bottom:14px;">` : ''}
+          <div>
+            ${opts.map(([letter, text]) => `
+              <button class="choice-btn ${selected === letter ? 'selected' : ''}" onclick="selectPgAnswer(${q.id}, '${letter}')">
+                <span class="choice-letter">${letter}</span>
+                <span>${text}</span>
+              </button>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      document.getElementById('btnPrevQ').disabled = currentIndex === 0;
+      document.getElementById('btnNextQ').style.display = currentIndex < questions.length - 1 ? 'inline-flex' : 'none';
+      document.getElementById('btnFinishExam').style.display = currentIndex === questions.length - 1 ? 'inline-flex' : 'none';
+      renderQuestionStrip();
+    }
+
+    async function selectPgAnswer(questionId, letter) {
+      answers[questionId] = letter;
+      renderCurrentQuestion();
+      const ind = document.getElementById('saveStatusIndicator');
+      ind.textContent = '⏳ Menyimpan jawaban...';
+
+      const res = await fetch('/api/ujian/answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, questionId, chosenOption: letter })
+      });
+      if (res.status === 423) {
+        showLockedScreen('Sesi ujian terkunci oleh sistem keamanan Exambro.');
+        return;
+      }
+      if (res.ok) {
+        ind.textContent = '✓ Jawaban Otomatis Tersimpan';
+      }
+    }
+
+    function jumpToQuestion(idx) {
+      currentIndex = idx;
+      renderCurrentQuestion();
+    }
+
+    function prevQuestion() {
+      if (currentIndex > 0) {
+        currentIndex--;
+        renderCurrentQuestion();
+      }
+    }
+
+    function nextQuestion() {
+      if (currentIndex < questions.length - 1) {
+        currentIndex++;
+        renderCurrentQuestion();
+      }
+    }
+
+    async function reportExamViolation(reason) {
+      if (!examActive || !sessionId) return;
+      showLockedScreen(reason);
+      await fetch('/api/ujian/violation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, reason })
+      }).catch(() => {});
+    }
+
+    function showLockedScreen(reason) {
+      document.getElementById('lockedReasonText').textContent = reason || 'Terdeteksi keluar dari mode kunci layar Exambro.';
+      document.getElementById('lockedRedOverlay').style.display = 'flex';
+    }
+
+    function hideLockedScreen() {
+      document.getElementById('lockedRedOverlay').style.display = 'none';
+    }
+
+    function showFinishedScreen(customMsg) {
+      examActive = false;
+      if (timerInterval) clearInterval(timerInterval);
+      if (pollStatusInterval) clearInterval(pollStatusInterval);
+      if (window.AndroidExambro && typeof window.AndroidExambro.exitLockMode === 'function') {
+        window.AndroidExambro.exitLockMode();
+      }
+      document.getElementById('studentExamScreen').style.display = 'none';
+      document.getElementById('lockedRedOverlay').style.display = 'none';
+      if (customMsg) document.getElementById('finishMsgText').textContent = customMsg;
+      document.getElementById('studentFinishedScreen').style.display = 'block';
+    }
+
+    async function confirmFinishExam() {
+      const pgQuestions = questions.filter(q => q.type === 'PG');
+      const answeredCount = pgQuestions.filter(q => Boolean(answers[q.id])).length;
+      if (!confirm(`Anda telah menjawab ${answeredCount} dari ${pgQuestions.length} soal Pilihan Ganda.\nPastikan Soal Esai juga sudah Anda kerjakan di Lembar Kertas.\n\nYakin ingin mengakhiri dan mengumpulkan ujian sekarang?`)) {
+        return;
+      }
+      const res = await fetch('/api/ujian/finish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showFinishedScreen(data.message);
+      } else {
+        alert(data.error || 'Gagal mengumpulkan ujian');
+      }
+    }
+
+    function startTimersAndSecurityWatch() {
+      // 1. Timer hitung mundur
+      timerInterval = setInterval(() => {
+        if (remainingSeconds > 0) {
+          remainingSeconds--;
+          const h = String(Math.floor(remainingSeconds / 3600)).padStart(2, '0');
+          const m = String(Math.floor((remainingSeconds % 3600) / 60)).padStart(2, '0');
+          const s = String(remainingSeconds % 60).padStart(2, '0');
+          document.getElementById('hdrTimer').textContent = `${h}:${m}:${s}`;
+        }
+      }, 1000);
+
+      // 2. Pantau status buka kunci dari Pengawas Ruangan setiap 2.5 detik
+      pollStatusInterval = setInterval(async () => {
+        if (!sessionId || !examActive) return;
+        try {
+          const res = await fetch(`/api/ujian/session/${sessionId}`);
+          const d = await res.json();
+          if (d.session.status === 'LOCKED') {
+            showLockedScreen(d.session.last_violation_reason);
+          } else if (d.session.status === 'WORKING') {
+            hideLockedScreen();
+          } else if (d.session.status === 'FINISHED') {
+            showFinishedScreen();
+          }
+        } catch {}
+      }, 2500);
+
+      // 3. Deteksi keluar aplikasi / pindah tab / split-screen
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && examActive) {
+          reportExamViolation('Siswa berpindah aplikasi / menekan tombol Home atau Recent Apps.');
+        }
+      });
+    }
+
+    // Dipanggil langsung oleh aplikasi Android Native Exambro jika siswa mencoba keluar LockTask
+    window.onExambroViolationDetected = function(reason) {
+      reportExamViolation(reason || 'Keluar dari Mode Kunci Layar Android Exambro');
+    };
+  </script>
+</body>
+</html>

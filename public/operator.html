@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Operator — CBT SMA Negeri 3 Buru</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-logo">⚙️</div>
+      <div class="brand-text">
+        <h1>PANEL OPERATOR SERVER CBT</h1>
+        <span>SMA Negeri 3 Buru • Pusat Kontrol Data, Token & Cetak Dokumen</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="chip" id="opIpChip">IP: -</span>
+      <span class="chip chip-token" id="opTokenChip">TOKEN: -</span>
+      <a href="/" class="btn btn-sm btn-outline" style="background:transparent;color:#fff;border-color:#475569;">← Menu Utama</a>
+    </div>
+  </div>
+
+  <!-- MODAL LOGIN OPERATOR -->
+  <div id="loginOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.82);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;">
+    <div class="card" style="max-width:400px;width:100%;margin:0;">
+      <h3 style="font-size:18px;font-weight:800;margin-bottom:4px;">Login Operator / Admin</h3>
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:16px;">Masukkan akun Operator Server CBT SMA Negeri 3 Buru</p>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>Username</label>
+        <input id="loginUser" class="input" value="operator">
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label>Password</label>
+        <input id="loginPass" type="password" class="input" value="admin123">
+      </div>
+      <div id="loginErr" style="color:var(--red);font-size:12px;margin-bottom:10px;display:none;"></div>
+      <button class="btn btn-primary" style="width:100%;" onclick="doOperatorLogin()">Masuk ke Panel Operator →</button>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <button class="nav-btn active" onclick="switchTab('tab-dashboard', this)">📊 Pantauan & Token</button>
+      <button class="nav-btn" onclick="switchTab('tab-print', this)">🖨️ Cetak 4 Dokumen Ujian</button>
+      <button class="nav-btn" onclick="switchTab('tab-students', this)">👥 Data Siswa & Kelas</button>
+      <button class="nav-btn" onclick="switchTab('tab-exams', this)">📅 Jadwal & Sesi Ujian</button>
+      <button class="nav-btn" onclick="switchTab('tab-staff', this)">🔐 Akun Guru & Pengawas</button>
+    </aside>
+
+    <main class="main-content">
+      <!-- TAB 1: DASHBOARD & TOKEN -->
+      <section id="tab-dashboard" class="tab-pane">
+        <div class="stats-grid">
+          <div class="stat-card" style="background:linear-gradient(135deg,#eff6ff,#ffffff);border-color:#bfdbfe;">
+            <div class="stat-label" style="color:#1e40af;">Token Ujian Aktif</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+              <div class="stat-value" id="statToken" style="color:#1d4ed8;letter-spacing:0.12em;">-</div>
+              <button class="btn btn-sm btn-primary" onclick="refreshToken()">🔄 Acak Token</button>
+            </div>
+            <div class="stat-sub" id="statExamTitle">Memuat jadwal aktif...</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Peserta Terdaftar</div>
+            <div class="stat-value" id="statTotalStudents">0</div>
+            <div class="stat-sub">Siap mengikuti ujian</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Sedang Mengerjakan / Selesai</div>
+            <div class="stat-value" id="statActiveSessions">0 / 0</div>
+            <div class="stat-sub">Pantauan seluruh ruang</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Terdeteksi Keluar Aplikasi</div>
+            <div class="stat-value" id="statLockedCount" style="color:var(--red);">0</div>
+            <div class="stat-sub">Otomatis dikunci oleh sistem</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Pantauan Real-Time Seluruh Ruang & Nilai Sementara PG</div>
+              <p style="font-size:12.5px;color:var(--muted);">Nilai PG hanya tampil di layar Operator & Guru (tidak tampil di HP siswa)</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-sm btn-outline" onclick="loadOverview()">🔄 Segarkan</button>
+              <button class="btn btn-sm btn-green" onclick="exportActiveExamExcel()">📥 Export Nilai PG (.xlsx)</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>No. Peserta</th>
+                  <th>Nama Siswa</th>
+                  <th>Kelas / Ruang</th>
+                  <th>Status Ujian</th>
+                  <th>Progres PG</th>
+                  <th>Pelanggaran</th>
+                  <th>Skor PG</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="monitoringBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: PUSAT CETAK 4 DOKUMEN ADMINISTRASI UJIAN -->
+      <section id="tab-print" class="tab-pane" style="display:none;">
+        <div class="card no-print">
+          <div class="card-header">
+            <div>
+              <div class="card-title">🖨️ Pusat Cetak Administrasi Ujian (Siap Print A4 / PDF)</div>
+              <p style="font-size:12.5px;color:var(--muted);">Pilih jenis dokumen: <b>Daftar Hadir, Kartu Peserta, Kartu Login, atau Kartu Meja</b> lengkap dengan Kop SMA Negeri 3 Buru</p>
+            </div>
+            <button class="btn btn-primary" onclick="window.print()">🖨️ Cetak / Simpan PDF Sekarang</button>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Jenis Dokumen yang Dicetak</label>
+              <select id="printDocType" onchange="renderPrintPreview()">
+                <option value="DAFTAR_HADIR">1. Daftar Hadir Peserta Ujian (Tanda Tangan Zig-Zag)</option>
+                <option value="KARTU_PESERTA">2. Kartu Peserta Ujian (Untuk Dibawa Siswa)</option>
+                <option value="KARTU_LOGIN">3. Kartu Login CBT (Username, Password & Info IP Server)</option>
+                <option value="KARTU_MEJA">4. Kartu Meja Ujian (Ukuran Besar Untuk Ditempel di Meja)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Filter Ruang Ujian</label>
+              <select id="printRoomFilter" onchange="loadPrintData()">
+                <option value="ALL">Semua Ruang</option>
+                <option value="Ruang 01">Ruang 01</option>
+                <option value="Ruang 02">Ruang 02</option>
+                <option value="Ruang 03">Ruang 03</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Nama Kepala Sekolah / Ketua Panitia (Tanda Tangan Kartu)</label>
+              <input id="printKepsek" class="input" value="Kepala SMA Negeri 3 Buru" oninput="renderPrintPreview()">
+            </div>
+          </div>
+        </div>
+
+        <!-- AREA KERTAS CETAK A4 -->
+        <div id="printSheetArea" class="print-sheet"></div>
+      </section>
+
+      <!-- TAB 3: DATA SISWA & KELAS -->
+      <section id="tab-students" class="tab-pane" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Tambah Peserta Ujian Baru</div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Nomor Peserta Ujian</label>
+              <input id="stExamNo" class="input" placeholder="Misal: 26-03-009">
+            </div>
+            <div class="form-group">
+              <label>NISN</label>
+              <input id="stNisn" class="input" placeholder="0081234509">
+            </div>
+            <div class="form-group">
+              <label>Nama Lengkap Siswa</label>
+              <input id="stName" class="input" placeholder="Nama lengkap siswa">
+            </div>
+            <div class="form-group">
+              <label>Kelas</label>
+              <input id="stClass" class="input" value="XII IPA 1">
+            </div>
+            <div class="form-group">
+              <label>Ruang Ujian</label>
+              <input id="stRoom" class="input" value="Ruang 01">
+            </div>
+            <div class="form-group">
+              <label>Nomor Meja</label>
+              <input id="stSeat" type="number" class="input" value="7">
+            </div>
+            <div class="form-group">
+              <label>Password CBT</label>
+              <input id="stPass" class="input" value="BURU09">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="addStudent()">+ Simpan Data Siswa</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Daftar Siswa Terdaftar</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>No. Meja</th>
+                  <th>No. Peserta</th>
+                  <th>NISN</th>
+                  <th>Nama Siswa</th>
+                  <th>Kelas</th>
+                  <th>Ruang</th>
+                  <th>Password CBT</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="studentsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: JADWAL & SESI UJIAN -->
+      <section id="tab-exams" class="tab-pane" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Buat Jadwal Ujian Baru</div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Nama Kegiatan Ujian</label>
+              <input id="exTitle" class="input" value="Penilaian Akhir Semester (PAS)">
+            </div>
+            <div class="form-group">
+              <label>Mata Pelajaran</label>
+              <input id="exSubject" class="input" placeholder="Misal: Biologi / Sejarah">
+            </div>
+            <div class="form-group">
+              <label>Target Kelas</label>
+              <input id="exClass" class="input" value="XII IPA 1">
+            </div>
+            <div class="form-group">
+              <label>Tanggal Ujian</label>
+              <input id="exDate" type="date" class="input" value="2026-11-02">
+            </div>
+            <div class="form-group">
+              <label>Jam Mulai & Sesi</label>
+              <input id="exSession" class="input" value="Sesi 1 (08:00 WIT)">
+            </div>
+            <div class="form-group">
+              <label>Durasi (Menit)</label>
+              <input id="exDuration" type="number" class="input" value="90">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="createExam()">+ Buat & Aktifkan Jadwal Ujian</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Daftar Jadwal Ujian</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mata Pelajaran</th>
+                  <th>Nama Ujian</th>
+                  <th>Kelas</th>
+                  <th>Sesi & Durasi</th>
+                  <th>Token</th>
+                  <th>Status</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="examsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: AKUN GURU & PENGAWAS -->
+      <section id="tab-staff" class="tab-pane" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Tambah Akun Guru Mapel / Pengawas Ruangan</div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Peran (Role)</label>
+              <select id="stfRole">
+                <option value="guru">Guru Mata Pelajaran</option>
+                <option value="pengawas">Pengawas Ruangan</option>
+                <option value="operator">Operator Server</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Nama Lengkap & Gelar</label>
+              <input id="stfName" class="input" placeholder="Misal: Bpk. Ahmad, S.Pd.">
+            </div>
+            <div class="form-group">
+              <label>Username Login</label>
+              <input id="stfUser" class="input" placeholder="guru_biologi">
+            </div>
+            <div class="form-group">
+              <label>Password Login</label>
+              <input id="stfPass" class="input" value="buru123">
+            </div>
+            <div class="form-group">
+              <label>Mata Pelajaran / Ruang Tugas</label>
+              <input id="stfMeta" class="input" placeholder="Misal: Biologi atau Ruang 01">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="addStaff()">+ Simpan Akun Staf</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Daftar Akun Operator, Guru & Pengawas</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Peran</th>
+                  <th>Nama Lengkap</th>
+                  <th>Username</th>
+                  <th>Mapel / Ruang Tugas</th>
+                </tr>
+              </thead>
+              <tbody id="staffTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    let currentOverview = null;
+    let currentPrintData = null;
+
+    async function doOperatorLogin() {
+      const username = document.getElementById('loginUser').value;
+      const password = document.getElementById('loginPass').value;
+      const res = await fetch('/api/staff/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, role: 'operator' })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const el = document.getElementById('loginErr');
+        el.textContent = data.error || 'Gagal login';
+        el.style.display = 'block';
+        return;
+      }
+      document.getElementById('loginOverlay').style.display = 'none';
+      loadOverview();
+      loadPrintData();
+    }
+
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.style.display = 'none');
+      document.getElementById(tabId).style.display = 'block';
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      if (tabId === 'tab-print') loadPrintData();
+    }
+
+    async function loadOverview() {
+      const res = await fetch('/api/operator/overview');
+      const data = await res.json();
+      currentOverview = data;
+
+      const port = window.location.port ? ':' + window.location.port : '';
+      document.getElementById('opIpChip').textContent = `Server: http://${data.lanIp}${port}`;
+      if (data.activeExam) {
+        document.getElementById('opTokenChip').textContent = `TOKEN: ${data.activeExam.token}`;
+        document.getElementById('statToken').textContent = data.activeExam.token;
+        document.getElementById('statExamTitle').textContent = `${data.activeExam.subject} (${data.activeExam.class_target}) • ${data.pgCount} PG & ${data.esaiCount} Esai`;
+      }
+
+      document.getElementById('statTotalStudents').textContent = data.students.length;
+      const working = data.monitoring.filter(m => m.status === 'WORKING').length;
+      const finished = data.monitoring.filter(m => m.status === 'FINISHED').length;
+      const locked = data.monitoring.filter(m => m.status === 'LOCKED').length;
+      document.getElementById('statActiveSessions').textContent = `${working} / ${finished}`;
+      document.getElementById('statLockedCount').textContent = locked;
+
+      // Render tabel monitoring
+      const mBody = document.getElementById('monitoringBody');
+      mBody.innerHTML = data.monitoring.map(m => {
+        let badge = '<span class="badge badge-idle">Belum Login</span>';
+        if (m.status === 'WORKING') badge = '<span class="badge badge-working">● Mengerjakan</span>';
+        if (m.status === 'FINISHED') badge = '<span class="badge badge-finished">✓ Selesai</span>';
+        if (m.status === 'LOCKED') badge = '<span class="badge badge-locked">🔒 TERKUNCI</span>';
+
+        return `
+          <tr>
+            <td><b>${m.exam_number}</b></td>
+            <td><b>${m.full_name}</b></td>
+            <td>${m.class_name} • ${m.room}</td>
+            <td>${badge}</td>
+            <td>${m.answered_pg} / ${m.total_pg} PG</td>
+            <td style="color:${m.violation_count > 0 ? 'var(--red)' : 'var(--muted)'};font-weight:700;">
+              ${m.violation_count > 0 ? `⚠️ ${m.violation_count}x Keluar App` : 'Aman (0)'}
+            </td>
+            <td><b style="color:var(--green);font-size:14px;">${m.score}</b></td>
+            <td>
+              ${m.status === 'LOCKED' ? `<button class="btn btn-sm btn-red" onclick="unlockSession(${m.session_id})">🔓 Buka Kunci</button>` : ''}
+              ${m.session_id ? `<button class="btn btn-sm btn-outline" onclick="resetSession(${m.session_id})">Reset Login</button>` : '-'}
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // Render tabel siswa
+      document.getElementById('studentsTableBody').innerHTML = data.students.map(s => `
+        <tr>
+          <td>Meja ${s.seat_number}</td>
+          <td><b>${s.exam_number}</b></td>
+          <td>${s.nisn}</td>
+          <td><b>${s.full_name}</b></td>
+          <td>${s.class_name}</td>
+          <td>${s.room}</td>
+          <td><code>${s.password}</code></td>
+          <td><button class="btn btn-sm btn-outline" onclick="deleteStudent(${s.id})">Hapus</button></td>
+        </tr>
+      `).join('');
+
+      // Render tabel jadwal ujian
+      document.getElementById('examsTableBody').innerHTML = data.exams.map(e => `
+        <tr>
+          <td><b>${e.subject}</b></td>
+          <td>${e.title}</td>
+          <td>${e.class_target}</td>
+          <td>${e.session_name} • ${e.duration_minutes} Menit</td>
+          <td><b style="color:var(--primary);">${e.token}</b></td>
+          <td>${e.is_active ? '<span class="badge badge-finished">● Aktif</span>' : '<span class="badge badge-idle">Nonaktif</span>'}</td>
+          <td>${!e.is_active ? `<button class="btn btn-sm btn-primary" onclick="activateExam(${e.id})">Aktifkan</button>` : '-'}</td>
+        </tr>
+      `).join('');
+
+      // Render tabel staf
+      document.getElementById('staffTableBody').innerHTML = data.staff.map(u => `
+        <tr>
+          <td><span class="badge badge-working">${u.role.toUpperCase()}</span></td>
+          <td><b>${u.full_name}</b></td>
+          <td><code>${u.username}</code></td>
+          <td>${u.subject || u.room || '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function refreshToken() {
+      await fetch('/api/operator/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      loadOverview();
+    }
+
+    async function unlockSession(sessionId) {
+      await fetch(`/api/pengawas/unlock/${sessionId}`, { method: 'POST' });
+      loadOverview();
+    }
+
+    async function resetSession(sessionId) {
+      await fetch(`/api/pengawas/reset-login/${sessionId}`, { method: 'POST' });
+      loadOverview();
+    }
+
+    function exportActiveExamExcel() {
+      if (!currentOverview || !currentOverview.activeExam) return;
+      window.location.href = `/api/guru/exams/${currentOverview.activeExam.id}/export-excel`;
+    }
+
+    async function addStudent() {
+      const payload = {
+        exam_number: document.getElementById('stExamNo').value,
+        nisn: document.getElementById('stNisn').value,
+        full_name: document.getElementById('stName').value,
+        class_name: document.getElementById('stClass').value,
+        room: document.getElementById('stRoom').value,
+        seat_number: document.getElementById('stSeat').value,
+        password: document.getElementById('stPass').value
+      };
+      const res = await fetch('/api/operator/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        document.getElementById('stExamNo').value = '';
+        document.getElementById('stName').value = '';
+        loadOverview();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Gagal menambah siswa');
+      }
+    }
+
+    async function deleteStudent(id) {
+      await fetch(`/api/operator/students/${id}`, { method: 'DELETE' });
+      loadOverview();
+    }
+
+    async function createExam() {
+      const payload = {
+        title: document.getElementById('exTitle').value,
+        subject: document.getElementById('exSubject').value,
+        class_target: document.getElementById('exClass').value,
+        exam_date: document.getElementById('exDate').value,
+        session_name: document.getElementById('exSession').value,
+        duration_minutes: document.getElementById('exDuration').value
+      };
+      const res = await fetch('/api/operator/exams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) loadOverview();
+    }
+
+    async function activateExam(id) {
+      await fetch(`/api/operator/exams/${id}/activate`, { method: 'POST' });
+      loadOverview();
+    }
+
+    async function addStaff() {
+      const role = document.getElementById('stfRole').value;
+      const meta = document.getElementById('stfMeta').value;
+      const payload = {
+        role,
+        full_name: document.getElementById('stfName').value,
+        username: document.getElementById('stfUser').value,
+        password: document.getElementById('stfPass').value,
+        subject: role === 'guru' ? meta : null,
+        room: role === 'pengawas' ? meta : null
+      };
+      const res = await fetch('/api/operator/staff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) loadOverview();
+    }
+
+    // ==================== PUSAT CETAK 4 DOKUMEN ADMINISTRASI ====================
+    async function loadPrintData() {
+      const room = document.getElementById('printRoomFilter').value;
+      const res = await fetch(`/api/operator/print-data?room=${encodeURIComponent(room)}`);
+      currentPrintData = await res.json();
+      renderPrintPreview();
+    }
+
+    function renderKopSurat(subtitle) {
+      return `
+        <div class="kop-surat">
+          <h4>PEMERINTAH PROVINSI MALUKU</h4>
+          <h4>DINAS PENDIDIKAN DAN KEBUDAYAAN</h4>
+          <h2>SMA NEGERI 3 BURU</h2>
+          <p>Kabupaten Buru, Provinsi Maluku • Sistem Ujian Berbasis Komputer & Android (CBT)</p>
+        </div>
+        <h3 style="text-align:center;font-size:15px;font-weight:800;text-transform:uppercase;margin-bottom:14px;text-decoration:underline;">
+          ${subtitle}
+        </h3>
+      `;
+    }
+
+    function renderPrintPreview() {
+      if (!currentPrintData) return;
+      const docType = document.getElementById('printDocType').value;
+      const kepsek = document.getElementById('printKepsek').value || 'Kepala SMA Negeri 3 Buru';
+      const students = currentPrintData.students || [];
+      const exam = currentPrintData.activeExam || { title: 'Ujian Sekolah', subject: '-', session_name: 'Sesi 1', exam_date: '2026-11-02' };
+      const roomLabel = document.getElementById('printRoomFilter').value === 'ALL' ? 'Semua Ruang' : document.getElementById('printRoomFilter').value;
+      const port = window.location.port ? ':' + window.location.port : '';
+      const serverUrl = `http://${currentPrintData.lanIp}${port}`;
+      const container = document.getElementById('printSheetArea');
+
+      if (docType === 'DAFTAR_HADIR') {
+        const rows = students.map((s, i) => {
+          const isOdd = (i + 1) % 2 === 1;
+          return `
+            <tr>
+              <td style="border:1px solid #000;text-align:center;padding:7px;">${i + 1}</td>
+              <td style="border:1px solid #000;padding:7px;"><b>${s.exam_number}</b></td>
+              <td style="border:1px solid #000;padding:7px;">${s.full_name}</td>
+              <td style="border:1px solid #000;text-align:center;padding:7px;">${s.class_name}</td>
+              <td style="border:1px solid #000;text-align:center;padding:7px;">${s.room}</td>
+              <td style="border:1px solid #000;padding:7px;width:130px;">${isOdd ? `${i + 1}. ......................` : ''}</td>
+              <td style="border:1px solid #000;padding:7px;width:130px;">${!isOdd ? `${i + 1}. ......................` : ''}</td>
+            </tr>
+          `;
+        }).join('');
+
+        container.innerHTML = `
+          ${renderKopSurat('DAFTAR HADIR PESERTA UJIAN CBT')}
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:12px;">
+            <div>
+              <div><b>Kegiatan Ujian:</b> ${exam.title}</div>
+              <div><b>Mata Pelajaran:</b> ${exam.subject}</div>
+            </div>
+            <div>
+              <div><b>Ruang Ujian:</b> ${roomLabel}</div>
+              <div><b>Tanggal / Sesi:</b> ${exam.exam_date} (${exam.session_name})</div>
+            </div>
+          </div>
+          <table style="width:100%;border-collapse:collapse;border:1px solid #000;font-size:12px;">
+            <thead>
+              <tr style="background:#f1f5f9;">
+                <th style="border:1px solid #000;padding:8px;text-align:center;width:40px;">No</th>
+                <th style="border:1px solid #000;padding:8px;">Nomor Peserta</th>
+                <th style="border:1px solid #000;padding:8px;">Nama Lengkap Siswa</th>
+                <th style="border:1px solid #000;padding:8px;text-align:center;">Kelas</th>
+                <th style="border:1px solid #000;padding:8px;text-align:center;">Ruang</th>
+                <th style="border:1px solid #000;padding:8px;text-align:center;" colspan="2">Tanda Tangan Peserta</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div style="display:flex;justify-content:space-between;margin-top:24px;font-size:12px;">
+            <div>
+              <b>Rekap Kehadiran Ruang:</b><br>
+              Jumlah Peserta Terdaftar : ${students.length} Siswa<br>
+              Jumlah Hadir : ........ Siswa<br>
+              Jumlah Tidak Hadir : ........ Siswa
+            </div>
+            <div style="text-align:center;min-width:220px;">
+              Kabupaten Buru, ${exam.exam_date}<br>
+              <b>Pengawas Ruangan,</b>
+              <br><br><br><br>
+              ( .................................................... )<br>
+              NIP. .................................................
+            </div>
+          </div>
+        `;
+      } else if (docType === 'KARTU_PESERTA') {
+        const cards = students.map(s => `
+          <div class="print-card-item">
+            <div class="print-card-head">
+              PEMERINTAH PROVINSI MALUKU<br>
+              <span style="font-size:14px;">SMA NEGERI 3 BURU</span><br>
+              <span style="font-weight:600;font-size:11px;">KARTU PESERTA UJIAN SEKOLAH (CBT)</span>
+            </div>
+            <table style="width:100%;font-size:11.5px;border:none;">
+              <tr><td style="padding:3px 0;width:95px;border:none;"><b>Nama Peserta</b></td><td style="padding:3px 0;border:none;">: <b>${s.full_name}</b></td></tr>
+              <tr><td style="padding:3px 0;border:none;"><b>Nomor Peserta</b></td><td style="padding:3px 0;border:none;">: <b>${s.exam_number}</b></td></tr>
+              <tr><td style="padding:3px 0;border:none;"><b>NISN</b></td><td style="padding:3px 0;border:none;">: ${s.nisn}</td></tr>
+              <tr><td style="padding:3px 0;border:none;"><b>Kelas / Ruang</b></td><td style="padding:3px 0;border:none;">: ${s.class_name} / ${s.room} (Meja ${s.seat_number})</td></tr>
+            </table>
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:10px;padding-top:6px;border-top:1px dashed #94a3b8;font-size:10.5px;">
+              <div style="border:1px solid #000;width:54px;height:68px;display:flex;align-items:center;justify-content:center;font-size:9px;text-align:center;">Pas Foto<br>3x4</div>
+              <div style="text-align:center;">
+                Buru, ${exam.exam_date}<br>
+                <b>${kepsek}</b><br><br><br>
+                <u><b>Panitia Ujian CBT</b></u>
+              </div>
+            </div>
+          </div>
+        `).join('');
+
+        container.innerHTML = `<div class="print-cards-grid">${cards}</div>`;
+      } else if (docType === 'KARTU_LOGIN') {
+        const cards = students.map(s => `
+          <div class="print-card-item">
+            <div class="print-card-head">
+              KARTU LOGIN CBT & EXAMBRO ANDROID<br>
+              <span style="font-size:13px;">SMA NEGERI 3 BURU</span>
+            </div>
+            <table style="width:100%;font-size:12px;border:none;">
+              <tr><td style="padding:3px 0;width:105px;border:none;">Nama Siswa</td><td style="padding:3px 0;border:none;">: <b>${s.full_name}</b></td></tr>
+              <tr><td style="padding:3px 0;border:none;">Kelas / Ruang</td><td style="padding:3px 0;border:none;">: ${s.class_name} / ${s.room}</td></tr>
+              <tr><td style="padding:3px 0;border:none;"><b>Username CBT</b></td><td style="padding:3px 0;border:none;">: <b style="font-size:14px;">${s.exam_number}</b></td></tr>
+              <tr><td style="padding:3px 0;border:none;"><b>Password CBT</b></td><td style="padding:3px 0;border:none;">: <b style="font-size:14px;">${s.password}</b></td></tr>
+              <tr><td style="padding:3px 0;border:none;">IP Server Lokal</td><td style="padding:3px 0;border:none;">: <code>${serverUrl}</code></td></tr>
+            </table>
+            <div style="margin-top:8px;background:#f8fafc;border:1px solid #000;padding:6px;font-size:10px;text-align:center;">
+              Buka aplikasi <b>Exambro SMAN 3 Buru</b> di HP Android • Masukkan Username, Password & Token dari Pengawas.
+            </div>
+          </div>
+        `).join('');
+
+        container.innerHTML = `<div class="print-cards-grid">${cards}</div>`;
+      } else if (docType === 'KARTU_MEJA') {
+        const cards = students.map(s => `
+          <div class="desk-card-item">
+            <div style="font-size:11px;font-weight:800;letter-spacing:0.06em;">UJIAN CBT — SMA NEGERI 3 BURU</div>
+            <div class="seat-no">NOMOR MEJA: ${String(s.seat_number).padStart(2, '0')} • ${s.room.toUpperCase()}</div>
+            <div class="exam-no">${s.exam_number}</div>
+            <div class="st-name">${s.full_name}</div>
+            <div style="font-size:13px;font-weight:700;margin-top:4px;">KELAS: ${s.class_name} | NISN: ${s.nisn}</div>
+          </div>
+        `).join('');
+
+        container.innerHTML = `<div class="print-cards-grid">${cards}</div>`;
+      }
+    }
+
+    loadOverview();
+    setInterval(() => {
+      if (document.getElementById('tab-dashboard').style.display !== 'none') {
+        loadOverview();
+      }
+    }, 3500);
+  </script>
+</body>
+</html>

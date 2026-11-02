@@ -77,7 +77,8 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
       session_name TEXT NOT NULL,
       duration_minutes INTEGER NOT NULL DEFAULT 90,
       token TEXT NOT NULL,
-      shuffle_questions INTEGER NOT NULL DEFAULT 0,
+      token_updated_at TEXT,
+      shuffle_questions INTEGER NOT NULL DEFAULT 1,
       is_active INTEGER NOT NULL DEFAULT 1,
       teacher_id INTEGER
     );
@@ -102,6 +103,9 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
       exam_id INTEGER NOT NULL,
       student_id INTEGER NOT NULL,
       status TEXT NOT NULL CHECK(status IN ('WORKING', 'LOCKED', 'FINISHED')) DEFAULT 'WORKING',
+      need_token_reverify INTEGER NOT NULL DEFAULT 0,
+      current_question_number INTEGER NOT NULL DEFAULT 1,
+      last_activity_at TEXT,
       violation_count INTEGER NOT NULL DEFAULT 0,
       last_violation_reason TEXT,
       started_at TEXT NOT NULL,
@@ -129,6 +133,17 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
       created_at TEXT NOT NULL
     );
   `);
+
+  // Migrasi aman jika file database lama sudah ada
+  const safeAlter = [
+    "ALTER TABLE exams ADD COLUMN token_updated_at TEXT",
+    "ALTER TABLE exam_sessions ADD COLUMN need_token_reverify INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE exam_sessions ADD COLUMN current_question_number INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE exam_sessions ADD COLUMN last_activity_at TEXT"
+  ];
+  for (const sql of safeAlter) {
+    try { db.exec(sql); } catch {}
+  }
 
   const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get().c;
   if (userCount === 0) {
@@ -160,8 +175,8 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
     }
 
     const insertExam = db.prepare(`
-      INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, shuffle_questions, is_active, teacher_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, shuffle_questions, is_active, teacher_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const examInfo = insertExam.run(
       'Penilaian Akhir Semester (PAS) Ganjil',
@@ -172,7 +187,8 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
       'Sesi 1',
       90,
       'K7P9M',
-      0,
+      new Date().toISOString(),
+      1,
       1,
       2
     );

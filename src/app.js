@@ -7,6 +7,7 @@ const XLSX = require('xlsx');
 const { parseDocxBuffer, parseQuestionsFromText, generateWordTemplateBuffer } = require('./wordParser');
 
 const upload = multer({ storage: multer.memoryStorage() });
+const TOKEN_ROTATION_SECONDS = 15 * 60; // 15 Menit (900 detik)
 
 function getLocalLanIp() {
   const interfaces = os.networkInterfaces();
@@ -18,6 +19,56 @@ function getLocalLanIp() {
     }
   }
   return '127.0.0.1';
+}
+
+function generateRandomToken() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let token = '';
+  for (let i = 0; i < 5; i++) {
+    token += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return token;
+}
+
+// Otomatis putar token jika sudah lewat 15 menit
+function ensureFresh15MinToken(db, exam) {
+  if (!exam) return null;
+  const nowMs = Date.now();
+  const updatedMs = exam.token_updated_at ? new Date(exam.token_updated_at).getTime() : 0;
+  const elapsedSec = updatedMs ? Math.floor((nowMs - updatedMs) / 1000) : TOKEN_ROTATION_SECONDS + 1;
+
+  if (!exam.token_updated_at || elapsedSec >= TOKEN_ROTATION_SECONDS) {
+    let nextToken = generateRandomToken();
+    while (nextToken === exam.token) {
+      nextToken = generateRandomToken();
+    }
+    const nowIso = new Date(nowMs).toISOString();
+    db.prepare('UPDATE exams SET token = ?, token_updated_at = ? WHERE id = ?').run(nextToken, nowIso, exam.id);
+    exam.token = nextToken;
+    exam.token_updated_at = nowIso;
+    return { ...exam, token_remaining_seconds: TOKEN_ROTATION_SECONDS };
+  }
+
+  return {
+    ...exam,
+    token_remaining_seconds: Math.max(0, TOKEN_ROTATION_SECONDS - elapsedSec)
+  };
+}
+
+// Pengacak urutan soal PG deterministik per siswa (anti-contek antar meja sebelahan)
+function seededShufflePgQuestions(questions, seedNumber) {
+  const pgList = questions.filter(q => q.type === 'PG');
+  const esaiList = questions.filter(q => q.type === 'ESAI');
+  const arr = [...pgList];
+  let seed = Number(seedNumber) || 1;
+  for (let i = arr.length - 1; i > 0; i--) {
+    seed = (seed * 9301 + 49297) % 233280;
+    const j = seed % (i + 1);
+    const tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+  }
+  return [...arr, ...esaiList];
 }
 
 function calculateExamScores(db, examId) {
@@ -46,25 +97,39 @@ function calculateExamScores(db, examId) {
         room: student.room,
         seat_number: student.seat_number,
         status: 'NOT_STARTED',
+        need_token_reverify: 0,
+        current_question_number: null,
+        last_activity_at: null,
         violation_count: 0,
         last_violation_reason: null,
         answered_pg: 0,
         correct_pg: 0,
         wrong_pg: 0,
         total_pg: pgCount,
+        recent_choices: [],
         score: 0
       };
     }
 
-    const ansRows = db.prepare('SELECT question_id, chosen_option FROM answers WHERE session_id = ?').all(sess.id);
+    const ansRows = db.prepare(`
+      SELECT a.question_id, a.chosen_option, a.updated_at, q.number
+      FROM answers a
+      JOIN questions q ON q.id = a.question_id
+      WHERE a.session_id = ?
+      ORDER BY q.number ASC
+    `).all(sess.id);
+
     let correct = 0;
     let answeredPg = 0;
+    const recentChoices = [];
     for (const ans of ansRows) {
       if (keyMap.has(ans.question_id)) {
         answeredPg++;
-        if ((ans.chosen_option || '').toUpperCase() === keyMap.get(ans.question_id)) {
+        const chosen = (ans.chosen_option || '').toUpperCase();
+        if (chosen === keyMap.get(ans.question_id)) {
           correct++;
         }
+        recentChoices.push({ number: ans.number, chosen, updated_at: ans.updated_at });
       }
     }
     const wrong = Math.max(0, answeredPg - correct);
@@ -80,6 +145,9 @@ function calculateExamScores(db, examId) {
       room: student.room,
       seat_number: student.seat_number,
       status: sess.status,
+      need_token_reverify: sess.need_token_reverify || 0,
+      current_question_number: sess.current_question_number || 1,
+      last_activity_at: sess.last_activity_at || sess.started_at,
       violation_count: sess.violation_count,
       last_violation_reason: sess.last_violation_reason,
       started_at: sess.started_at,
@@ -88,6 +156,7 @@ function calculateExamScores(db, examId) {
       correct_pg: correct,
       wrong_pg: wrong,
       total_pg: pgCount,
+      recent_choices: recentChoices,
       score: rawScore
     };
   });
@@ -100,7 +169,6 @@ function createApp(db) {
   app.use(express.json({ limit: '15mb' }));
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
-  // Penyimpanan token sesi login staf (Operator, Guru, Pengawas)
   const staffTokens = new Map();
 
   function requireStaffAuth(allowedRoles) {
@@ -119,17 +187,25 @@ function createApp(db) {
     };
   }
 
-  // Info jaringan server lokal (tanpa membocorkan token ujian ke publik/siswa)
   app.get('/api/server-info', (req, res) => {
-    const activeExam = db.prepare('SELECT id, title, subject, class_target, exam_date, start_time, session_name, duration_minutes FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const rawExam = db.prepare('SELECT id, title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const activeExam = ensureFresh15MinToken(db, rawExam);
     res.json({
       school: 'SMA NEGERI 3 BURU',
       lanIp: getLocalLanIp(),
-      activeExam
+      activeExam: activeExam ? {
+        id: activeExam.id,
+        title: activeExam.title,
+        subject: activeExam.subject,
+        class_target: activeExam.class_target,
+        exam_date: activeExam.exam_date,
+        start_time: activeExam.start_time,
+        session_name: activeExam.session_name,
+        duration_minutes: activeExam.duration_minutes
+      } : null
     });
   });
 
-  // Login staf (Operator, Guru, Pengawas)
   app.post('/api/staff/login', (req, res) => {
     const { username, password, role } = req.body || {};
     const user = db.prepare('SELECT id, username, full_name, role, subject, room FROM users WHERE username = ? AND password = ?').get(
@@ -150,7 +226,8 @@ function createApp(db) {
   // ==================== PANEL OPERATOR ====================
   app.get('/api/operator/overview', requireStaffAuth(['operator']), (req, res) => {
     const exams = db.prepare('SELECT * FROM exams ORDER BY id DESC').all();
-    const activeExam = exams.find(e => e.is_active === 1) || exams[0];
+    const rawActive = exams.find(e => e.is_active === 1) || exams[0];
+    const activeExam = ensureFresh15MinToken(db, rawActive);
     const students = db.prepare('SELECT * FROM students ORDER BY room ASC, seat_number ASC, full_name ASC').all();
     const staff = db.prepare('SELECT id, username, full_name, role, subject, room FROM users ORDER BY role ASC, id ASC').all();
     const scoreData = activeExam ? calculateExamScores(db, activeExam.id) : { scores: [], pgCount: 0, esaiCount: 0 };
@@ -169,30 +246,26 @@ function createApp(db) {
 
   app.post('/api/operator/token', requireStaffAuth(['operator']), (req, res) => {
     const { examId, customToken } = req.body || {};
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let newToken = customToken ? String(customToken).toUpperCase().trim() : '';
-    if (!newToken) {
-      for (let i = 0; i < 5; i++) {
-        newToken += chars[Math.floor(Math.random() * chars.length)];
-      }
-    }
+    const newToken = customToken ? String(customToken).toUpperCase().trim() : generateRandomToken();
     const targetExam = examId
       ? db.prepare('SELECT id FROM exams WHERE id = ?').get(examId)
       : db.prepare('SELECT id FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
     if (!targetExam) return res.status(404).json({ error: 'Ujian tidak ditemukan' });
 
-    db.prepare('UPDATE exams SET token = ? WHERE id = ?').run(newToken, targetExam.id);
-    res.json({ examId: targetExam.id, token: newToken });
+    const nowIso = new Date().toISOString();
+    db.prepare('UPDATE exams SET token = ?, token_updated_at = ? WHERE id = ?').run(newToken, nowIso, targetExam.id);
+    res.json({ examId: targetExam.id, token: newToken, token_remaining_seconds: TOKEN_ROTATION_SECONDS });
   });
 
   app.post('/api/operator/exams', requireStaffAuth(['operator']), (req, res) => {
-    const { title, subject, class_target, exam_date, start_time, session_name, duration_minutes } = req.body || {};
+    const { title, subject, class_target, exam_date, start_time, session_name, duration_minutes, shuffle_questions } = req.body || {};
     if (!title || !subject) return res.status(400).json({ error: 'Nama ujian dan mata pelajaran wajib diisi' });
-    const token = 'SMAN3';
+    const token = generateRandomToken();
+    const nowIso = new Date().toISOString();
     db.prepare('UPDATE exams SET is_active = 0').run();
     const info = db.prepare(`
-      INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, shuffle_questions, is_active, teacher_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 2)
+      INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, shuffle_questions, is_active, teacher_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 2)
     `).run(
       title,
       subject,
@@ -201,7 +274,9 @@ function createApp(db) {
       start_time || '08:00 WIT',
       session_name || 'Sesi 1',
       Number(duration_minutes) || 90,
-      token
+      token,
+      nowIso,
+      shuffle_questions !== undefined ? (shuffle_questions ? 1 : 0) : 1
     );
     res.json({ id: Number(info.lastInsertRowid), token });
   });
@@ -209,7 +284,7 @@ function createApp(db) {
   app.post('/api/operator/exams/:id/activate', requireStaffAuth(['operator']), (req, res) => {
     const examId = Number(req.params.id);
     db.prepare('UPDATE exams SET is_active = 0').run();
-    db.prepare('UPDATE exams SET is_active = 1 WHERE id = ?').run(examId);
+    db.prepare('UPDATE exams SET is_active = 1, token_updated_at = ? WHERE id = ?').run(new Date().toISOString(), examId);
     res.json({ activated: examId });
   });
 
@@ -234,6 +309,84 @@ function createApp(db) {
       res.json({ id: Number(info.lastInsertRowid) });
     } catch {
       res.status(400).json({ error: 'Nomor peserta sudah terdaftar' });
+    }
+  });
+
+  // Template Excel Import Peserta Ujian
+  app.get('/api/operator/template-students-excel', requireStaffAuth(['operator']), (req, res) => {
+    const sampleRows = [
+      {
+        'Nomor Peserta': '26-03-009',
+        'NISN': '0081234509',
+        'Nama Siswa': 'Dewi Sartika Wabula',
+        'Kelas': 'XII IPA 1',
+        'Ruang': 'Ruang 01',
+        'Nomor Meja': 7,
+        'Password': 'BURU09'
+      },
+      {
+        'Nomor Peserta': '26-03-010',
+        'NISN': '0081234510',
+        'Nama Siswa': 'Hendra Saputra Namlea',
+        'Kelas': 'XII IPA 1',
+        'Ruang': 'Ruang 01',
+        'Nomor Meja': 8,
+        'Password': 'BURU10'
+      }
+    ];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(sampleRows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Template Peserta CBT');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="Template-Import-Siswa-SMAN3-Buru.xlsx"');
+    res.send(buf);
+  });
+
+  // Import Data Peserta Sekaligus dari Excel (.xlsx)
+  app.post('/api/operator/students/import-excel', requireStaffAuth(['operator']), upload.single('file'), (req, res) => {
+    try {
+      if (!req.file || !req.file.buffer) {
+        return res.status(400).json({ error: 'File Excel (.xlsx) tidak ditemukan' });
+      }
+      const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const sheetName = wb.SheetNames[0];
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
+      if (!rows || rows.length === 0) {
+        return res.status(400).json({ error: 'File Excel kosong' });
+      }
+
+      const upsertStudent = db.prepare(`
+        INSERT INTO students (exam_number, nisn, full_name, class_name, room, seat_number, password)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(exam_number) DO UPDATE SET
+          nisn = excluded.nisn,
+          full_name = excluded.full_name,
+          class_name = excluded.class_name,
+          room = excluded.room,
+          seat_number = excluded.seat_number,
+          password = excluded.password
+      `);
+
+      let importedCount = 0;
+      rows.forEach((r, idx) => {
+        const examNo = String(r['Nomor Peserta'] || r['No Peserta'] || r['exam_number'] || '').trim();
+        const fullName = String(r['Nama Siswa'] || r['Nama Lengkap'] || r['Nama'] || r['full_name'] || '').trim();
+        if (!examNo || !fullName) return;
+        const nisn = String(r['NISN'] || r['nisn'] || '-').trim();
+        const className = String(r['Kelas'] || r['class_name'] || 'XII IPA 1').trim();
+        const room = String(r['Ruang'] || r['room'] || 'Ruang 01').trim();
+        const seatNo = Number(r['Nomor Meja'] || r['Meja'] || r['seat_number'] || idx + 1);
+        const pass = String(r['Password'] || r['password'] || `BURU${String(idx + 1).padStart(2, '0')}`).trim();
+
+        upsertStudent.run(examNo, nisn, fullName, className, room, seatNo, pass);
+        importedCount++;
+      });
+
+      res.json({ importedCount });
+    } catch (err) {
+      res.status(500).json({ error: 'Gagal mengimpor file Excel: ' + err.message });
     }
   });
 
@@ -429,10 +582,11 @@ function createApp(db) {
     res.send(buf);
   });
 
-  // ==================== PANEL PENGAWAS RUANGAN ====================
+  // ==================== PANEL PENGAWAS RUANGAN & PANTAU KERJA SISWA ====================
   app.get('/api/pengawas/room', requireStaffAuth(['pengawas', 'operator']), (req, res) => {
     const room = req.query.room || 'ALL';
-    const activeExam = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const rawExam = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const activeExam = ensureFresh15MinToken(db, rawExam);
     if (!activeExam) return res.json({ activeExam: null, students: [], reports: [] });
 
     const scoreData = calculateExamScores(db, activeExam.id);
@@ -448,6 +602,7 @@ function createApp(db) {
         subject: activeExam.subject,
         session_name: activeExam.session_name,
         token: activeExam.token,
+        token_remaining_seconds: activeExam.token_remaining_seconds,
         duration_minutes: activeExam.duration_minutes
       },
       pgCount: scoreData.pgCount,
@@ -457,15 +612,47 @@ function createApp(db) {
     });
   });
 
+  // Endpoint Intip / Pantau Kerja Siswa Secara Langsung untuk Operator & Pengawas (Anti-Contek)
+  app.get('/api/pengawas/student-work/:sessionId', requireStaffAuth(['pengawas', 'operator']), (req, res) => {
+    const sessionId = Number(req.params.sessionId);
+    const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(sessionId);
+    if (!session) return res.status(404).json({ error: 'Sesi siswa tidak ditemukan' });
+
+    const student = db.prepare('SELECT * FROM students WHERE id = ?').get(session.student_id);
+    const questions = db.prepare('SELECT id, number, type, question_text, option_a, option_b, option_c, option_d, option_e FROM questions WHERE exam_id = ? ORDER BY number ASC').all(session.exam_id);
+    const answers = db.prepare('SELECT question_id, chosen_option, updated_at FROM answers WHERE session_id = ?').all(sessionId);
+    const ansMap = new Map(answers.map(a => [a.question_id, a]));
+
+    const workDetail = questions.map(q => {
+      const a = ansMap.get(q.id);
+      return {
+        question_id: q.id,
+        number: q.number,
+        type: q.type,
+        question_snippet: q.question_text.slice(0, 95) + (q.question_text.length > 95 ? '...' : ''),
+        chosen_option: a ? a.chosen_option : null,
+        updated_at: a ? a.updated_at : null,
+        is_current: (session.current_question_number || 1) === q.number
+      };
+    });
+
+    res.json({
+      student,
+      session,
+      workDetail
+    });
+  });
+
   app.post('/api/pengawas/unlock/:sessionId', requireStaffAuth(['pengawas', 'operator']), (req, res) => {
     const sessionId = Number(req.params.sessionId);
-    db.prepare("UPDATE exam_sessions SET status = 'WORKING' WHERE id = ?").run(sessionId);
-    res.json({ ok: true, sessionId, status: 'WORKING' });
+    // Saat dibuka kuncinya oleh pengawas, siswa berstatus WORKING tetapi wajib memasukkan Token 15-menit terbaru (need_token_reverify = 1)
+    db.prepare("UPDATE exam_sessions SET status = 'WORKING', need_token_reverify = 1 WHERE id = ?").run(sessionId);
+    res.json({ ok: true, sessionId, status: 'WORKING', need_token_reverify: 1 });
   });
 
   app.post('/api/pengawas/reset-login/:sessionId', requireStaffAuth(['pengawas', 'operator']), (req, res) => {
     const sessionId = Number(req.params.sessionId);
-    db.prepare("UPDATE exam_sessions SET status = 'WORKING', device_info = NULL WHERE id = ?").run(sessionId);
+    db.prepare("UPDATE exam_sessions SET status = 'WORKING', need_token_reverify = 1, device_info = NULL WHERE id = ?").run(sessionId);
     res.json({ ok: true, sessionId });
   });
 
@@ -491,7 +678,6 @@ function createApp(db) {
   });
 
   // ==================== PORTAL UJIAN SISWA (EXAMBRO) ====================
-  // Catatan Keamanan: Endpoint /api/ujian/* TIDAK PERNAH mengirimkan answer_key ataupun score!
   app.post('/api/ujian/login', (req, res) => {
     const { exam_number, password, token, device_info } = req.body || {};
     const student = db.prepare('SELECT * FROM students WHERE exam_number = ? AND password = ?').get(
@@ -502,23 +688,28 @@ function createApp(db) {
       return res.status(401).json({ error: 'Nomor Peserta atau Password salah!' });
     }
 
-    const activeExam = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const rawExam = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const activeExam = ensureFresh15MinToken(db, rawExam);
     if (!activeExam) {
       return res.status(404).json({ error: 'Belum ada jadwal ujian yang diaktifkan oleh Operator.' });
     }
 
     if (String(token || '').toUpperCase().trim() !== String(activeExam.token).toUpperCase().trim()) {
-      return res.status(403).json({ error: 'Token Ujian tidak sesuai! Silakan tanyakan Token ke Pengawas Ruangan.' });
+      return res.status(403).json({ error: 'Token Ujian tidak sesuai atau sudah berganti (Token berganti otomatis tiap 15 menit)! Tanyakan Token terbaru ke Pengawas Ruangan.' });
     }
 
     let session = db.prepare('SELECT * FROM exam_sessions WHERE exam_id = ? AND student_id = ?').get(activeExam.id, student.id);
+    const nowIso = new Date().toISOString();
     if (!session) {
-      const now = new Date().toISOString();
       const info = db.prepare(`
-        INSERT INTO exam_sessions (exam_id, student_id, status, violation_count, started_at, device_info)
-        VALUES (?, ?, 'WORKING', 0, ?, ?)
-      `).run(activeExam.id, student.id, now, device_info || 'Exambro Android');
+        INSERT INTO exam_sessions (exam_id, student_id, status, need_token_reverify, current_question_number, last_activity_at, violation_count, started_at, device_info)
+        VALUES (?, ?, 'WORKING', 0, 1, ?, 0, ?, ?)
+      `).run(activeExam.id, student.id, nowIso, nowIso, device_info || 'Exambro Android');
       session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(info.lastInsertRowid));
+    } else {
+      // Karena siswa baru saja memasukkan Token 15-menit terbaru saat login, matikan flag need_token_reverify
+      db.prepare('UPDATE exam_sessions SET need_token_reverify = 0, last_activity_at = ? WHERE id = ?').run(nowIso, session.id);
+      session.need_token_reverify = 0;
     }
 
     res.json({
@@ -535,20 +726,56 @@ function createApp(db) {
     });
   });
 
+  // Verifikasi Token 15-Menit Terbaru saat siswa selesai gangguan / dibuka kuncinya di tengah ujian
+  app.post('/api/ujian/verify-resume-token', (req, res) => {
+    const { sessionId, token } = req.body || {};
+    const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(sessionId));
+    if (!session) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+    if (session.status === 'LOCKED') {
+      return res.status(423).json({ error: 'Pengawas Ruangan belum menekan tombol Buka Kunci untuk Anda.' });
+    }
+
+    const rawExam = db.prepare('SELECT * FROM exams WHERE id = ?').get(session.exam_id);
+    const activeExam = ensureFresh15MinToken(db, rawExam);
+    if (String(token || '').toUpperCase().trim() !== String(activeExam.token).toUpperCase().trim()) {
+      return res.status(403).json({ error: 'Token 15-Menit tidak sesuai! Minta Token terbaru dari Pengawas Ruangan.' });
+    }
+
+    db.prepare('UPDATE exam_sessions SET need_token_reverify = 0, last_activity_at = ? WHERE id = ?').run(new Date().toISOString(), session.id);
+    res.json({ status: 'WORKING', need_token_reverify: 0 });
+  });
+
+  // Heartbeat posisi soal yang sedang dikerjakan siswa
+  app.post('/api/ujian/heartbeat', (req, res) => {
+    const { sessionId, currentQuestionNumber } = req.body || {};
+    if (!sessionId) return res.status(400).json({ error: 'sessionId wajib' });
+    db.prepare('UPDATE exam_sessions SET current_question_number = ?, last_activity_at = ? WHERE id = ?').run(
+      Number(currentQuestionNumber) || 1,
+      new Date().toISOString(),
+      Number(sessionId)
+    );
+    res.json({ ok: true });
+  });
+
   app.get('/api/ujian/session/:sessionId', (req, res) => {
     const sessionId = Number(req.params.sessionId);
     const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(sessionId);
     if (!session) return res.status(404).json({ error: 'Sesi ujian tidak ditemukan' });
 
     const student = db.prepare('SELECT id, exam_number, full_name, class_name, room, seat_number FROM students WHERE id = ?').get(session.student_id);
-    const exam = db.prepare('SELECT id, title, subject, class_target, session_name, duration_minutes FROM exams WHERE id = ?').get(session.exam_id);
+    const exam = db.prepare('SELECT id, title, subject, class_target, session_name, duration_minutes, shuffle_questions FROM exams WHERE id = ?').get(session.exam_id);
 
-    const questions = db.prepare(`
+    let questions = db.prepare(`
       SELECT id, exam_id, number, type, question_text, image_data, option_a, option_b, option_c, option_d, option_e
       FROM questions
       WHERE exam_id = ?
       ORDER BY CASE WHEN type = 'PG' THEN 0 ELSE 1 END, number ASC, id ASC
     `).all(session.exam_id);
+
+    // Acak urutan soal PG secara deterministik per siswa agar siswa bersebelahan tidak bisa saling contek nomor
+    if (exam && exam.shuffle_questions) {
+      questions = seededShufflePgQuestions(questions, student.id * 17 + session.id);
+    }
 
     const savedAnswers = db.prepare('SELECT question_id, chosen_option FROM answers WHERE session_id = ?').all(sessionId);
     const answersMap = {};
@@ -564,6 +791,8 @@ function createApp(db) {
       session: {
         id: session.id,
         status: session.status,
+        need_token_reverify: session.need_token_reverify || 0,
+        current_question_number: session.current_question_number || 1,
         violation_count: session.violation_count,
         last_violation_reason: session.last_violation_reason,
         started_at: session.started_at,
@@ -578,7 +807,7 @@ function createApp(db) {
   });
 
   app.post('/api/ujian/answer', (req, res) => {
-    const { sessionId, questionId, chosenOption } = req.body || {};
+    const { sessionId, questionId, chosenOption, currentQuestionNumber } = req.body || {};
     const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(sessionId));
     if (!session) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
 
@@ -586,6 +815,12 @@ function createApp(db) {
       return res.status(423).json({
         error: 'Layar ujian Anda sedang TERKUNCI karena terdeteksi keluar aplikasi. Hubungi Pengawas Ruangan untuk membuka kunci.',
         status: 'LOCKED'
+      });
+    }
+    if (session.need_token_reverify) {
+      return res.status(428).json({
+        error: 'Silakan masukkan Token 15-Menit terbaru dari Pengawas untuk melanjutkan ujian setelah gangguan.',
+        status: 'NEED_TOKEN'
       });
     }
     if (session.status === 'FINISHED') {
@@ -604,13 +839,20 @@ function createApp(db) {
       return res.status(400).json({ error: 'Pilihan jawaban harus A, B, C, D, atau E' });
     }
 
+    const nowIso = new Date().toISOString();
     db.prepare(`
       INSERT INTO answers (session_id, question_id, chosen_option, updated_at)
       VALUES (?, ?, ?, ?)
       ON CONFLICT(session_id, question_id) DO UPDATE SET
         chosen_option = excluded.chosen_option,
         updated_at = excluded.updated_at
-    `).run(session.id, Number(questionId), validOption, new Date().toISOString());
+    `).run(session.id, Number(questionId), validOption, nowIso);
+
+    if (currentQuestionNumber) {
+      db.prepare('UPDATE exam_sessions SET current_question_number = ?, last_activity_at = ? WHERE id = ?').run(Number(currentQuestionNumber), nowIso, session.id);
+    } else {
+      db.prepare('UPDATE exam_sessions SET last_activity_at = ? WHERE id = ?').run(nowIso, session.id);
+    }
 
     res.json({ saved: true, questionId: Number(questionId), chosenOption: validOption });
   });
@@ -625,9 +867,9 @@ function createApp(db) {
     const violationReason = reason || 'Terdeteksi keluar dari mode kunci Exambro / pindah aplikasi';
     db.prepare(`
       UPDATE exam_sessions
-      SET status = 'LOCKED', violation_count = ?, last_violation_reason = ?
+      SET status = 'LOCKED', need_token_reverify = 1, violation_count = ?, last_violation_reason = ?, last_activity_at = ?
       WHERE id = ?
-    `).run(newCount, violationReason, session.id);
+    `).run(newCount, violationReason, new Date().toISOString(), session.id);
 
     res.json({ status: 'LOCKED', violation_count: newCount, reason: violationReason });
   });

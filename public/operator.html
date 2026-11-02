@@ -54,11 +54,12 @@
       <section id="tab-dashboard" class="tab-pane">
         <div class="stats-grid">
           <div class="stat-card" style="background:linear-gradient(135deg,#eff6ff,#ffffff);border-color:#bfdbfe;">
-            <div class="stat-label" style="color:#1e40af;">Token Ujian Aktif</div>
+            <div class="stat-label" style="color:#1e40af;">Token Ujian (Ganti Otomatis Tiap 15 Menit)</div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
               <div class="stat-value" id="statToken" style="color:#1d4ed8;letter-spacing:0.12em;">-</div>
-              <button class="btn btn-sm btn-primary" onclick="refreshToken()">🔄 Acak Token</button>
+              <button class="btn btn-sm btn-primary" onclick="refreshToken()">🔄 Acak Sekarang</button>
             </div>
+            <div class="stat-sub" id="statTokenTimer" style="color:#1e40af;font-weight:700;">⏱ Berganti otomatis dalam 15:00</div>
             <div class="stat-sub" id="statExamTitle">Memuat jadwal aktif...</div>
           </div>
           <div class="stat-card">
@@ -152,9 +153,25 @@
 
       <!-- TAB 3: DATA SISWA & KELAS -->
       <section id="tab-students" class="tab-pane" style="display:none;">
+        <!-- FITUR BARU: IMPORT PESERTA DARI EXCEL (.XLSX) -->
+        <div class="card" style="border:2px dashed #93c5fd;background:#eff6ff;">
+          <div class="card-header">
+            <div>
+              <div class="card-title" style="color:#1e3a8a;">📤 Import Data Peserta Sekaligus dari Excel (.xlsx)</div>
+              <p style="font-size:12.5px;color:#1e40af;">Upload file Excel berisi daftar ratusan siswa SMA Negeri 3 Buru agar tidak perlu mengetik satu per satu.</p>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="downloadStudentExcelTemplate()">📥 Unduh Template Excel Siswa (.xlsx)</button>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <input type="file" id="studentExcelInput" accept=".xlsx,.xls" class="input" style="max-width:340px;">
+            <button class="btn btn-primary" onclick="importStudentsExcel()">🚀 Upload & Import Data Siswa (.xlsx)</button>
+          </div>
+          <div id="studentImportMsg" style="margin-top:8px;font-size:13px;font-weight:700;display:none;"></div>
+        </div>
+
         <div class="card">
           <div class="card-header">
-            <div class="card-title">Tambah Peserta Ujian Baru</div>
+            <div class="card-title">Tambah Peserta Ujian Manual</div>
           </div>
           <div class="form-grid">
             <div class="form-group">
@@ -328,6 +345,20 @@
     </main>
   </div>
 
+  <!-- MODAL PANTAU KERJA SISWA (ANTI-CONTEK LIVE MONITOR) -->
+  <div id="workMonitorModal" style="position:fixed;inset:0;background:rgba(15,23,42,0.78);z-index:120;display:none;align-items:center;justify-content:center;padding:16px;">
+    <div class="card" style="max-width:720px;width:100%;max-height:86vh;overflow-y:auto;margin:0;">
+      <div class="card-header">
+        <div>
+          <div class="card-title" id="wmStudentTitle">👁️ Pantau Kerja Siswa Secara Langsung</div>
+          <p style="font-size:12px;color:var(--muted);" id="wmStudentSub">Memantau posisi soal aktif & jawaban yang sedang dipilih siswa</p>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="closeWorkMonitor()">✕ Tutup</button>
+      </div>
+      <div id="wmBody"></div>
+    </div>
+  </div>
+
   <script>
     let currentOverview = null;
     let currentPrintData = null;
@@ -380,8 +411,12 @@
       const port = window.location.port ? ':' + window.location.port : '';
       document.getElementById('opIpChip').textContent = `Server: http://${data.lanIp}${port}`;
       if (data.activeExam) {
-        document.getElementById('opTokenChip').textContent = `TOKEN: ${data.activeExam.token}`;
+        const rem = data.activeExam.token_remaining_seconds || 900;
+        const mm = String(Math.floor(rem / 60)).padStart(2, '0');
+        const ss = String(rem % 60).padStart(2, '0');
+        document.getElementById('opTokenChip').textContent = `TOKEN: ${data.activeExam.token} (${mm}:${ss})`;
         document.getElementById('statToken').textContent = data.activeExam.token;
+        document.getElementById('statTokenTimer').textContent = `⏱ Otomatis ganti token baru dalam ${mm}:${ss}`;
         document.getElementById('statExamTitle').textContent = `${data.activeExam.subject} (${data.activeExam.class_target}) • ${data.pgCount} PG & ${data.esaiCount} Esai`;
       }
 
@@ -396,22 +431,27 @@
       const mBody = document.getElementById('monitoringBody');
       mBody.innerHTML = data.monitoring.map(m => {
         let badge = '<span class="badge badge-idle">Belum Login</span>';
-        if (m.status === 'WORKING') badge = '<span class="badge badge-working">● Mengerjakan</span>';
+        if (m.status === 'WORKING') badge = `<span class="badge badge-working">● Soal No. ${m.current_question_number || 1}</span>`;
         if (m.status === 'FINISHED') badge = '<span class="badge badge-finished">✓ Selesai</span>';
         if (m.status === 'LOCKED') badge = '<span class="badge badge-locked">🔒 TERKUNCI</span>';
 
+        const recentStr = (m.recent_choices || []).slice(-6).map(c => `${c.number}:${c.chosen}`).join(' ');
         return `
           <tr>
             <td><b>${m.exam_number}</b></td>
-            <td><b>${m.full_name}</b></td>
+            <td><b>${m.full_name}</b><br><span style="font-size:11px;color:var(--muted);">Meja ${m.seat_number}</span></td>
             <td>${m.class_name} • ${m.room}</td>
             <td>${badge}</td>
-            <td>${m.answered_pg} / ${m.total_pg} PG</td>
+            <td>
+              <b>${m.answered_pg} / ${m.total_pg} PG</b>
+              ${recentStr ? `<div style="font-size:11px;color:var(--primary);font-family:monospace;">[${recentStr}]</div>` : ''}
+            </td>
             <td style="color:${m.violation_count > 0 ? 'var(--red)' : 'var(--muted)'};font-weight:700;">
               ${m.violation_count > 0 ? `⚠️ ${m.violation_count}x Keluar App` : 'Aman (0)'}
             </td>
             <td><b style="color:var(--green);font-size:14px;">${m.score}</b></td>
-            <td>
+            <td style="display:flex;gap:6px;flex-wrap:wrap;">
+              ${m.session_id ? `<button class="btn btn-sm btn-primary" onclick="openWorkMonitor(${m.session_id})">👁️ Pantau Kerja</button>` : ''}
               ${m.status === 'LOCKED' ? `<button class="btn btn-sm btn-red" onclick="unlockSession(${m.session_id})">🔓 Buka Kunci</button>` : ''}
               ${m.session_id ? `<button class="btn btn-sm btn-outline" onclick="resetSession(${m.session_id})">Reset Login</button>` : '-'}
             </td>
@@ -475,6 +515,65 @@
     function exportActiveExamExcel() {
       if (!currentOverview || !currentOverview.activeExam) return;
       window.location.href = `/api/guru/exams/${currentOverview.activeExam.id}/export-excel?staffToken=${encodeURIComponent(staffToken)}`;
+    }
+
+    function downloadStudentExcelTemplate() {
+      if (!staffToken) return;
+      window.location.href = `/api/operator/template-students-excel?staffToken=${encodeURIComponent(staffToken)}`;
+    }
+
+    async function importStudentsExcel() {
+      const inp = document.getElementById('studentExcelInput');
+      if (!inp.files || !inp.files[0]) {
+        alert('Pilih file Excel (.xlsx) daftar siswa terlebih dahulu.');
+        return;
+      }
+      const fd = new FormData();
+      fd.append('file', inp.files[0]);
+      const res = await fetch('/api/operator/students/import-excel', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: fd
+      });
+      const data = await res.json();
+      const msg = document.getElementById('studentImportMsg');
+      msg.style.display = 'block';
+      if (res.ok) {
+        msg.style.color = '#059669';
+        msg.textContent = `✓ Berhasil mengimpor ${data.importedCount} data peserta ujian!`;
+        inp.value = '';
+        loadOverview();
+      } else {
+        msg.style.color = '#dc2626';
+        msg.textContent = `⚠️ ${data.error || 'Gagal mengimpor Excel'}`;
+      }
+    }
+
+    async function openWorkMonitor(sessionId) {
+      const res = await fetch(`/api/pengawas/student-work/${sessionId}`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      document.getElementById('wmStudentTitle').textContent = `👁️ Pantau Kerja: ${data.student.full_name} (Meja ${data.student.seat_number} • ${data.student.room})`;
+      document.getElementById('wmStudentSub').textContent = `Sedang di Soal Nomor ${data.session.current_question_number || 1} • Status: ${data.session.status} • Pelanggaran: ${data.session.violation_count}x`;
+
+      document.getElementById('wmBody').innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:16px;">
+          ${data.workDetail.map(w => `
+            <div style="border:1.5px solid ${w.is_current ? '#2563eb' : w.chosen_option ? '#86efac' : '#e2e8f0'};background:${w.is_current ? '#eff6ff' : w.chosen_option ? '#f0fdf4' : '#fff'};border-radius:10px;padding:8px 10px;font-size:12px;">
+              <div style="display:flex;justify-content:space-between;font-weight:800;">
+                <span>No. ${w.number} (${w.type})</span>
+                <span style="color:${w.chosen_option ? '#15803d' : '#94a3b8'};">${w.chosen_option ? 'Jawab: ' + w.chosen_option : w.type === 'ESAI' ? 'Kertas' : 'Kosong'}</span>
+              </div>
+              ${w.is_current ? '<div style="font-size:10.5px;color:#2563eb;font-weight:700;margin-top:3px;">👀 Sedang Dilihat Siswa</div>' : ''}
+            </div>
+          `).join('')}
+        </div>
+      `;
+      document.getElementById('workMonitorModal').style.display = 'flex';
+    }
+
+    function closeWorkMonitor() {
+      document.getElementById('workMonitorModal').style.display = 'none';
     }
 
     async function addStudent() {

@@ -93,3 +93,98 @@ test('Student exam lifecycle: login, auto-save PG, no key/score leak, lock on vi
   assert.equal(studentScoreRow.score, Number(((1 / pgCount) * 100).toFixed(1)));
 });
 
+test('15-minute token rotation, Excel student bulk import, and live student work monitoring for Operator & Pengawas', async (t) => {
+  const db = initDb(':memory:');
+  const app = createApp(db);
+  const server = app.listen(0);
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  // Login Operator & Pengawas
+  const opAuth = await fetch(`${base}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'operator', password: 'admin123', role: 'operator' })
+  }).then(r => r.json());
+
+  const pengawasAuth = await fetch(`${base}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'pengawas', password: 'pengawas123', role: 'pengawas' })
+  }).then(r => r.json());
+
+  // 1. Download Template Excel Siswa & Import kembali ke Server
+  const tplRes = await fetch(`${base}/api/operator/template-students-excel?staffToken=${opAuth.staffToken}`);
+  assert.equal(tplRes.status, 200);
+  const tplBuf = Buffer.from(await tplRes.arrayBuffer());
+
+  const form = new FormData();
+  form.append('file', new Blob([tplBuf]), 'siswa.xlsx');
+  const impRes = await fetch(`${base}/api/operator/students/import-excel`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${opAuth.staffToken}` },
+    body: form
+  }).then(r => r.json());
+  assert.ok(impRes.importedCount >= 1);
+
+  // 2. Simulasi Token sudah lewat 15 menit -> otomatis berputar ke token baru
+  const examBefore = db.prepare('SELECT * FROM exams WHERE is_active = 1 LIMIT 1').get();
+  const oldToken = examBefore.token;
+  const sixteenMinsAgo = new Date(Date.now() - 16 * 60 * 1000).toISOString();
+  db.prepare('UPDATE exams SET token_updated_at = ? WHERE id = ?').run(sixteenMinsAgo, examBefore.id);
+
+  const overviewAfter = await fetch(`${base}/api/operator/overview`, {
+    headers: { 'Authorization': `Bearer ${opAuth.staffToken}` }
+  }).then(r => r.json());
+  assert.notEqual(overviewAfter.activeExam.token, oldToken);
+  assert.ok(overviewAfter.activeExam.token_remaining_seconds > 800);
+
+  // 3. Siswa login dengan token baru, kirim posisi soal aktif (heartbeat) + jawaban, lalu Pengawas memantau kerja siswa
+  const currentToken = overviewAfter.activeExam.token;
+  const student = db.prepare('SELECT * FROM students LIMIT 1').get();
+  const stLogin = await fetch(`${base}/api/ujian/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ exam_number: student.exam_number, password: student.password, token: currentToken })
+  }).then(r => r.json());
+
+  await fetch(`${base}/api/ujian/heartbeat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: stLogin.sessionId, currentQuestionNumber: 3 })
+  });
+
+  const liveWork = await fetch(`${base}/api/pengawas/student-work/${stLogin.sessionId}`, {
+    headers: { 'Authorization': `Bearer ${pengawasAuth.staffToken}` }
+  }).then(r => r.json());
+  assert.equal(liveWork.session.current_question_number, 3);
+  assert.ok(Array.isArray(liveWork.workDetail));
+
+  // 4. Jika siswa mengalami gangguan / terkunci, setelah dibuka pengawas pun wajib verifikasi token 15-menit terbaru
+  await fetch(`${base}/api/ujian/violation`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: stLogin.sessionId, reason: 'Gangguan / keluar aplikasi' })
+  });
+  await fetch(`${base}/api/pengawas/unlock/${stLogin.sessionId}`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${pengawasAuth.staffToken}` }
+  });
+
+  // Siswa masih berstatus NEED_TOKEN sampai memasukkan token 15-menit yang aktif saat ini
+  const wrongTokenCheck = await fetch(`${base}/api/ujian/verify-resume-token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: stLogin.sessionId, token: 'SALAH' })
+  });
+  assert.equal(wrongTokenCheck.status, 403);
+
+  const rightTokenCheck = await fetch(`${base}/api/ujian/verify-resume-token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: stLogin.sessionId, token: currentToken })
+  }).then(r => r.json());
+  assert.equal(rightTokenCheck.status, 'WORKING');
+});
+
+

@@ -211,6 +211,8 @@ function createApp(db) {
   function normalizeUrlInput(raw) {
     let val = String(raw || '').trim().replace(/\/+$/, '');
     if (!val) return '';
+    // Bersihkan jika operator tidak sengaja menyalin /operator.html, /guru.html, /pengawas.html, /index.html, atau /ujian.html
+    val = val.replace(/\/(operator|guru|pengawas|index|ujian)(\.html)?$/i, '').replace(/\/+$/, '');
     if (!/^https?:\/\//i.test(val)) {
       // Jika berupa angka IP atau ada :port, gunakan http://, selain itu https://
       const isIpOrPort = /^(\d{1,3}\.){3}\d{1,3}/.test(val) || val.includes(':') || val.startsWith('localhost');
@@ -1016,6 +1018,14 @@ function createApp(db) {
       finished_at: finishedAt,
       message: 'Alhamdulillah, seluruh jawaban Pilihan Ganda Anda telah berhasil disimpan di Server CBT SMA Negeri 3 Buru. Pastikan Lembar Jawaban Kertas untuk Soal Esai telah diserahkan kepada Pengawas Ruangan.'
     });
+  });
+
+  // Fallback anti-404 untuk semua variasi path dari aplikasi Exambro Scan QR (/ujian, /ujian.html/, /operator.html/ujian.html, /login, dll.)
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api/')) {
+      return res.sendFile(path.join(__dirname, '..', 'public', 'ujian.html'));
+    }
+    next();
   });
 
   return app;

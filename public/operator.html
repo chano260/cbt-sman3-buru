@@ -99,16 +99,26 @@
               </div>
             </div>
 
-            <div style="flex:1;min-width:280px;max-width:420px;background:#fff;padding:14px;border-radius:12px;border:1px solid #cbd5e1;">
-              <label style="display:block;font-size:12px;font-weight:800;color:#0f172a;margin-bottom:4px;">🌐 Alamat Domain / IP Publik VPS (Opsional jika Online)</label>
-              <p style="font-size:11.5px;color:var(--muted);margin-bottom:8px;">
-                Isi dengan domain/IP VPS Anda (contoh: <code>https://cbt.sman3buru.sch.id</code> atau <code>http://103.x.x.x:8080</code>). Kosongkan jika memakai Wi-Fi/LAN lokal.
-              </p>
-              <div style="display:flex;gap:8px;">
-                <input id="inpPublicUrl" class="input" placeholder="https://cbt.sman3buru.sch.id" style="font-size:12.5px;">
+            <div style="flex:1;min-width:280px;max-width:440px;background:#fff;padding:14px;border-radius:12px;border:1px solid #cbd5e1;">
+              <label style="display:block;font-size:12px;font-weight:800;color:#0f172a;margin-bottom:4px;">🌐 Alamat Domain / IP Publik VPS & Format QR Exambro</label>
+              <div style="display:flex;gap:8px;margin-bottom:8px;">
+                <input id="inpPublicUrl" class="input" placeholder="https://cbt.smanegeri3buru.my.id" style="font-size:12.5px;">
                 <button class="btn btn-primary btn-sm" onclick="savePublicUrl()" style="white-space:nowrap;">💾 Simpan & Buat QR</button>
               </div>
-              <div id="publicUrlSavedMsg" style="font-size:11.5px;color:#059669;font-weight:700;margin-top:6px;display:none;">✓ Alamat VPS disimpan & QR Code diperbarui!</div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <select id="selQrMode" class="input" style="font-size:12px;padding:6px 8px;flex:1;" onchange="savePublicUrl()">
+                  <option value="url_ujian">Format 1: URL Ujian Lengkap (https://.../ujian.html)</option>
+                  <option value="url_root">Format 2: Domain Utama Saja (https://...)</option>
+                  <option value="no_scheme">Format 3: Tanpa https:// (Otomatis dari Exambro)</option>
+                  <option value="base64">Format 4: Enkripsi Base64 (Exambro Play Store)</option>
+                  <option value="custom_image">Format 5: Gambar QR Bawaan Aplikasi Exambro</option>
+                </select>
+                <label class="btn btn-sm btn-outline" style="cursor:pointer;font-size:11.5px;white-space:nowrap;">
+                  📤 Upload QR Exambro
+                  <input type="file" accept="image/*" style="display:none;" onchange="uploadCustomQrImage(this)">
+                </label>
+              </div>
+              <div id="publicUrlSavedMsg" style="font-size:11.5px;color:#059669;font-weight:700;margin-top:6px;display:none;">✓ Pengaturan QR Code diperbarui!</div>
             </div>
           </div>
         </div>
@@ -448,11 +458,15 @@
         document.getElementById('opQrImg').src = data.qrDataUrl;
       }
       if (data.examUrl) {
-        document.getElementById('opExamUrlText').textContent = data.examUrl;
+        document.getElementById('opExamUrlText').textContent = data.qrPayload || data.examUrl;
       }
       const inpPub = document.getElementById('inpPublicUrl');
       if (inpPub && document.activeElement !== inpPub) {
         inpPub.value = data.publicUrl || '';
+      }
+      const selQr = document.getElementById('selQrMode');
+      if (selQr && data.qrMode && document.activeElement !== selQr) {
+        selQr.value = data.qrMode;
       }
       if (data.activeExam) {
         const rem = data.activeExam.token_remaining_seconds || 900;
@@ -548,10 +562,11 @@
 
     async function savePublicUrl() {
       const publicUrl = document.getElementById('inpPublicUrl').value.trim();
+      const qrMode = document.getElementById('selQrMode') ? document.getElementById('selQrMode').value : 'url_ujian';
       const res = await fetch('/api/operator/public-url', {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ publicUrl })
+        body: JSON.stringify({ publicUrl, qrMode })
       });
       if (res.ok) {
         const msg = document.getElementById('publicUrlSavedMsg');
@@ -560,6 +575,30 @@
         loadOverview();
         loadPrintData();
       }
+    }
+
+    function uploadCustomQrImage(inputEl) {
+      if (!inputEl.files || !inputEl.files[0]) return;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const dataUrl = reader.result;
+        if (document.getElementById('selQrMode')) {
+          document.getElementById('selQrMode').value = 'custom_image';
+        }
+        const res = await fetch('/api/operator/public-url', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ qrMode: 'custom_image', customQrImage: dataUrl })
+        });
+        if (res.ok) {
+          const msg = document.getElementById('publicUrlSavedMsg');
+          msg.style.display = 'block';
+          setTimeout(() => { msg.style.display = 'none'; }, 3500);
+          loadOverview();
+          loadPrintData();
+        }
+      };
+      reader.readAsDataURL(inputEl.files[0]);
     }
 
     async function unlockSession(sessionId) {

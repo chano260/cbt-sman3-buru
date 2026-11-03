@@ -238,10 +238,31 @@ function createApp(db) {
   async function buildQrBundle(req) {
     const baseUrl = getEffectiveBaseUrl(req);
     const examUrl = baseUrl.endsWith('/ujian.html') ? baseUrl : `${baseUrl}/ujian.html`;
-    const qrDataUrl = await QRCode.toDataURL(examUrl, { width: 240, margin: 1 });
-    const row = db.prepare("SELECT value FROM settings WHERE key = 'public_url'").get();
+    const rowUrl = db.prepare("SELECT value FROM settings WHERE key = 'public_url'").get();
+    const rowMode = db.prepare("SELECT value FROM settings WHERE key = 'qr_mode'").get();
+    const rowCustomImg = db.prepare("SELECT value FROM settings WHERE key = 'custom_qr_image'").get();
+    const qrMode = (rowMode && rowMode.value) ? rowMode.value : 'url_ujian';
+
+    let qrPayload = examUrl;
+    if (qrMode === 'url_root') {
+      qrPayload = baseUrl;
+    } else if (qrMode === 'no_scheme') {
+      qrPayload = examUrl.replace(/^https?:\/\//i, '');
+    } else if (qrMode === 'base64') {
+      qrPayload = Buffer.from(examUrl, 'utf8').toString('base64');
+    }
+
+    let qrDataUrl;
+    if (qrMode === 'custom_image' && rowCustomImg && rowCustomImg.value) {
+      qrDataUrl = rowCustomImg.value;
+    } else {
+      qrDataUrl = await QRCode.toDataURL(qrPayload, { width: 240, margin: 1 });
+    }
+
     return {
-      publicUrl: row ? row.value : '',
+      publicUrl: rowUrl ? rowUrl.value : '',
+      qrMode,
+      qrPayload,
       baseUrl,
       examUrl,
       qrDataUrl
@@ -324,12 +345,26 @@ function createApp(db) {
   });
 
   app.post('/api/operator/public-url', requireStaffAuth(['operator']), async (req, res) => {
-    let { publicUrl } = req.body || {};
-    publicUrl = normalizeUrlInput(publicUrl);
-    db.prepare(`
-      INSERT INTO settings (key, value) VALUES ('public_url', ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `).run(publicUrl);
+    let { publicUrl, qrMode, customQrImage } = req.body || {};
+    if (publicUrl !== undefined) {
+      publicUrl = normalizeUrlInput(publicUrl);
+      db.prepare(`
+        INSERT INTO settings (key, value) VALUES ('public_url', ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `).run(publicUrl);
+    }
+    if (qrMode) {
+      db.prepare(`
+        INSERT INTO settings (key, value) VALUES ('qr_mode', ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `).run(String(qrMode));
+    }
+    if (customQrImage) {
+      db.prepare(`
+        INSERT INTO settings (key, value) VALUES ('custom_qr_image', ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `).run(String(customQrImage));
+    }
     const qrBundle = await buildQrBundle(req);
     res.json(qrBundle);
   });

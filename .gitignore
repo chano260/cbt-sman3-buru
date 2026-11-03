@@ -7,3 +7,6 @@ node_modules/
 *.tar.gz
 
 *.bat
+
+public/uploads/*
+!public/uploads/.gitkeep

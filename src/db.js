@@ -94,6 +94,7 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
       type TEXT NOT NULL CHECK(type IN ('PG', 'ESAI')),
       question_text TEXT NOT NULL,
       image_data TEXT,
+      audio_data TEXT,
       option_a TEXT,
       option_b TEXT,
       option_c TEXT,
@@ -152,7 +153,8 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
     "ALTER TABLE exams ADD COLUMN token_updated_at TEXT",
     "ALTER TABLE exam_sessions ADD COLUMN need_token_reverify INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE exam_sessions ADD COLUMN current_question_number INTEGER NOT NULL DEFAULT 1",
-    "ALTER TABLE exam_sessions ADD COLUMN last_activity_at TEXT"
+    "ALTER TABLE exam_sessions ADD COLUMN last_activity_at TEXT",
+    "ALTER TABLE questions ADD COLUMN audio_data TEXT"
   ];
   for (const sql of safeAlter) {
     try { db.exec(sql); } catch {}

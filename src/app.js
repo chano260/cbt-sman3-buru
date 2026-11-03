@@ -1,4 +1,5 @@
 const express = require('express');
+const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
@@ -7,7 +8,23 @@ const XLSX = require('xlsx');
 const QRCode = require('qrcode');
 const { parseDocxBuffer, parseQuestionsFromText, generateWordTemplateBuffer } = require('./wordParser');
 
-const upload = multer({ storage: multer.memoryStorage() });
+const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
+fs.mkdirSync(uploadsDir, { recursive: true });
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 } // Maks 25 MB per file audio/gambar
+});
+
+function saveUploadedMediaFile(fileObj, prefix = 'media') {
+  if (!fileObj || !fileObj.buffer) return null;
+  const orig = String(fileObj.originalname || '').toLowerCase();
+  const extMatch = orig.match(/\.(png|jpg|jpeg|gif|webp|svg|mp3|wav|ogg|m4a|aac)$/);
+  const ext = extMatch ? extMatch[0] : (String(fileObj.mimetype || '').startsWith('audio/') ? '.mp3' : '.png');
+  const filename = `${prefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${ext}`;
+  fs.writeFileSync(path.join(uploadsDir, filename), fileObj.buffer);
+  return `/uploads/${filename}`;
+}
 const TOKEN_ROTATION_SECONDS = 15 * 60; // 15 Menit (900 detik)
 
 function getLocalLanIp() {
@@ -177,7 +194,7 @@ function createApp(db) {
   function getCachedExamQuestions(examId) {
     if (questionsCache.has(examId)) return questionsCache.get(examId);
     const qs = db.prepare(`
-      SELECT id, exam_id, number, type, question_text, image_data, option_a, option_b, option_c, option_d, option_e
+      SELECT id, exam_id, number, type, question_text, image_data, audio_data, option_a, option_b, option_c, option_d, option_e
       FROM questions
       WHERE exam_id = ?
       ORDER BY CASE WHEN type = 'PG' THEN 0 ELSE 1 END, number ASC, id ASC
@@ -515,19 +532,32 @@ function createApp(db) {
     res.json({ exam, questions });
   });
 
-  app.post('/api/guru/exams/:id/questions', requireStaffAuth(['guru', 'operator']), (req, res) => {
+  const mediaFieldsUpload = upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'audio', maxCount: 1 }
+  ]);
+
+  app.post('/api/guru/exams/:id/questions', requireStaffAuth(['guru', 'operator']), mediaFieldsUpload, (req, res) => {
     const examId = Number(req.params.id);
-    const { number, type, question_text, option_a, option_b, option_c, option_d, option_e, answer_key } = req.body || {};
+    const { number, type, question_text, option_a, option_b, option_c, option_d, option_e, answer_key, image_data, audio_data } = req.body || {};
     if (!question_text) return res.status(400).json({ error: 'Teks soal wajib diisi' });
     const qType = type === 'ESAI' ? 'ESAI' : 'PG';
+
+    const imgFile = req.files && req.files.image ? req.files.image[0] : null;
+    const audFile = req.files && req.files.audio ? req.files.audio[0] : null;
+    const savedImg = imgFile ? saveUploadedMediaFile(imgFile, 'img') : (image_data || null);
+    const savedAud = audFile ? saveUploadedMediaFile(audFile, 'audio') : (audio_data || null);
+
     const info = db.prepare(`
-      INSERT INTO questions (exam_id, number, type, question_text, option_a, option_b, option_c, option_d, option_e, answer_key)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO questions (exam_id, number, type, question_text, image_data, audio_data, option_a, option_b, option_c, option_d, option_e, answer_key)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       examId,
       Number(number) || 1,
       qType,
       question_text,
+      savedImg,
+      savedAud,
       qType === 'PG' ? (option_a || '') : null,
       qType === 'PG' ? (option_b || '') : null,
       qType === 'PG' ? (option_c || '') : null,
@@ -536,7 +566,29 @@ function createApp(db) {
       qType === 'PG' ? String(answer_key || 'A').toUpperCase() : null
     );
     invalidateQuestionsCache(examId);
-    res.json({ id: Number(info.lastInsertRowid) });
+    res.json({ id: Number(info.lastInsertRowid), image_data: savedImg, audio_data: savedAud });
+  });
+
+  // Upload atau Ganti Gambar & Audio Listening (.mp3/.wav) pada Soal Tertentu
+  app.post('/api/guru/questions/:questionId/media', requireStaffAuth(['guru', 'operator']), mediaFieldsUpload, (req, res) => {
+    const questionId = Number(req.params.questionId);
+    const existing = db.prepare('SELECT * FROM questions WHERE id = ?').get(questionId);
+    if (!existing) return res.status(404).json({ error: 'Soal tidak ditemukan' });
+
+    const imgFile = req.files && req.files.image ? req.files.image[0] : null;
+    const audFile = req.files && req.files.audio ? req.files.audio[0] : null;
+
+    let nextImg = existing.image_data;
+    let nextAud = existing.audio_data;
+
+    if (imgFile) nextImg = saveUploadedMediaFile(imgFile, `q${questionId}-img`);
+    if (audFile) nextAud = saveUploadedMediaFile(audFile, `q${questionId}-audio`);
+    if (req.body && String(req.body.clearImage) === 'true') nextImg = null;
+    if (req.body && String(req.body.clearAudio) === 'true') nextAud = null;
+
+    db.prepare('UPDATE questions SET image_data = ?, audio_data = ? WHERE id = ?').run(nextImg, nextAud, questionId);
+    invalidateQuestionsCache(existing.exam_id);
+    res.json({ id: questionId, image_data: nextImg, audio_data: nextAud });
   });
 
   app.delete('/api/guru/questions/:questionId', requireStaffAuth(['guru', 'operator']), (req, res) => {

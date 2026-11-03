@@ -114,6 +114,16 @@
             <label>Pertanyaan / Naskah Soal</label>
             <textarea id="qText" rows="2" class="input" placeholder="Ketik naskah soal di sini..."></textarea>
           </div>
+          <div class="form-grid" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label>🖼️ Gambar Soal — Diagram / Tabel / Foto (Opsional)</label>
+              <input type="file" id="qImageInput" accept="image/*" class="input">
+            </div>
+            <div class="form-group">
+              <label>🔊 Audio Listening — Bahasa Inggris / Indonesia .MP3/.WAV (Opsional)</label>
+              <input type="file" id="qAudioInput" accept="audio/*,.mp3,.wav,.ogg,.m4a" class="input">
+            </div>
+          </div>
           <div id="pgOptionsFields" class="form-grid">
             <div class="form-group"><label>Pilihan A</label><input id="optA" class="input"></div>
             <div class="form-group"><label>Pilihan B</label><input id="optB" class="input"></div>
@@ -250,29 +260,58 @@
 
       const container = document.getElementById('questionsListContainer');
       container.innerHTML = qs.map(q => {
+        const mediaActionBtns = `
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <label class="btn btn-sm btn-outline" style="cursor:pointer;margin:0;">
+              🖼️ ${q.image_data ? 'Ganti Gambar' : '+ Gambar'}
+              <input type="file" accept="image/*" style="display:none;" onchange="uploadQuestionMedia(${q.id}, 'image', this)">
+            </label>
+            <label class="btn btn-sm btn-outline" style="cursor:pointer;margin:0;">
+              🔊 ${q.audio_data ? 'Ganti Audio (.mp3)' : '+ Audio (.mp3)'}
+              <input type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a" style="display:none;" onchange="uploadQuestionMedia(${q.id}, 'audio', this)">
+            </label>
+            <button class="btn btn-sm btn-outline" onclick="deleteQuestion(${q.id})">Hapus</button>
+          </div>
+        `;
+        const mediaPreview = `
+          ${q.image_data ? `
+            <div style="margin:8px 0;">
+              <img src="${q.image_data}" style="max-width:280px;border-radius:8px;border:1px solid #cbd5e1;display:block;">
+              <button class="btn btn-sm btn-outline" style="margin-top:4px;font-size:11px;padding:3px 8px;" onclick="clearQuestionMedia(${q.id}, 'image')">✕ Hapus Gambar</button>
+            </div>
+          ` : ''}
+          ${q.audio_data ? `
+            <div style="margin:8px 0;background:#eff6ff;border:1px solid #bfdbfe;padding:8px 12px;border-radius:10px;max-width:380px;">
+              <div style="font-size:11.5px;font-weight:800;color:#1e40af;margin-bottom:4px;">🔊 Audio Listening Terpasang:</div>
+              <audio controls preload="metadata" src="${q.audio_data}" style="width:100%;height:36px;"></audio>
+              <button class="btn btn-sm btn-outline" style="margin-top:4px;font-size:11px;padding:3px 8px;" onclick="clearQuestionMedia(${q.id}, 'audio')">✕ Hapus Audio</button>
+            </div>
+          ` : ''}
+        `;
+
         if (q.type === 'ESAI') {
           return `
             <div style="border:1.5px solid #fde68a;background:#fffbeb;border-radius:12px;padding:14px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
                 <span class="badge" style="background:#fef3c7;color:#b45309;">SOAL ESAI NO. ${q.number} • Dijawab Siswa di Lembar Kertas</span>
-                <button class="btn btn-sm btn-outline" onclick="deleteQuestion(${q.id})">Hapus</button>
+                ${mediaActionBtns}
               </div>
               <p style="font-size:14px;font-weight:600;color:#78350f;">${q.question_text}</p>
-              ${q.image_data ? `<img src="${q.image_data}" style="max-width:260px;margin-top:8px;border-radius:8px;">` : ''}
+              ${mediaPreview}
             </div>
           `;
         }
         return `
           <div style="border:1px solid var(--border);background:#fff;border-radius:12px;padding:14px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
               <div>
                 <span class="badge badge-working">PILIHAN GANDA NO. ${q.number}</span>
                 <span class="badge badge-finished" style="margin-left:6px;">Kunci Jawaban: ${q.answer_key}</span>
               </div>
-              <button class="btn btn-sm btn-outline" onclick="deleteQuestion(${q.id})">Hapus</button>
+              ${mediaActionBtns}
             </div>
             <p style="font-size:14px;font-weight:600;margin-bottom:10px;">${q.question_text}</p>
-            ${q.image_data ? `<img src="${q.image_data}" style="max-width:260px;margin-bottom:10px;border-radius:8px;">` : ''}
+            ${mediaPreview}
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px;font-size:12.5px;color:var(--slate);">
               <div><b>A.</b> ${q.option_a || '-'}</div>
               <div><b>B.</b> ${q.option_b || '-'}</div>
@@ -283,6 +322,34 @@
           </div>
         `;
       }).join('');
+    }
+
+    async function uploadQuestionMedia(questionId, kind, inputEl) {
+      if (!inputEl.files || !inputEl.files[0]) return;
+      const fd = new FormData();
+      fd.append(kind, inputEl.files[0]);
+      const res = await fetch(`/api/guru/questions/${questionId}/media`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: fd
+      });
+      if (res.ok) {
+        loadQuestions();
+      } else {
+        alert('Gagal mengunggah media soal.');
+      }
+    }
+
+    async function clearQuestionMedia(questionId, kind) {
+      const fd = new FormData();
+      if (kind === 'image') fd.append('clearImage', 'true');
+      if (kind === 'audio') fd.append('clearAudio', 'true');
+      const res = await fetch(`/api/guru/questions/${questionId}/media`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: fd
+      });
+      if (res.ok) loadQuestions();
     }
 
     async function uploadWordFile() {
@@ -315,24 +382,31 @@
     }
 
     async function addManualQuestion() {
-      const payload = {
-        number: document.getElementById('qNum').value,
-        type: document.getElementById('qType').value,
-        question_text: document.getElementById('qText').value,
-        option_a: document.getElementById('optA').value,
-        option_b: document.getElementById('optB').value,
-        option_c: document.getElementById('optC').value,
-        option_d: document.getElementById('optD').value,
-        option_e: document.getElementById('optE').value,
-        answer_key: document.getElementById('qKey').value
-      };
+      const fd = new FormData();
+      fd.append('number', document.getElementById('qNum').value);
+      fd.append('type', document.getElementById('qType').value);
+      fd.append('question_text', document.getElementById('qText').value);
+      fd.append('option_a', document.getElementById('optA').value);
+      fd.append('option_b', document.getElementById('optB').value);
+      fd.append('option_c', document.getElementById('optC').value);
+      fd.append('option_d', document.getElementById('optD').value);
+      fd.append('option_e', document.getElementById('optE').value);
+      fd.append('answer_key', document.getElementById('qKey').value);
+
+      const imgInp = document.getElementById('qImageInput');
+      const audInp = document.getElementById('qAudioInput');
+      if (imgInp && imgInp.files && imgInp.files[0]) fd.append('image', imgInp.files[0]);
+      if (audInp && audInp.files && audInp.files[0]) fd.append('audio', audInp.files[0]);
+
       const res = await fetch(`/api/guru/exams/${currentExamId}/questions`, {
         method: 'POST',
-        headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify(payload)
+        headers: authHeaders(),
+        body: fd
       });
       if (res.ok) {
         document.getElementById('qText').value = '';
+        if (imgInp) imgInp.value = '';
+        if (audInp) audInp.value = '';
         loadExams();
       }
     }

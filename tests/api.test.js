@@ -261,5 +261,48 @@ test('VPS Public URL QR Code generation and 500 concurrent students load test', 
   assert.ok(elapsedMs < 15000, `500 concurrent students finished in ${elapsedMs}ms`);
 });
 
+test('Guru can attach Image and Audio (Listening MP3) to any question and students receive media URLs', async (t) => {
+  const db = initDb(':memory:');
+  const app = createApp(db);
+  const server = app.listen(0);
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const guruAuth = await fetch(`${base}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'guru', password: 'guru123', role: 'guru' })
+  }).then(r => r.json());
+
+  const exam = db.prepare('SELECT * FROM exams WHERE is_active = 1 LIMIT 1').get();
+  const firstQ = db.prepare('SELECT * FROM questions WHERE exam_id = ? ORDER BY id ASC LIMIT 1').get(exam.id);
+
+  const fd = new FormData();
+  fd.append('image', new Blob([Buffer.from('89504e470d0a1a0a', 'hex')], { type: 'image/png' }), 'diagram-sel.png');
+  fd.append('audio', new Blob([Buffer.from('4944330300000000', 'hex')], { type: 'audio/mpeg' }), 'listening-part1.mp3');
+
+  const mediaRes = await fetch(`${base}/api/guru/questions/${firstQ.id}/media`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${guruAuth.staffToken}` },
+    body: fd
+  }).then(r => r.json());
+
+  assert.ok(mediaRes.image_data && mediaRes.image_data.startsWith('/uploads/'));
+  assert.ok(mediaRes.audio_data && mediaRes.audio_data.startsWith('/uploads/'));
+
+  // Pastikan siswa yang login menerima image_data dan audio_data tersebut
+  const stLogin = await fetch(`${base}/api/ujian/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ exam_number: '26-03-001', password: 'BURU01', token: exam.token })
+  }).then(r => r.json());
+
+  const sessData = await fetch(`${base}/api/ujian/session/${stLogin.sessionId}`).then(r => r.json());
+  const qWithMedia = sessData.questions.find(q => q.id === firstQ.id);
+  assert.equal(qWithMedia.image_data, mediaRes.image_data);
+  assert.equal(qWithMedia.audio_data, mediaRes.audio_data);
+});
+
+
 
 

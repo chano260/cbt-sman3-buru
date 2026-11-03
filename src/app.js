@@ -208,12 +208,27 @@ function createApp(db) {
     else questionsCache.clear();
   }
 
+  function normalizeUrlInput(raw) {
+    let val = String(raw || '').trim().replace(/\/+$/, '');
+    if (!val) return '';
+    if (!/^https?:\/\//i.test(val)) {
+      // Jika berupa angka IP atau ada :port, gunakan http://, selain itu https://
+      const isIpOrPort = /^(\d{1,3}\.){3}\d{1,3}/.test(val) || val.includes(':') || val.startsWith('localhost');
+      val = (isIpOrPort ? 'http://' : 'https://') + val;
+    }
+    return val;
+  }
+
   function getEffectiveBaseUrl(req) {
     const row = db.prepare("SELECT value FROM settings WHERE key = 'public_url'").get();
     if (row && row.value && row.value.trim()) {
-      return row.value.trim().replace(/\/+$/, '');
+      return normalizeUrlInput(row.value);
     }
-    const hostHeader = req && req.headers && req.headers.host ? req.headers.host : `${getLocalLanIp()}:8080`;
+    const hostHeader = req && req.headers && req.headers.host ? String(req.headers.host).trim() : '';
+    if (hostHeader && !hostHeader.startsWith('localhost') && !hostHeader.startsWith('127.0.0.1')) {
+      const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'http').split(',')[0].trim();
+      return `${proto}://${hostHeader}`;
+    }
     const portPart = hostHeader.includes(':') ? ':' + hostHeader.split(':')[1] : ':8080';
     return `http://${getLocalLanIp()}${portPart}`;
   }
@@ -308,7 +323,7 @@ function createApp(db) {
 
   app.post('/api/operator/public-url', requireStaffAuth(['operator']), async (req, res) => {
     let { publicUrl } = req.body || {};
-    publicUrl = String(publicUrl || '').trim().replace(/\/+$/, '');
+    publicUrl = normalizeUrlInput(publicUrl);
     db.prepare(`
       INSERT INTO settings (key, value) VALUES ('public_url', ?)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value

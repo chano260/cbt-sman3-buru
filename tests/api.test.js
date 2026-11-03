@@ -187,4 +187,79 @@ test('15-minute token rotation, Excel student bulk import, and live student work
   assert.equal(rightTokenCheck.status, 'WORKING');
 });
 
+test('VPS Public URL QR Code generation and 500 concurrent students load test', async (t) => {
+  const db = initDb(':memory:');
+  const app = createApp(db);
+  const server = app.listen(0);
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const opAuth = await fetch(`${base}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'operator', password: 'admin123', role: 'operator' })
+  }).then(r => r.json());
+
+  // 1. Set URL Publik VPS & verifikasi QR Code mengarah ke URL VPS tersebut
+  const vpsUrl = 'https://cbt.sman3buru.sch.id';
+  const setUrlRes = await fetch(`${base}/api/operator/public-url`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${opAuth.staffToken}`
+    },
+    body: JSON.stringify({ publicUrl: vpsUrl })
+  }).then(r => r.json());
+  assert.equal(setUrlRes.examUrl, 'https://cbt.sman3buru.sch.id/ujian.html');
+  assert.ok(setUrlRes.qrDataUrl.startsWith('data:image/png;base64,'));
+
+  // 2. Uji Beban 500 Siswa Serentak (450+ Siswa SMA N 3 Buru)
+  const insertStudent = db.prepare(`
+    INSERT OR IGNORE INTO students (exam_number, nisn, full_name, class_name, room, seat_number, password)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  db.transaction(() => {
+    for (let i = 1; i <= 500; i++) {
+      const code = `26-99-${String(i).padStart(3, '0')}`;
+      insertStudent.run(code, `0099${i}`, `Siswa Uji Beban ${i}`, 'XII IPA 1', `Ruang ${String((i % 15) + 1).padStart(2, '0')}`, (i % 32) + 1, 'PASS500');
+    }
+  })();
+
+  const exam = db.prepare('SELECT * FROM exams WHERE is_active = 1 LIMIT 1').get();
+  const firstPg = db.prepare("SELECT id FROM questions WHERE exam_id = ? AND type = 'PG' LIMIT 1").get(exam.id);
+
+  // Jalankan 500 siswa (1.500 HTTP request: login + ambil soal + simpan jawaban) dalam gelombang 100 koneksi paralel
+  const startMs = Date.now();
+  for (let batchStart = 1; batchStart <= 500; batchStart += 100) {
+    const tasks = [];
+    for (let i = batchStart; i < batchStart + 100; i++) {
+      const exam_number = `26-99-${String(i).padStart(3, '0')}`;
+      tasks.push((async () => {
+        const login = await fetch(`${base}/api/ujian/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ exam_number, password: 'PASS500', token: exam.token })
+        }).then(r => r.json());
+        assert.ok(login.sessionId);
+
+        const sess = await fetch(`${base}/api/ujian/session/${login.sessionId}`).then(r => r.json());
+        assert.ok(sess.questions.length > 0);
+
+        const ans = await fetch(`${base}/api/ujian/answer`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: login.sessionId, questionId: firstPg.id, chosenOption: 'B' })
+        });
+        assert.equal(ans.status, 200);
+      })());
+    }
+    await Promise.all(tasks);
+  }
+  const elapsedMs = Date.now() - startMs;
+  const totalSessions = db.prepare('SELECT COUNT(*) as c FROM exam_sessions WHERE exam_id = ?').get(exam.id).c;
+  assert.ok(totalSessions >= 500);
+  assert.ok(elapsedMs < 15000, `500 concurrent students finished in ${elapsedMs}ms`);
+});
+
+
 

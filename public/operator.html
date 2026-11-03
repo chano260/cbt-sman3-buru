@@ -79,6 +79,40 @@
           </div>
         </div>
 
+        <!-- PANEL QR CODE EXAMBRO SEKOLAH & SETTING DOMAIN/IP VPS PUBLIK -->
+        <div class="card" style="background:linear-gradient(135deg,#f8fafc,#eff6ff);border:1.5px solid #bfdbfe;">
+          <div style="display:flex;gap:20px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+            <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+              <div style="background:#fff;padding:10px;border-radius:14px;border:2px solid #1e3a8a;box-shadow:0 4px 12px rgba(15,23,42,0.08);text-align:center;">
+                <img id="opQrImg" src="" alt="QR Code Exambro" style="width:128px;height:128px;display:block;">
+                <div style="font-size:10px;font-weight:800;color:#1e3a8a;margin-top:4px;">SCAN DI EXAMBRO</div>
+              </div>
+              <div style="max-width:480px;">
+                <span class="badge badge-working" style="margin-bottom:6px;">📱 Kompatibel Exambro Scan QR & VPS Online (500+ Siswa)</span>
+                <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:4px;">QR Code Ujian Siswa & Alamat Server VPS / Lokal</h3>
+                <p style="font-size:12.5px;color:#334155;line-height:1.5;margin-bottom:8px;">
+                  Siswa cukup membuka aplikasi <b>Exambro</b> yang sudah ada di sekolah lalu <b>Scan QR Code</b> ini (juga otomatis tercetak di <b>Kartu Login</b> & <b>Kartu Meja</b>).
+                </p>
+                <div style="font-size:12px;background:#fff;border:1px solid #cbd5e1;padding:6px 10px;border-radius:8px;display:inline-block;">
+                  Link Aktif di QR: <code id="opExamUrlText" style="font-weight:800;color:#1d4ed8;">-</code>
+                </div>
+              </div>
+            </div>
+
+            <div style="flex:1;min-width:280px;max-width:420px;background:#fff;padding:14px;border-radius:12px;border:1px solid #cbd5e1;">
+              <label style="display:block;font-size:12px;font-weight:800;color:#0f172a;margin-bottom:4px;">🌐 Alamat Domain / IP Publik VPS (Opsional jika Online)</label>
+              <p style="font-size:11.5px;color:var(--muted);margin-bottom:8px;">
+                Isi dengan domain/IP VPS Anda (contoh: <code>https://cbt.sman3buru.sch.id</code> atau <code>http://103.x.x.x:8080</code>). Kosongkan jika memakai Wi-Fi/LAN lokal.
+              </p>
+              <div style="display:flex;gap:8px;">
+                <input id="inpPublicUrl" class="input" placeholder="https://cbt.sman3buru.sch.id" style="font-size:12.5px;">
+                <button class="btn btn-primary btn-sm" onclick="savePublicUrl()" style="white-space:nowrap;">💾 Simpan & Buat QR</button>
+              </div>
+              <div id="publicUrlSavedMsg" style="font-size:11.5px;color:#059669;font-weight:700;margin-top:6px;display:none;">✓ Alamat VPS disimpan & QR Code diperbarui!</div>
+            </div>
+          </div>
+        </div>
+
         <div class="card">
           <div class="card-header">
             <div>
@@ -409,7 +443,17 @@
       currentOverview = data;
 
       const port = window.location.port ? ':' + window.location.port : '';
-      document.getElementById('opIpChip').textContent = `Server: http://${data.lanIp}${port}`;
+      document.getElementById('opIpChip').textContent = `Server: ${data.baseUrl || ('http://' + data.lanIp + port)}`;
+      if (data.qrDataUrl) {
+        document.getElementById('opQrImg').src = data.qrDataUrl;
+      }
+      if (data.examUrl) {
+        document.getElementById('opExamUrlText').textContent = data.examUrl;
+      }
+      const inpPub = document.getElementById('inpPublicUrl');
+      if (inpPub && document.activeElement !== inpPub) {
+        inpPub.value = data.publicUrl || '';
+      }
       if (data.activeExam) {
         const rem = data.activeExam.token_remaining_seconds || 900;
         const mm = String(Math.floor(rem / 60)).padStart(2, '0');
@@ -500,6 +544,22 @@
     async function refreshToken() {
       await fetch('/api/operator/token', { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: '{}' });
       loadOverview();
+    }
+
+    async function savePublicUrl() {
+      const publicUrl = document.getElementById('inpPublicUrl').value.trim();
+      const res = await fetch('/api/operator/public-url', {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ publicUrl })
+      });
+      if (res.ok) {
+        const msg = document.getElementById('publicUrlSavedMsg');
+        msg.style.display = 'block';
+        setTimeout(() => { msg.style.display = 'none'; }, 3500);
+        loadOverview();
+        loadPrintData();
+      }
     }
 
     async function unlockSession(sessionId) {
@@ -679,7 +739,10 @@
       const exam = currentPrintData.activeExam || { title: 'Ujian Sekolah', subject: '-', session_name: 'Sesi 1', exam_date: '2026-11-02' };
       const roomLabel = document.getElementById('printRoomFilter').value === 'ALL' ? 'Semua Ruang' : document.getElementById('printRoomFilter').value;
       const port = window.location.port ? ':' + window.location.port : '';
-      const serverUrl = `http://${currentPrintData.lanIp}${port}`;
+      const serverUrl = currentPrintData.examUrl || `http://${currentPrintData.lanIp}${port}/ujian.html`;
+      const qrImgHtml = currentPrintData.qrDataUrl
+        ? `<img src="${currentPrintData.qrDataUrl}" alt="QR Exambro" style="width:74px;height:74px;border:1px solid #000;padding:2px;background:#fff;">`
+        : '';
       const container = document.getElementById('printSheetArea');
 
       if (docType === 'DAFTAR_HADIR') {
@@ -769,18 +832,23 @@
         const cards = students.map(s => `
           <div class="print-card-item">
             <div class="print-card-head">
-              KARTU LOGIN CBT & EXAMBRO ANDROID<br>
+              KARTU LOGIN CBT & SCAN QR EXAMBRO<br>
               <span style="font-size:13px;">SMA NEGERI 3 BURU</span>
             </div>
-            <table style="width:100%;font-size:12px;border:none;">
-              <tr><td style="padding:3px 0;width:105px;border:none;">Nama Siswa</td><td style="padding:3px 0;border:none;">: <b>${s.full_name}</b></td></tr>
-              <tr><td style="padding:3px 0;border:none;">Kelas / Ruang</td><td style="padding:3px 0;border:none;">: ${s.class_name} / ${s.room}</td></tr>
-              <tr><td style="padding:3px 0;border:none;"><b>Username CBT</b></td><td style="padding:3px 0;border:none;">: <b style="font-size:14px;">${s.exam_number}</b></td></tr>
-              <tr><td style="padding:3px 0;border:none;"><b>Password CBT</b></td><td style="padding:3px 0;border:none;">: <b style="font-size:14px;">${s.password}</b></td></tr>
-              <tr><td style="padding:3px 0;border:none;">IP Server Lokal</td><td style="padding:3px 0;border:none;">: <code>${serverUrl}</code></td></tr>
-            </table>
-            <div style="margin-top:8px;background:#f8fafc;border:1px solid #000;padding:6px;font-size:10px;text-align:center;">
-              Buka aplikasi <b>Exambro SMAN 3 Buru</b> di HP Android • Masukkan Username, Password & Token dari Pengawas.
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+              <table style="flex:1;font-size:11.5px;border:none;">
+                <tr><td style="padding:2px 0;width:95px;border:none;">Nama Siswa</td><td style="padding:2px 0;border:none;">: <b>${s.full_name}</b></td></tr>
+                <tr><td style="padding:2px 0;border:none;">Kelas / Ruang</td><td style="padding:2px 0;border:none;">: ${s.class_name} / ${s.room}</td></tr>
+                <tr><td style="padding:2px 0;border:none;"><b>Username CBT</b></td><td style="padding:2px 0;border:none;">: <b style="font-size:13.5px;">${s.exam_number}</b></td></tr>
+                <tr><td style="padding:2px 0;border:none;"><b>Password CBT</b></td><td style="padding:2px 0;border:none;">: <b style="font-size:13.5px;">${s.password}</b></td></tr>
+              </table>
+              <div style="text-align:center;">
+                ${qrImgHtml}
+                <div style="font-size:8.5px;font-weight:800;margin-top:2px;">SCAN EXAMBRO</div>
+              </div>
+            </div>
+            <div style="margin-top:6px;background:#f8fafc;border:1px solid #000;padding:5px;font-size:9.5px;text-align:center;">
+              Scan QR Code di aplikasi <b>Exambro</b> atau buka <code>${serverUrl}</code> • Masukkan Username, Password & Token 15-Menit.
             </div>
           </div>
         `).join('');
@@ -791,9 +859,17 @@
           <div class="desk-card-item">
             <div style="font-size:11px;font-weight:800;letter-spacing:0.06em;">UJIAN CBT — SMA NEGERI 3 BURU</div>
             <div class="seat-no">NOMOR MEJA: ${String(s.seat_number).padStart(2, '0')} • ${s.room.toUpperCase()}</div>
-            <div class="exam-no">${s.exam_number}</div>
-            <div class="st-name">${s.full_name}</div>
-            <div style="font-size:13px;font-weight:700;margin-top:4px;">KELAS: ${s.class_name} | NISN: ${s.nisn}</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin:6px 0;">
+              <div>
+                <div class="exam-no" style="margin:0;">${s.exam_number}</div>
+                <div class="st-name">${s.full_name}</div>
+                <div style="font-size:12px;font-weight:700;margin-top:3px;">KELAS: ${s.class_name} | NISN: ${s.nisn}</div>
+              </div>
+              <div style="text-align:center;">
+                ${qrImgHtml}
+                <div style="font-size:8px;font-weight:800;">SCAN QR UJIAN</div>
+              </div>
+            </div>
           </div>
         `).join('');
 

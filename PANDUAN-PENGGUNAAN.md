@@ -1,14 +1,45 @@
-# Panduan Penggunaan Sistem CBT Lokal & Android Exambro — SMA Negeri 3 Buru
+# Panduan Penggunaan & Deploy VPS Sistem CBT — SMA Negeri 3 Buru
 
-Sistem ini dirancang khusus untuk pelaksanaan ujian berbasis komputer & HP Android di **SMA Negeri 3 Buru** menggunakan jaringan Wi-Fi/LAN lokal (100% *offline*, siswa tidak membutuhkan kuota internet).
+Sistem CBT **SMA Negeri 3 Buru** mendukung 2 mode pelaksanaan sekaligus:
+1. **Mode Online via VPS Pribadi (450–500+ Siswa Serentak)**: Dioptimasi dengan *SQLite WAL High-Concurrency*, *RAM Question Cache*, dan **QR Code Otomatis** untuk aplikasi **Exambro Scan QR** yang sudah dimiliki sekolah.
+2. **Mode Offline via Wi-Fi / LAN Lokal Sekolah**: Tanpa kuota internet di komputer operator sekolah.
 
 ---
 
-## 1. Cara Menyalakan Server CBT di Komputer/Laptop Operator
-1. Hubungkan komputer/laptop server ke Router Wi-Fi sekolah.
-2. Klik 2x file **`Jalankan-Server-CBT.bat`** (atau jalankan `npm start` di terminal).
-3. Jendela hitam server akan menampilkan alamat IP Lokal (contoh: `http://192.168.1.100:8080`).
-4. Browser di komputer server akan otomatis terbuka ke halaman utama `http://localhost:8080`.
+## 1. Cara Deploy ke VPS Anda (Untuk 450+ Siswa Serentak)
+
+Spesifikasi VPS minimal yang disarankan untuk **450–500 siswa bersamaan**: **2 vCPU, 2 GB RAM, SSD 20 GB** (Ubuntu 22.04 / 24.04 atau Debian 12).
+
+### Cara A: Menggunakan PM2 (Node.js Langsung di Ubuntu/Debian)
+Jalankan perintah berikut di terminal SSH VPS Anda:
+```bash
+# 1. Install Node.js 22 & PM2
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs build-essential python3
+sudo npm install -g pm2
+
+# 2. Masuk ke folder aplikasi & install paket
+cd cbt-sman3-buru
+npm install --omit=dev
+
+# 3. Jalankan server di background dengan PM2 (otomatis hidup saat VPS restart)
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup
+```
+
+### Cara B: Menggunakan Docker Compose (1 Perintah)
+```bash
+docker compose up -d --build
+```
+
+### Mengatur Domain / IP Publik VPS & QR Code Exambro Sekolah
+1. Buka **Panel Operator** di `http://IP-VPS-ANDA:8080/operator.html` (atau domain Anda).
+2. Pada kotak **"🌐 Alamat Domain / IP Publik VPS"**, ketik alamat VPS Anda, misalnya:
+   - `https://cbt.sman3buru.sch.id` *(jika memakai domain)*, atau
+   - `http://103.xxx.xxx.xxx:8080` *(jika langsung memakai IP VPS)*.
+3. Klik **"💾 Simpan & Buat QR"**.
+4. **Selesai!** QR Code di layar Operator, layar Pengawas, **Kartu Login**, dan **Kartu Meja** otomatis mengarah ke alamat VPS Anda. Siswa cukup membuka aplikasi Exambro yang sudah ada di sekolah lalu **Scan QR Code** di Kartu Meja / Kartu Login mereka.
 
 ---
 
@@ -19,47 +50,29 @@ Sistem ini dirancang khusus untuk pelaksanaan ujian berbasis komputer & HP Andro
 | **1. Panel Operator / Admin** | `/operator.html` | `operator` | `admin123` |
 | **2. Panel Guru Mata Pelajaran** | `/guru.html` | `guru` | `guru123` |
 | **3. Panel Pengawas Ruangan** | `/pengawas.html` | `pengawas` | `pengawas123` |
-| **4. Simulasi Ujian Siswa (Exambro)** | `/ujian.html` | `26-03-001` | `BURU01` |
+| **4. Portal Ujian Siswa (Exambro)** | `/ujian.html` | `26-03-001` | `BURU01` |
 
-*(Token ujian awal bawaan: **`K7P9M`** — dapat diacak kapan saja oleh Operator).*
+*(Token ujian berganti otomatis setiap **15 menit** dan tampil di layar Operator & Pengawas).*
 
 ---
 
-## 3. Panduan Tugas Per Panel
+## 3. Fitur Utama Per Panel
 
 ### A. Panel Operator (`/operator.html`)
-- **Kelola Siswa & Jadwal:** Tambah data siswa, kelas, ruang ujian, nomor meja, dan aktifkan jadwal ujian.
-- **Acak Token Ujian:** Klik tombol **🔄 Acak Token** setiap pergantian sesi ujian.
-- **Pusat Cetak 4 Dokumen Administrasi (Menu "🖨️ Cetak 4 Dokumen Ujian"):**
-  1. **Daftar Hadir Peserta Ujian** (otomatis ber-Kop SMA Negeri 3 Buru & kolom tanda tangan zig-zag).
-  2. **Kartu Peserta Ujian** (untuk dibawa siswa).
-  3. **Kartu Login CBT** (berisi Username, Password, dan alamat IP Server lokal).
-  4. **Kartu Meja Ujian** (ukuran besar untuk ditempel di meja kelas).
+- **QR Code Exambro Otomatis:** Mendukung aplikasi Exambro sekolah yang menggunakan fitur **Scan QR Code**.
+- **Token Ujian Otomatis Ganti Tiap 15 Menit:** Jika siswa mengalami gangguan / keluar aplikasi di tengah ujian, setelah dibuka kuncinya oleh Pengawas, siswa wajib memasukkan **Token 15-Menit terbaru** agar tidak bisa mengerjakan di luar pengawasan.
+- **Import Data Siswa Sekaligus dari Excel (`.xlsx`):** Unduh template Excel dan upload ratusan siswa (450+ siswa) sekaligus dalam 1 klik.
+- **👁️ Pantau Kerja Siswa (Live Anti-Contek):** Melihat siswa sedang berada di soal nomor berapa dan jawaban apa saja yang dipilih secara *real-time*.
+- **Pusat Cetak 4 Dokumen Administrasi A4/PDF:**
+  1. **Daftar Hadir Peserta Ujian** (Kop SMA Negeri 3 Buru & tanda tangan zig-zag).
+  2. **Kartu Peserta Ujian**.
+  3. **Kartu Login CBT + QR Code Exambro**.
+  4. **Kartu Meja Ujian + QR Code Exambro**.
 
 ### B. Panel Guru Mata Pelajaran (`/guru.html`)
-- **Import Soal Sekaligus dari Microsoft Word (`.docx`):**
-  1. Klik **📥 Unduh Template Word (.docx)** sebagai contoh format.
-  2. Ketik soal Pilihan Ganda di bawah penanda `[PG]` lengkap dengan `KUNCI: A/B/C/D/E`.
-  3. Ketik soal Esai di bawah penanda `[ESAI]` (naskah soal esai akan tampil di HP siswa dengan instruksi dijawab pada lembar jawaban kertas).
-  4. Upload file `.docx` tersebut — seluruh soal otomatis masuk ke Bank Soal.
-- **Rekap Nilai Pilihan Ganda (Excel):**
-  - Nilai PG **tidak ditampilkan di HP siswa** saat selesai ujian.
-  - Guru dapat melihat skor PG (skala 0–100) di tab **Rekap Nilai PG** dan mengunduhnya ke file **Excel (`.xlsx`)**.
+- **Import Soal Sekaligus dari Microsoft Word (`.docx`):** Mendukung Pilihan Ganda (`[PG]` + `KUNCI: A-E`), gambar di dalam soal, dan Esai (`[ESAI]`).
+- **Rekap Nilai Pilihan Ganda (Excel `.xlsx`):** Nilai PG tidak pernah ditampilkan di HP siswa untuk mencegah kebocoran kunci jawaban.
 
 ### C. Panel Pengawas Ruangan (`/pengawas.html`)
-- Pengawas membuka alamat IP Server (`http://IP-SERVER:8080/pengawas.html`) dari HP Pengawas di dalam kelas.
-- Jika ada siswa yang mencoba keluar dari aplikasi Exambro (tekan tombol Home/Recent Apps/pindah layar), layar HP siswa otomatis **Terkunci Merah** dan di HP Pengawas muncul **Peringatan Merah** beserta tombol **🔓 Buka Kunci Sekarang**.
-- Jika HP siswa mati/habis baterai dan harus pindah ke HP cadangan, Pengawas cukup menekan tombol **🔄 Reset Login**, dan seluruh jawaban siswa sebelumnya tetap tersimpan aman.
-
----
-
-## 4. Cara Build APK Android Exambro (`android-exambro/`)
-Folder `android-exambro/` berisi proyek lengkap Android Studio (Kotlin):
-1. Buka folder `android-exambro` menggunakan **Android Studio**.
-2. Pilih menu **Build > Build Bundle(s) / APK(s) > Build APK(s)**.
-3. File `app-debug.apk` siap dibagikan ke HP Android siswa SMA Negeri 3 Buru.
-4. Fitur keamanan yang aktif di dalam APK:
-   - **`startLockTask()` (Screen Pinning):** Mengunci layar HP agar tidak bisa keluar aplikasi.
-   - **`FLAG_SECURE`:** Memblokir *screenshot* dan perekaman layar (*screen recording*).
-   - **`resizeableActivity="false"`:** Memblokir *Split-Screen* (Layar Belah) dan *Floating Window*.
-   - **Deteksi Pindah Aplikasi:** Otomatis mengirim laporan pelanggaran ke server dan mengunci layar siswa menjadi merah sampai dibuka oleh Pengawas Ruangan.
+- Menampilkan **QR Code Exambro** dan **Token 15-Menit Aktif** di kelas.
+- Notifikasi merah otomatis jika siswa keluar dari Exambro (`TERKUNCI`), lengkap dengan tombol **🔓 Buka Kunci**, **🔄 Reset Login**, dan **👁️ Pantau Kerja**.

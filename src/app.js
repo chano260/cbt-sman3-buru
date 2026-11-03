@@ -4,6 +4,7 @@ const os = require('node:os');
 const crypto = require('node:crypto');
 const multer = require('multer');
 const XLSX = require('xlsx');
+const QRCode = require('qrcode');
 const { parseDocxBuffer, parseQuestionsFromText, generateWordTemplateBuffer } = require('./wordParser');
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -170,6 +171,48 @@ function createApp(db) {
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
   const staffTokens = new Map();
+  // RAM Cache Soal Ujian untuk mendukung 500+ siswa serentak tanpa beban disk
+  const questionsCache = new Map();
+
+  function getCachedExamQuestions(examId) {
+    if (questionsCache.has(examId)) return questionsCache.get(examId);
+    const qs = db.prepare(`
+      SELECT id, exam_id, number, type, question_text, image_data, option_a, option_b, option_c, option_d, option_e
+      FROM questions
+      WHERE exam_id = ?
+      ORDER BY CASE WHEN type = 'PG' THEN 0 ELSE 1 END, number ASC, id ASC
+    `).all(examId);
+    questionsCache.set(examId, qs);
+    return qs;
+  }
+
+  function invalidateQuestionsCache(examId) {
+    if (examId) questionsCache.delete(Number(examId));
+    else questionsCache.clear();
+  }
+
+  function getEffectiveBaseUrl(req) {
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'public_url'").get();
+    if (row && row.value && row.value.trim()) {
+      return row.value.trim().replace(/\/+$/, '');
+    }
+    const hostHeader = req && req.headers && req.headers.host ? req.headers.host : `${getLocalLanIp()}:8080`;
+    const portPart = hostHeader.includes(':') ? ':' + hostHeader.split(':')[1] : ':8080';
+    return `http://${getLocalLanIp()}${portPart}`;
+  }
+
+  async function buildQrBundle(req) {
+    const baseUrl = getEffectiveBaseUrl(req);
+    const examUrl = baseUrl.endsWith('/ujian.html') ? baseUrl : `${baseUrl}/ujian.html`;
+    const qrDataUrl = await QRCode.toDataURL(examUrl, { width: 240, margin: 1 });
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'public_url'").get();
+    return {
+      publicUrl: row ? row.value : '',
+      baseUrl,
+      examUrl,
+      qrDataUrl
+    };
+  }
 
   function requireStaffAuth(allowedRoles) {
     return (req, res, next) => {
@@ -224,16 +267,18 @@ function createApp(db) {
   });
 
   // ==================== PANEL OPERATOR ====================
-  app.get('/api/operator/overview', requireStaffAuth(['operator']), (req, res) => {
+  app.get('/api/operator/overview', requireStaffAuth(['operator']), async (req, res) => {
     const exams = db.prepare('SELECT * FROM exams ORDER BY id DESC').all();
     const rawActive = exams.find(e => e.is_active === 1) || exams[0];
     const activeExam = ensureFresh15MinToken(db, rawActive);
     const students = db.prepare('SELECT * FROM students ORDER BY room ASC, seat_number ASC, full_name ASC').all();
     const staff = db.prepare('SELECT id, username, full_name, role, subject, room FROM users ORDER BY role ASC, id ASC').all();
     const scoreData = activeExam ? calculateExamScores(db, activeExam.id) : { scores: [], pgCount: 0, esaiCount: 0 };
+    const qrBundle = await buildQrBundle(req);
 
     res.json({
       lanIp: getLocalLanIp(),
+      ...qrBundle,
       activeExam,
       exams,
       students,
@@ -242,6 +287,17 @@ function createApp(db) {
       pgCount: scoreData.pgCount,
       esaiCount: scoreData.esaiCount
     });
+  });
+
+  app.post('/api/operator/public-url', requireStaffAuth(['operator']), async (req, res) => {
+    let { publicUrl } = req.body || {};
+    publicUrl = String(publicUrl || '').trim().replace(/\/+$/, '');
+    db.prepare(`
+      INSERT INTO settings (key, value) VALUES ('public_url', ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `).run(publicUrl);
+    const qrBundle = await buildQrBundle(req);
+    res.json(qrBundle);
   });
 
   app.post('/api/operator/token', requireStaffAuth(['operator']), (req, res) => {
@@ -411,7 +467,7 @@ function createApp(db) {
     }
   });
 
-  app.get('/api/operator/print-data', requireStaffAuth(['operator']), (req, res) => {
+  app.get('/api/operator/print-data', requireStaffAuth(['operator']), async (req, res) => {
     const { room, class_name } = req.query;
     let sql = 'SELECT * FROM students WHERE 1=1';
     const params = [];
@@ -426,6 +482,7 @@ function createApp(db) {
     sql += ' ORDER BY room ASC, seat_number ASC, full_name ASC';
     const students = db.prepare(sql).all(...params);
     const activeExam = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const qrBundle = await buildQrBundle(req);
     res.json({
       schoolHeader: {
         gov: 'PEMERINTAH PROVINSI MALUKU',
@@ -434,6 +491,7 @@ function createApp(db) {
         address: 'Kabupaten Buru, Provinsi Maluku'
       },
       lanIp: getLocalLanIp(),
+      ...qrBundle,
       activeExam,
       students
     });
@@ -477,11 +535,13 @@ function createApp(db) {
       qType === 'PG' ? (option_e || '') : null,
       qType === 'PG' ? String(answer_key || 'A').toUpperCase() : null
     );
+    invalidateQuestionsCache(examId);
     res.json({ id: Number(info.lastInsertRowid) });
   });
 
   app.delete('/api/guru/questions/:questionId', requireStaffAuth(['guru', 'operator']), (req, res) => {
     db.prepare('DELETE FROM questions WHERE id = ?').run(Number(req.params.questionId));
+    invalidateQuestionsCache();
     res.json({ ok: true });
   });
 
@@ -534,6 +594,8 @@ function createApp(db) {
         );
       }
 
+      invalidateQuestionsCache(examId);
+
       res.json({
         importedCount: parsed.length,
         pgCount: parsed.filter(q => q.type === 'PG').length,
@@ -583,11 +645,12 @@ function createApp(db) {
   });
 
   // ==================== PANEL PENGAWAS RUANGAN & PANTAU KERJA SISWA ====================
-  app.get('/api/pengawas/room', requireStaffAuth(['pengawas', 'operator']), (req, res) => {
+  app.get('/api/pengawas/room', requireStaffAuth(['pengawas', 'operator']), async (req, res) => {
     const room = req.query.room || 'ALL';
     const rawExam = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
     const activeExam = ensureFresh15MinToken(db, rawExam);
-    if (!activeExam) return res.json({ activeExam: null, students: [], reports: [] });
+    const qrBundle = await buildQrBundle(req);
+    if (!activeExam) return res.json({ activeExam: null, ...qrBundle, students: [], reports: [] });
 
     const scoreData = calculateExamScores(db, activeExam.id);
     const filtered = scoreData.scores
@@ -596,6 +659,7 @@ function createApp(db) {
 
     const reports = db.prepare('SELECT * FROM room_reports WHERE exam_id = ? ORDER BY id DESC').all(activeExam.id);
     res.json({
+      ...qrBundle,
       activeExam: {
         id: activeExam.id,
         title: activeExam.title,
@@ -765,12 +829,7 @@ function createApp(db) {
     const student = db.prepare('SELECT id, exam_number, full_name, class_name, room, seat_number FROM students WHERE id = ?').get(session.student_id);
     const exam = db.prepare('SELECT id, title, subject, class_target, session_name, duration_minutes, shuffle_questions FROM exams WHERE id = ?').get(session.exam_id);
 
-    let questions = db.prepare(`
-      SELECT id, exam_id, number, type, question_text, image_data, option_a, option_b, option_c, option_d, option_e
-      FROM questions
-      WHERE exam_id = ?
-      ORDER BY CASE WHEN type = 'PG' THEN 0 ELSE 1 END, number ASC, id ASC
-    `).all(session.exam_id);
+    let questions = getCachedExamQuestions(session.exam_id);
 
     // Acak urutan soal PG secara deterministik per siswa agar siswa bersebelahan tidak bisa saling contek nomor
     if (exam && exam.shuffle_questions) {

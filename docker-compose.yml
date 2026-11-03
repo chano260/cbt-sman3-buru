@@ -1,0 +1,12 @@
+services:
+  cbt-sman3-buru:
+    build: .
+    container_name: cbt-sman3-buru
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=8080

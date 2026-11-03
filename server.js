@@ -5,10 +5,10 @@ const PORT = process.env.PORT || 8080;
 const db = initDb();
 const app = createApp(db);
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', 2048, () => {
   const ip = getLocalLanIp();
   console.log('==============================================================');
-  console.log('   SERVER CBT LOKAL - SMA NEGERI 3 BURU (AKTIF & SIAP UJIAN)  ');
+  console.log('   SERVER CBT - SMA NEGERI 3 BURU (SIAP 500+ SISWA SERENTAK)  ');
   console.log('==============================================================');
   console.log(`-> Buka di Komputer Server ini : http://localhost:${PORT}`);
   console.log(`-> Alamat IP LAN / Wi-Fi Lokal : http://${ip}:${PORT}`);
@@ -19,3 +19,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   * Ujian Exambro  : http://${ip}:${PORT}/ujian.html`);
   console.log('==============================================================');
 });
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;

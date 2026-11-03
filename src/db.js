@@ -7,6 +7,9 @@ function createSqliteConnection(dbPath) {
     if (dbPath !== ':memory:') {
       db.pragma('journal_mode = WAL');
     }
+    db.pragma('synchronous = NORMAL');
+    db.pragma('cache_size = -64000');
+    db.pragma('busy_timeout = 5000');
     return db;
   } catch {
     // Fallback ke modul bawaan Node 22+ (node:sqlite) dengan antarmuka identik
@@ -15,6 +18,7 @@ function createSqliteConnection(dbPath) {
     if (dbPath !== ':memory:') {
       raw.exec('PRAGMA journal_mode = WAL;');
     }
+    raw.exec('PRAGMA synchronous = NORMAL; PRAGMA cache_size = -64000; PRAGMA busy_timeout = 5000;');
     return {
       exec: (sql) => raw.exec(sql),
       pragma: (str) => raw.exec(`PRAGMA ${str};`),
@@ -132,6 +136,15 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
       absent_students TEXT,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_questions_exam ON questions(exam_id, type, number);
+    CREATE INDEX IF NOT EXISTS idx_sessions_exam ON exam_sessions(exam_id, student_id);
+    CREATE INDEX IF NOT EXISTS idx_answers_session ON answers(session_id, question_id);
   `);
 
   // Migrasi aman jika file database lama sudah ada

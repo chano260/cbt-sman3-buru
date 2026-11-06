@@ -164,6 +164,7 @@
                   <th>Nama Siswa</th>
                   <th>Kelas / Ruang</th>
                   <th>Status Ujian</th>
+                  <th>Pelanggaran</th>
                   <th>PG Dijawab</th>
                   <th>PG Benar</th>
                   <th>PG Salah</th>
@@ -427,6 +428,7 @@
           <td><b>${s.full_name}</b></td>
           <td>${s.class_name} • ${s.room}</td>
           <td>${s.status === 'FINISHED' ? '<span class="badge badge-finished">✓ Selesai</span>' : s.status === 'WORKING' ? '<span class="badge badge-working">● Mengerjakan</span>' : s.status === 'LOCKED' ? '<span class="badge badge-locked">🔒 Terkunci</span>' : '<span class="badge badge-idle">Belum Login</span>'}</td>
+          <td>${s.violation_count > 0 ? `<span class="badge badge-locked">⚠️ ${s.violation_count}x</span>` : '<span style="color:var(--green);font-weight:700;">Aman (0)</span>'}</td>
           <td>${s.answered_pg} / ${s.total_pg}</td>
           <td style="color:var(--green);font-weight:700;">${s.correct_pg}</td>
           <td style="color:var(--red);font-weight:700;">${s.wrong_pg}</td>

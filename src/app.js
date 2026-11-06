@@ -414,14 +414,14 @@ function createApp(db) {
   });
 
   app.post('/api/operator/students', requireStaffAuth(['operator']), (req, res) => {
-    const { exam_number, nisn, full_name, class_name, room, seat_number, password } = req.body || {};
+    const { exam_number, nisn, full_name, class_name, room, seat_number, password, birth_info } = req.body || {};
     if (!exam_number || !full_name) {
       return res.status(400).json({ error: 'Nomor peserta dan nama siswa wajib diisi' });
     }
     try {
       const info = db.prepare(`
-        INSERT INTO students (exam_number, nisn, full_name, class_name, room, seat_number, password)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO students (exam_number, nisn, full_name, class_name, room, seat_number, password, birth_info)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         String(exam_number).trim(),
         String(nisn || '-').trim(),
@@ -429,7 +429,8 @@ function createApp(db) {
         String(class_name || 'XII IPA 1').trim(),
         String(room || 'Ruang 01').trim(),
         Number(seat_number) || 1,
-        String(password || 'BURU123').trim()
+        String(password || 'BURU123').trim(),
+        String(birth_info || '-').trim()
       );
       res.json({ id: Number(info.lastInsertRowid) });
     } catch {
@@ -444,6 +445,7 @@ function createApp(db) {
         'Nomor Peserta': '26-03-009',
         'NISN': '0081234509',
         'Nama Siswa': 'Dewi Sartika Wabula',
+        'Tempat Tanggal Lahir': 'Namlea, 14 Januari 2008',
         'Kelas': 'XII IPA 1',
         'Ruang': 'Ruang 01',
         'Nomor Meja': 7,
@@ -453,6 +455,7 @@ function createApp(db) {
         'Nomor Peserta': '26-03-010',
         'NISN': '0081234510',
         'Nama Siswa': 'Hendra Saputra Namlea',
+        'Tempat Tanggal Lahir': 'Waprea, 22 Maret 2008',
         'Kelas': 'XII IPA 1',
         'Ruang': 'Ruang 01',
         'Nomor Meja': 8,
@@ -483,15 +486,16 @@ function createApp(db) {
       }
 
       const upsertStudent = db.prepare(`
-        INSERT INTO students (exam_number, nisn, full_name, class_name, room, seat_number, password)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO students (exam_number, nisn, full_name, class_name, room, seat_number, password, birth_info)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(exam_number) DO UPDATE SET
           nisn = excluded.nisn,
           full_name = excluded.full_name,
           class_name = excluded.class_name,
           room = excluded.room,
           seat_number = excluded.seat_number,
-          password = excluded.password
+          password = excluded.password,
+          birth_info = excluded.birth_info
       `);
 
       let importedCount = 0;
@@ -500,12 +504,13 @@ function createApp(db) {
         const fullName = String(r['Nama Siswa'] || r['Nama Lengkap'] || r['Nama'] || r['full_name'] || '').trim();
         if (!examNo || !fullName) return;
         const nisn = String(r['NISN'] || r['nisn'] || '-').trim();
+        const birthInfo = String(r['Tempat Tanggal Lahir'] || r['Tempat, Tanggal Lahir'] || r['TTL'] || r['birth_info'] || '-').trim();
         const className = String(r['Kelas'] || r['class_name'] || 'XII IPA 1').trim();
         const room = String(r['Ruang'] || r['room'] || 'Ruang 01').trim();
         const seatNo = Number(r['Nomor Meja'] || r['Meja'] || r['seat_number'] || idx + 1);
         const pass = String(r['Password'] || r['password'] || `BURU${String(idx + 1).padStart(2, '0')}`).trim();
 
-        upsertStudent.run(examNo, nisn, fullName, className, room, seatNo, pass);
+        upsertStudent.run(examNo, nisn, fullName, className, room, seatNo, pass, birthInfo);
         importedCount++;
       });
 
@@ -845,7 +850,143 @@ function createApp(db) {
     res.json({ id: Number(info.lastInsertRowid) });
   });
 
-  // ==================== PORTAL UJIAN SISWA (EXAMBRO) ====================
+  // ==================== PORTAL UJIAN SISWA (EXAMBRO & DIRECT ENTRY) ====================
+  // Ambil daftar nama siswa aktif & info ujian untuk autocomplete pencarian nama
+  app.get('/api/ujian/students-list', (req, res) => {
+    const rawExam = db.prepare('SELECT id, title, subject, class_target, duration_minutes FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const students = db.prepare('SELECT id, full_name, class_name, nisn, birth_info FROM students ORDER BY full_name ASC').all();
+    res.json({
+      exam: rawExam || null,
+      students: students.map(s => ({
+        id: s.id,
+        full_name: s.full_name,
+        class_name: s.class_name,
+        nisn: s.nisn,
+        birth_info: s.birth_info || '-'
+      }))
+    });
+  });
+
+  // Pencarian nama siswa untuk langsung menampilkan konfirmasi identitas (Nama, NISN, TTL, Kelas)
+  app.post('/api/ujian/find-student', (req, res) => {
+    const { name } = req.body || {};
+    const query = String(name || '').trim();
+    if (!query) {
+      return res.status(400).json({ error: 'Silakan ketik nama lengkap Anda terlebih dahulu.' });
+    }
+
+    const rawExam = db.prepare('SELECT id, title, subject, class_target, duration_minutes FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    if (!rawExam) {
+      return res.status(404).json({ error: 'Belum ada jadwal ujian yang diaktifkan oleh sekolah.' });
+    }
+
+    // 1. Coba pencarian persis (exact match case-insensitive)
+    let student = db.prepare('SELECT id, exam_number, nisn, full_name, class_name, room, seat_number, birth_info FROM students WHERE LOWER(TRIM(full_name)) = LOWER(TRIM(?)) LIMIT 1').get(query);
+
+    // 2. Jika belum ketemu, cari kemiripan (LIKE)
+    let candidates = [];
+    if (!student) {
+      candidates = db.prepare('SELECT id, exam_number, nisn, full_name, class_name, room, seat_number, birth_info FROM students WHERE LOWER(full_name) LIKE LOWER(?) LIMIT 5').all(`%${query}%`);
+      if (candidates.length === 1) {
+        student = candidates[0];
+      }
+    }
+
+    if (!student && candidates.length === 0) {
+      return res.status(404).json({
+        error: `Nama "${query}" tidak ditemukan dalam daftar peserta ujian. Pastikan ejaan nama Anda sesuai.`
+      });
+    }
+
+    res.json({
+      student: student ? {
+        id: student.id,
+        exam_number: student.exam_number,
+        full_name: student.full_name,
+        nisn: student.nisn,
+        birth_info: student.birth_info || '-',
+        class_name: student.class_name,
+        room: student.room,
+        seat_number: student.seat_number
+      } : null,
+      candidates: candidates.map(c => ({
+        id: c.id,
+        full_name: c.full_name,
+        class_name: c.class_name,
+        nisn: c.nisn,
+        birth_info: c.birth_info || '-'
+      })),
+      exam: rawExam
+    });
+  });
+
+  // Masuk langsung ke soal ("Siap Mengikuti Ujian") tanpa memerlukan teknisi atau token pengawas
+  app.post('/api/ujian/start-direct', (req, res) => {
+    const { studentId, name, device_info } = req.body || {};
+    let student = null;
+    if (studentId) {
+      student = db.prepare('SELECT * FROM students WHERE id = ?').get(Number(studentId));
+    } else if (name) {
+      student = db.prepare('SELECT * FROM students WHERE LOWER(TRIM(full_name)) = LOWER(TRIM(?)) LIMIT 1').get(String(name).trim());
+    }
+    if (!student) {
+      return res.status(404).json({ error: 'Data peserta tidak ditemukan.' });
+    }
+
+    const rawExam = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const activeExam = ensureFresh15MinToken(db, rawExam);
+    if (!activeExam) {
+      return res.status(404).json({ error: 'Belum ada ujian yang aktif saat ini.' });
+    }
+
+    let session = db.prepare('SELECT * FROM exam_sessions WHERE exam_id = ? AND student_id = ?').get(activeExam.id, student.id);
+    const nowIso = new Date().toISOString();
+    if (!session) {
+      const info = db.prepare(`
+        INSERT INTO exam_sessions (exam_id, student_id, status, need_token_reverify, current_question_number, last_activity_at, violation_count, started_at, device_info)
+        VALUES (?, ?, 'WORKING', 0, 1, ?, 0, ?, ?)
+      `).run(activeExam.id, student.id, nowIso, nowIso, device_info || 'Direct Entry Web');
+      session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(info.lastInsertRowid));
+    } else {
+      // Izinkan siswa melanjutkan kembali tanpa harus menunggu buka kunci pengawas
+      db.prepare("UPDATE exam_sessions SET status = 'WORKING', need_token_reverify = 0, last_activity_at = ? WHERE id = ?").run(nowIso, session.id);
+      session.status = 'WORKING';
+      session.need_token_reverify = 0;
+    }
+
+    res.json({
+      sessionId: session.id,
+      status: session.status,
+      student: {
+        id: student.id,
+        exam_number: student.exam_number,
+        full_name: student.full_name,
+        class_name: student.class_name,
+        nisn: student.nisn,
+        birth_info: student.birth_info || '-',
+        room: student.room,
+        seat_number: student.seat_number
+      },
+      exam: {
+        id: activeExam.id,
+        title: activeExam.title,
+        subject: activeExam.subject,
+        duration_minutes: activeExam.duration_minutes
+      }
+    });
+  });
+
+  // Melanjutkan ujian secara mandiri jika siswa terganggu / pindah tab (tanpa butuh pengawas)
+  app.post('/api/ujian/self-resume', (req, res) => {
+    const { sessionId } = req.body || {};
+    const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(sessionId));
+    if (!session) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+    if (session.status === 'FINISHED') return res.json({ status: 'FINISHED' });
+
+    db.prepare("UPDATE exam_sessions SET status = 'WORKING', need_token_reverify = 0, last_activity_at = ? WHERE id = ?").run(new Date().toISOString(), session.id);
+    res.json({ status: 'WORKING', need_token_reverify: 0 });
+  });
+
   app.post('/api/ujian/login', (req, res) => {
     const { exam_number, password, token, device_info } = req.body || {};
     const student = db.prepare('SELECT * FROM students WHERE exam_number = ? AND password = ?').get(
@@ -930,7 +1071,8 @@ function createApp(db) {
     const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(sessionId);
     if (!session) return res.status(404).json({ error: 'Sesi ujian tidak ditemukan' });
 
-    const student = db.prepare('SELECT id, exam_number, full_name, class_name, room, seat_number FROM students WHERE id = ?').get(session.student_id);
+    const student = db.prepare('SELECT id, exam_number, full_name, class_name, room, seat_number, nisn, birth_info FROM students WHERE id = ?').get(session.student_id);
+    if (student && !student.birth_info) student.birth_info = '-';
     const exam = db.prepare('SELECT id, title, subject, class_target, session_name, duration_minutes, shuffle_questions FROM exams WHERE id = ?').get(session.exam_id);
 
     let questions = getCachedExamQuestions(session.exam_id);

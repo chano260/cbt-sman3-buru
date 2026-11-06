@@ -231,6 +231,10 @@
               <input id="stName" class="input" placeholder="Nama lengkap siswa">
             </div>
             <div class="form-group">
+              <label>Tempat, Tanggal Lahir (TTL)</label>
+              <input id="stBirthInfo" class="input" placeholder="Contoh: Namlea, 14 Januari 2008">
+            </div>
+            <div class="form-group">
               <label>Kelas</label>
               <input id="stClass" class="input" value="XII IPA 1">
             </div>
@@ -262,6 +266,7 @@
                   <th>No. Peserta</th>
                   <th>NISN</th>
                   <th>Nama Siswa</th>
+                  <th>TTL</th>
                   <th>Kelas</th>
                   <th>Ruang</th>
                   <th>Password CBT</th>
@@ -524,6 +529,7 @@
           <td><b>${s.exam_number}</b></td>
           <td>${s.nisn}</td>
           <td><b>${s.full_name}</b></td>
+          <td>${s.birth_info || '-'}</td>
           <td>${s.class_name}</td>
           <td>${s.room}</td>
           <td><code>${s.password}</code></td>
@@ -680,6 +686,7 @@
         exam_number: document.getElementById('stExamNo').value,
         nisn: document.getElementById('stNisn').value,
         full_name: document.getElementById('stName').value,
+        birth_info: document.getElementById('stBirthInfo').value,
         class_name: document.getElementById('stClass').value,
         room: document.getElementById('stRoom').value,
         seat_number: document.getElementById('stSeat').value,
@@ -693,6 +700,7 @@
       if (res.ok) {
         document.getElementById('stExamNo').value = '';
         document.getElementById('stName').value = '';
+        document.getElementById('stBirthInfo').value = '';
         loadOverview();
       } else {
         const err = await res.json();

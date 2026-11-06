@@ -68,7 +68,8 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
       class_name TEXT NOT NULL,
       room TEXT NOT NULL,
       seat_number INTEGER NOT NULL,
-      password TEXT NOT NULL
+      password TEXT NOT NULL,
+      birth_info TEXT
     );
 
     CREATE TABLE IF NOT EXISTS exams (
@@ -154,7 +155,8 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
     "ALTER TABLE exam_sessions ADD COLUMN need_token_reverify INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE exam_sessions ADD COLUMN current_question_number INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE exam_sessions ADD COLUMN last_activity_at TEXT",
-    "ALTER TABLE questions ADD COLUMN audio_data TEXT"
+    "ALTER TABLE questions ADD COLUMN audio_data TEXT",
+    "ALTER TABLE students ADD COLUMN birth_info TEXT"
   ];
   for (const sql of safeAlter) {
     try { db.exec(sql); } catch {}
@@ -172,18 +174,18 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
     insertUser.run('pengawas2', 'pengawas123', 'Ibu Wa Ode Kartini, S.Pd.', 'pengawas', null, 'Ruang 02');
 
     const insertStudent = db.prepare(`
-      INSERT INTO students (exam_number, nisn, full_name, class_name, room, seat_number, password)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO students (exam_number, nisn, full_name, class_name, room, seat_number, password, birth_info)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const sampleStudents = [
-      ['26-03-001', '0081234501', 'Ahmad Fauzi', 'XII IPA 1', 'Ruang 01', 1, 'BURU01'],
-      ['26-03-002', '0081234502', 'Siti Rahma Wabula', 'XII IPA 1', 'Ruang 01', 2, 'BURU02'],
-      ['26-03-003', '0081234503', 'Budi Santoso Tomia', 'XII IPA 1', 'Ruang 01', 3, 'BURU03'],
-      ['26-03-004', '0081234504', 'Rizky Pratama Lesnussa', 'XII IPA 1', 'Ruang 01', 4, 'BURU04'],
-      ['26-03-005', '0081234505', 'Nadia Putri Tasijawa', 'XII IPA 1', 'Ruang 01', 5, 'BURU05'],
-      ['26-03-006', '0081234506', 'Fajar Ramadhan Behuku', 'XII IPA 1', 'Ruang 01', 6, 'BURU06'],
-      ['26-03-007', '0081234507', 'Maria Gracia Hukunala', 'XII IPA 2', 'Ruang 02', 1, 'BURU07'],
-      ['26-03-008', '0081234508', 'Yusuf Ibrahim Besan', 'XII IPA 2', 'Ruang 02', 2, 'BURU08']
+      ['26-03-001', '0081234501', 'Ahmad Fauzi', 'XII IPA 1', 'Ruang 01', 1, 'BURU01', 'Namlea, 14 Januari 2008'],
+      ['26-03-002', '0081234502', 'Siti Rahma Wabula', 'XII IPA 1', 'Ruang 01', 2, 'BURU02', 'Waprea, 22 Maret 2008'],
+      ['26-03-003', '0081234503', 'Budi Santoso Tomia', 'XII IPA 1', 'Ruang 01', 3, 'BURU03', 'Namlea, 05 Juli 2008'],
+      ['26-03-004', '0081234504', 'Rizky Pratama Lesnussa', 'XII IPA 1', 'Ruang 01', 4, 'BURU04', 'Kayeli, 19 Agustus 2008'],
+      ['26-03-005', '0081234505', 'Nadia Putri Tasijawa', 'XII IPA 1', 'Ruang 01', 5, 'BURU05', 'Namlea, 11 November 2008'],
+      ['26-03-006', '0081234506', 'Fajar Ramadhan Behuku', 'XII IPA 1', 'Ruang 01', 6, 'BURU06', 'Waeapo, 02 Oktober 2008'],
+      ['26-03-007', '0081234507', 'Maria Gracia Hukunala', 'XII IPA 2', 'Ruang 02', 1, 'BURU07', 'Namlea, 28 April 2008'],
+      ['26-03-008', '0081234508', 'Yusuf Ibrahim Besan', 'XII IPA 2', 'Ruang 02', 2, 'BURU08', 'Air Buaya, 17 Desember 2008']
     ];
     for (const s of sampleStudents) {
       insertStudent.run(...s);

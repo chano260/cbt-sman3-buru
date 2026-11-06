@@ -303,6 +303,71 @@ test('Guru can attach Image and Audio (Listening MP3) to any question and studen
   assert.equal(qWithMedia.audio_data, mediaRes.audio_data);
 });
 
+test('Direct student name search, confirmation with TTL & NISN, direct exam start without proctor token, and self-resume', async (t) => {
+  const db = initDb(':memory:');
+  const app = createApp(db);
+  const server = app.listen(0);
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  // 1. Cek list nama siswa untuk autocomplete
+  const listRes = await fetch(`${base}/api/ujian/students-list`).then(r => r.json());
+  assert.ok(listRes.students.length >= 8);
+  assert.ok(listRes.students.some(s => s.full_name === 'Ahmad Fauzi'));
+
+  // 2. Cari nama siswa "ahmad fauzi" (case-insensitive)
+  const findRes = await fetch(`${base}/api/ujian/find-student`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'ahmad fauzi' })
+  }).then(r => r.json());
+
+  assert.ok(findRes.student, 'Student should be found');
+  assert.equal(findRes.student.full_name, 'Ahmad Fauzi');
+  assert.equal(findRes.student.nisn, '0081234501');
+  assert.equal(findRes.student.class_name, 'XII IPA 1');
+  assert.ok(findRes.student.birth_info.includes('Namlea'));
+
+  // 3. Masuk langsung ke soal ("Siap Mengikuti Ujian") tanpa token/password pengawas
+  const startRes = await fetch(`${base}/api/ujian/start-direct`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentId: findRes.student.id })
+  }).then(r => r.json());
+
+  assert.ok(startRes.sessionId);
+  assert.equal(startRes.status, 'WORKING');
+  assert.equal(startRes.student.full_name, 'Ahmad Fauzi');
+
+  // 4. Pastikan bisa langsung load paket soal ujian
+  const sess = await fetch(`${base}/api/ujian/session/${startRes.sessionId}`).then(r => r.json());
+  assert.ok(sess.questions.length > 0);
+  assert.equal(sess.student.birth_info, 'Namlea, 14 Januari 2008');
+
+  // 5. Bisa simpan jawaban PG
+  const q1 = sess.questions[0];
+  const ansRes = await fetch(`${base}/api/ujian/answer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: startRes.sessionId, questionId: q1.id, chosenOption: 'B' })
+  });
+  assert.equal(ansRes.status, 200);
+
+  // 6. Uji self-resume jika terdeteksi keluar aplikasi (tanpa perlu web pengawas/teknisi)
+  await fetch(`${base}/api/ujian/violation`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: startRes.sessionId, reason: 'Pindah tab browser' })
+  });
+  const resumeRes = await fetch(`${base}/api/ujian/self-resume`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: startRes.sessionId })
+  }).then(r => r.json());
+  assert.equal(resumeRes.status, 'WORKING');
+});
+
+
 
 
 

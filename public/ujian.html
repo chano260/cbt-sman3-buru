@@ -205,35 +205,103 @@
   </div>
 
   <!-- LAYAR 1: LOGIN PESERTA UJIAN + TOKEN -->
-  <div id="studentLoginScreen" class="exam-container" style="padding-top:32px;">
-    <div class="question-box" style="padding:26px;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+  <div id="studentLoginScreen" class="exam-container" style="padding-top:28px;">
+    <div class="question-box" style="padding:24px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
         <div class="brand-logo" style="width:44px;height:44px;font-size:17px;">S3</div>
         <div>
           <h2 style="font-size:18px;font-weight:800;">Exambro SMA Negeri 3 Buru</h2>
-          <span style="font-size:12px;color:var(--muted);">Login Peserta Ujian Berbasis Android</span>
+          <span style="font-size:12px;color:var(--muted);">Portal Ujian Berbasis Android & Komputer</span>
         </div>
       </div>
 
-      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px;font-size:12px;color:#1e3a8a;margin-bottom:16px;">
-        🔒 <b>Perhatian:</b> Selama ujian berlangsung, dilarang keluar aplikasi, membuka layar belah, atau berpindah aplikasi. Jika melanggar, layar ujian otomatis <b>TERKUNCI</b>.
+      <div id="examActivePill" style="display:none;background:#eff6ff;color:#1e40af;padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;margin-bottom:14px;border:1px solid #bfdbfe;">
+        📘 Ujian Aktif: <span id="examActiveTitle">-</span>
       </div>
 
-      <div class="form-group" style="margin-bottom:12px;">
-        <label>Nomor Peserta Ujian</label>
-        <input id="inpExamNo" class="input" value="" placeholder="Contoh: 26-03-001">
-      </div>
-      <div class="form-group" style="margin-bottom:12px;">
-        <label>Password Kartu Login</label>
-        <input id="inpPassword" type="password" class="input" value="" placeholder="Password ujian">
-      </div>
-      <div class="form-group" style="margin-bottom:18px;">
-        <label>Token Ujian (Dari Pengawas Ruangan)</label>
-        <input id="inpToken" class="input" style="font-weight:800;letter-spacing:0.12em;text-transform:uppercase;" placeholder="Ketik 5 huruf Token">
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:11px 13px;font-size:12px;color:#991b1b;margin-bottom:16px;">
+        🔒 <b>Tata Tertib:</b> Selama ujian dilarang keluar aplikasi, membuka layar belah, atau membuka tab lain. Setiap perpindahan aplikasi otomatis dicatat pada rekap guru.
       </div>
 
-      <div id="stLoginError" style="color:var(--red);font-size:12.5px;font-weight:700;margin-bottom:12px;display:none;"></div>
-      <button class="btn btn-primary" style="width:100%;padding:13px;font-size:14px;" onclick="startStudentExam()">🔒 Kunci Layar & Mulai Ujian →</button>
+      <!-- TAHAP 1: INPUT NAMA LENGKAP -->
+      <div id="directEntryStep">
+        <div class="form-group" style="margin-bottom:14px;">
+          <label style="font-weight:800;color:var(--slate);">Ketik Nama Lengkap Anda</label>
+          <input id="inpSearchName" list="studentsNameList" class="input" style="font-size:15px;padding:12px 14px;" placeholder="Contoh: Ahmad Fauzi..." autocomplete="off">
+          <datalist id="studentsNameList"></datalist>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:5px;">
+            💡 Ketik 2-3 huruf nama Anda lalu pilih dari daftar saran yang muncul.
+          </div>
+        </div>
+
+        <div id="stFindError" style="color:var(--red);font-size:12.5px;font-weight:700;margin-bottom:12px;display:none;"></div>
+        <button class="btn btn-primary" style="width:100%;padding:13px;font-size:14.5px;font-weight:800;" onclick="submitCheckStudent()">
+          🔎 Cek Data Diri Saya →
+        </button>
+      </div>
+
+      <!-- TAHAP 2: KONFIRMASI DATA DIRI SEBELUM MASUK SOAL -->
+      <div id="confirmStudentStep" style="display:none;">
+        <div style="background:#ecfdf5;border:1.5px solid #a7f3d0;border-radius:14px;padding:16px;margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:800;color:#065f46;text-transform:uppercase;margin-bottom:10px;letter-spacing:0.04em;">
+            📋 KONFIRMASI DATA DIRI PESERTA:
+          </div>
+          <table style="width:100%;font-size:13.5px;border-collapse:collapse;">
+            <tr>
+              <td style="padding:5px 0;color:var(--muted);width:130px;">Nama Lengkap</td>
+              <td style="padding:5px 0;font-weight:800;color:#0f172a;" id="confStudentName">-</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 0;color:var(--muted);">NISN</td>
+              <td style="padding:5px 0;font-weight:800;color:#0f172a;" id="confStudentNisn">-</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 0;color:var(--muted);">TTL</td>
+              <td style="padding:5px 0;font-weight:800;color:#0f172a;" id="confStudentBirth">-</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 0;color:var(--muted);">Kelas</td>
+              <td style="padding:5px 0;font-weight:800;color:#0f172a;" id="confStudentClass">-</td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:11px 13px;font-size:12px;color:#1e3a8a;margin-bottom:16px;">
+          ✓ Data diri Anda telah diverifikasi. Klik tombol hijau di bawah untuk langsung membuka naskah soal.
+        </div>
+
+        <button class="btn btn-green" id="btnConfirmStart" style="width:100%;padding:14px;font-size:15px;font-weight:800;" onclick="confirmAndStartDirectExam()">
+          🚀 Ya, Data Benar & Siap Mengikuti Ujian
+        </button>
+        <button class="btn btn-outline" style="width:100%;padding:10px;margin-top:10px;font-size:12.5px;" onclick="cancelConfirm()">
+          ← Bukan Saya / Ganti Nama
+        </button>
+      </div>
+
+      <!-- TAHAP 3: MODE LOGIN MANUAL LAMA (OPSIONAL DENGAN TOKEN & NOMOR PESERTA) -->
+      <div id="legacyLoginSection" style="display:none;margin-top:18px;padding-top:16px;border-top:1px dashed var(--border);">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;">Login Manual (Nomor Peserta & Password):</div>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label>Nomor Peserta Ujian</label>
+          <input id="inpExamNo" class="input" value="" placeholder="Contoh: 26-03-001">
+        </div>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label>Password Kartu Login</label>
+          <input id="inpPassword" type="password" class="input" value="" placeholder="Password ujian">
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>Token Ujian</label>
+          <input id="inpToken" class="input" style="font-weight:800;letter-spacing:0.12em;text-transform:uppercase;" placeholder="5 huruf Token">
+        </div>
+        <div id="stLoginError" style="color:var(--red);font-size:12.5px;font-weight:700;margin-bottom:12px;display:none;"></div>
+        <button class="btn btn-primary" style="width:100%;padding:12px;font-size:13.5px;" onclick="startStudentExam()">Masuk via Nomor Peserta →</button>
+      </div>
+
+      <div style="text-align:center;margin-top:16px;">
+        <a href="javascript:void(0)" onclick="toggleLegacyLogin()" id="linkToggleLegacy" style="font-size:11.5px;color:var(--muted);text-decoration:underline;">
+          Opsi: Login Manual dengan Nomor Peserta & Token
+        </a>
+      </div>
     </div>
   </div>
 
@@ -289,32 +357,40 @@
   <!-- LAYAR MERAH TERKUNCI SAAT TERDETEKSI KELUAR APLIKASI -->
   <div id="lockedRedOverlay" class="locked-screen">
     <div style="font-size:52px;margin-bottom:12px;">🚨</div>
-    <h1 style="font-size:24px;font-weight:900;margin-bottom:8px;">LAYAR UJIAN ANDA DIKUNCI!</h1>
-    <p style="font-size:14.5px;max-width:440px;opacity:0.92;margin-bottom:20px;" id="lockedReasonText">
-      Sistem Exambro mendeteksi Anda mencoba keluar dari layar ujian atau berpindah aplikasi.
+    <h1 style="font-size:22px;font-weight:900;margin-bottom:8px;">PERINGATAN: KELUAR DARI APLIKASI!</h1>
+    <p style="font-size:14px;max-width:440px;opacity:0.92;margin-bottom:16px;" id="lockedReasonText">
+      Sistem mendeteksi Anda berpindah aplikasi atau meminimalkan layar ujian CBT.
     </p>
-    <div style="background:rgba(0,0,0,0.28);padding:16px 22px;border-radius:14px;font-size:13px;max-width:420px;margin-bottom:20px;">
-      Silakan angkat tangan dan lapor kepada <b>Pengawas Ruangan</b> untuk membuka kunci ujian Anda dari HP Pengawas.
+    <div style="background:rgba(0,0,0,0.32);padding:14px 20px;border-radius:14px;font-size:13px;max-width:420px;margin-bottom:20px;line-height:1.5;">
+      ⚠️ <b>Catatan:</b> Pelanggaran ini telah otomatis <b>tercatat di Rekap Nilai Guru</b>. Silakan kembali mengerjakan soal dan jangan membuka aplikasi lain lagi!
     </div>
-    <div style="font-size:12px;opacity:0.8;">Menunggu persetujuan Buka Kunci dari Pengawas Ruangan...</div>
+    <button class="btn btn-green" style="font-size:14.5px;padding:14px 28px;font-weight:800;border:none;box-shadow:0 6px 18px rgba(0,0,0,0.4);" onclick="selfResumeExam()">
+      ✓ Saya Mengerti, Lanjutkan Pengerjaan Soal →
+    </button>
   </div>
 
   <!-- LAYAR VERIFIKASI TOKEN 15-MENIT SETELAH GANGGUAN / DIBUKA PENGAWAS -->
   <div id="reverifyTokenOverlay" class="locked-screen" style="background:#1e3a8a;">
     <div style="font-size:48px;margin-bottom:10px;">🔑</div>
-    <h1 style="font-size:22px;font-weight:900;margin-bottom:8px;">MASUKKAN TOKEN 15-MENIT TERBARU</h1>
+    <h1 style="font-size:22px;font-weight:900;margin-bottom:8px;">LANJUTKAN PENGERJAAN SOAL</h1>
     <p style="font-size:13.5px;max-width:420px;opacity:0.92;margin-bottom:16px;">
-      Pengawas telah membuka kunci ujian Anda setelah gangguan. Karena Token Ujian berganti setiap 15 menit, masukkan <b>Token Aktif Terbaru</b> dari Pengawas untuk melanjutkan pengerjaan soal:
+      Sesi pengerjaan soal Anda dijeda sementara. Tekan tombol di bawah untuk langsung melanjutkan pengerjaan:
     </p>
-    <div style="max-width:300px;width:100%;">
-      <input id="inpResumeToken" class="input" style="text-align:center;font-size:20px;font-weight:900;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:10px;" placeholder="TOKEN BARU">
-      <div id="resumeTokenErr" style="color:#fecaca;font-size:12.5px;font-weight:700;margin-bottom:10px;display:none;"></div>
-      <button class="btn btn-green" style="width:100%;padding:12px;" onclick="submitResumeToken()">✓ Verifikasi Token & Lanjutkan Ujian</button>
+    <div style="max-width:320px;width:100%;">
+      <button class="btn btn-green" style="width:100%;padding:13px;font-size:14px;font-weight:800;" onclick="selfResumeExam()">
+        ✓ Lanjutkan Ujian Sekarang →
+      </button>
+      <div style="margin-top:14px;border-top:1px dashed rgba(255,255,255,0.25);padding-top:12px;">
+        <input id="inpResumeToken" class="input" style="text-align:center;font-size:17px;font-weight:900;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:8px;" placeholder="TOKEN (JIKA ADA)">
+        <div id="resumeTokenErr" style="color:#fecaca;font-size:12px;font-weight:700;margin-bottom:8px;display:none;"></div>
+        <button class="btn btn-outline" style="width:100%;padding:10px;color:#fff;border-color:rgba(255,255,255,0.4);font-size:12px;" onclick="submitResumeToken()">Verifikasi via Token</button>
+      </div>
     </div>
   </div>
 
   <script>
     let sessionId = sessionStorage.getItem('cbt_active_session_id') || null;
+    let selectedStudent = null;
     let examData = null;
     let questions = [];
     let answers = {};
@@ -323,6 +399,157 @@
     let timerInterval = null;
     let pollStatusInterval = null;
     let examActive = false;
+
+    // Load daftar siswa untuk autocomplete pencarian nama
+    async function loadStudentsAutocomplete() {
+      try {
+        const res = await fetch('/api/ujian/students-list');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.exam) {
+          const pill = document.getElementById('examActivePill');
+          if (pill) {
+            document.getElementById('examActiveTitle').textContent = `${data.exam.subject} (${data.exam.class_target || 'Semua Kelas'}) • Durasi: ${data.exam.duration_minutes} Menit`;
+            pill.style.display = 'block';
+          }
+        }
+        const datalist = document.getElementById('studentsNameList');
+        if (datalist && Array.isArray(data.students)) {
+          datalist.innerHTML = data.students.map(s => 
+            `<option value="${s.full_name}">${s.class_name} • TTL: ${s.birth_info || '-'}</option>`
+          ).join('');
+        }
+      } catch {}
+    }
+    loadStudentsAutocomplete();
+
+    // Event listener Enter pada kolom ketik nama
+    document.addEventListener('DOMContentLoaded', () => {
+      const inp = document.getElementById('inpSearchName');
+      if (inp) {
+        inp.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            submitCheckStudent();
+          }
+        });
+      }
+    });
+
+    // Cek data diri siswa saat nama disubmit
+    async function submitCheckStudent() {
+      const name = (document.getElementById('inpSearchName').value || '').trim();
+      const errEl = document.getElementById('stFindError');
+      errEl.style.display = 'none';
+
+      if (!name) {
+        errEl.textContent = 'Silakan ketik nama lengkap Anda terlebih dahulu.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/ujian/find-student', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.student) {
+          errEl.textContent = data.error || 'Nama siswa tidak ditemukan. Periksa kembali ejaan nama Anda.';
+          errEl.style.display = 'block';
+          return;
+        }
+
+        selectedStudent = data.student;
+        document.getElementById('confStudentName').textContent = selectedStudent.full_name;
+        document.getElementById('confStudentNisn').textContent = selectedStudent.nisn || '-';
+        document.getElementById('confStudentBirth').textContent = selectedStudent.birth_info || '-';
+        document.getElementById('confStudentClass').textContent = selectedStudent.class_name || '-';
+
+        document.getElementById('directEntryStep').style.display = 'none';
+        document.getElementById('confirmStudentStep').style.display = 'block';
+      } catch (err) {
+        errEl.textContent = 'Gagal memeriksa nama ke server. Periksa koneksi internet Anda.';
+        errEl.style.display = 'block';
+      }
+    }
+
+    function cancelConfirm() {
+      selectedStudent = null;
+      document.getElementById('confirmStudentStep').style.display = 'none';
+      document.getElementById('directEntryStep').style.display = 'block';
+      const inp = document.getElementById('inpSearchName');
+      if (inp) inp.focus();
+    }
+
+    async function confirmAndStartDirectExam() {
+      if (!selectedStudent) return;
+      const btn = document.getElementById('btnConfirmStart');
+      btn.disabled = true;
+      btn.textContent = '⏳ Menyiapkan Naskah Soal Ujian...';
+
+      try {
+        const res = await fetch('/api/ujian/start-direct', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ studentId: selectedStudent.id })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || 'Gagal memulai ujian.');
+          btn.disabled = false;
+          btn.textContent = '🚀 Ya, Data Benar & Siap Mengikuti Ujian';
+          return;
+        }
+
+        sessionId = data.sessionId;
+        sessionStorage.setItem('cbt_active_session_id', String(sessionId));
+
+        // Fullscreen / Android Exambro Lock
+        if (window.AndroidExambro && typeof window.AndroidExambro.enterLockMode === 'function') {
+          window.AndroidExambro.enterLockMode();
+        } else if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+
+        await loadExamSession();
+        document.getElementById('studentLoginScreen').style.display = 'none';
+        document.getElementById('studentExamScreen').style.display = 'block';
+        examActive = true;
+        startTimersAndSecurityWatch();
+      } catch (err) {
+        alert('Gagal terhubung ke server CBT.');
+        btn.disabled = false;
+        btn.textContent = '🚀 Ya, Data Benar & Siap Mengikuti Ujian';
+      }
+    }
+
+    function toggleLegacyLogin() {
+      const sec = document.getElementById('legacyLoginSection');
+      const lnk = document.getElementById('linkToggleLegacy');
+      if (sec.style.display === 'none') {
+        sec.style.display = 'block';
+        lnk.textContent = 'Tutup Mode Login Manual';
+      } else {
+        sec.style.display = 'none';
+        lnk.textContent = 'Opsi: Login Manual dengan Nomor Peserta & Token';
+      }
+    }
+
+    async function selfResumeExam() {
+      if (!sessionId) return;
+      try {
+        await fetch('/api/ujian/self-resume', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId })
+        });
+      } catch {}
+      hideLockedScreen();
+      document.getElementById('reverifyTokenOverlay').style.display = 'none';
+      await loadExamSession();
+    }
 
     // Auto-resume sesi jika halaman di-refresh oleh siswa
     if (sessionId) {
@@ -381,7 +608,7 @@
       remainingSeconds = data.session.remaining_seconds || 5400;
 
       document.getElementById('hdrStudentName').textContent = `${data.student.full_name} (${data.student.class_name})`;
-      document.getElementById('hdrExamInfo').textContent = `${data.exam.subject} • ${data.student.room} (Meja ${data.student.seat_number})`;
+      document.getElementById('hdrExamInfo').textContent = `${data.exam.subject} • NISN: ${data.student.nisn || '-'} • TTL: ${data.student.birth_info || '-'}`;
 
       if (data.session.status === 'LOCKED') {
         showLockedScreen(data.session.last_violation_reason);

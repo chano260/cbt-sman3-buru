@@ -7,27 +7,27 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div class="topbar" style="background:#064e3b;">
+  <div class="topbar">
     <div class="brand">
-      <div class="brand-logo" style="background:linear-gradient(135deg,#059669,#10b981);">📚</div>
+      <div class="brand-logo">S3</div>
       <div class="brand-text">
         <h1>PANEL GURU MATA PELAJARAN</h1>
-        <span>SMA Negeri 3 Buru • Import Soal Word (.docx), Bank Soal & Rekap Nilai PG</span>
+        <span>SMA Negeri 3 Buru • Manajemen Bank Soal & Rekap Nilai</span>
       </div>
     </div>
     <div class="topbar-right">
       <span class="chip" id="guruNameChip">Guru Mapel</span>
-      <a href="/" class="btn btn-sm btn-outline" style="background:transparent;color:#fff;border-color:#6ee7b7;">← Menu Utama</a>
+      <a href="/" class="btn btn-sm btn-outline" style="background:transparent;color:#e5e7eb;border-color:#374151;">Menu Utama</a>
     </div>
   </div>
 
   <!-- MODAL LOGIN GURU -->
-  <div id="loginOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.82);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;">
-    <div class="card" style="max-width:400px;width:100%;margin:0;">
-      <h3 style="font-size:18px;font-weight:800;margin-bottom:4px;">Login Guru Mata Pelajaran</h3>
-      <p style="font-size:12.5px;color:var(--muted);margin-bottom:16px;">Kelola Bank Soal Word & Rekap Nilai Pilihan Ganda</p>
+  <div id="loginOverlay" style="position:fixed;inset:0;background:rgba(17,24,39,0.88);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;">
+    <div class="card" style="max-width:390px;width:100%;margin:0;padding:24px;">
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:4px;">Login Guru Mata Pelajaran</h3>
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:16px;">Masuk untuk mengelola bank soal dan mengunduh rekap nilai.</p>
       <div class="form-group" style="margin-bottom:12px;">
-        <label>Username Guru</label>
+        <label>Username</label>
         <input id="loginUser" class="input" value="guru">
       </div>
       <div class="form-group" style="margin-bottom:16px;">
@@ -35,57 +35,57 @@
         <input id="loginPass" type="password" class="input" value="guru123">
       </div>
       <div id="loginErr" style="color:var(--red);font-size:12px;margin-bottom:10px;display:none;"></div>
-      <button class="btn btn-green" style="width:100%;" onclick="doGuruLogin()">Masuk ke Panel Guru →</button>
+      <button class="btn btn-primary" style="width:100%;padding:10px;" onclick="doGuruLogin()">Masuk ke Panel Guru</button>
     </div>
   </div>
 
   <div class="app-shell">
     <aside class="sidebar">
-      <button class="nav-btn active" onclick="switchGuruTab('tab-bank', this)">📄 Import Word & Bank Soal</button>
-      <button class="nav-btn" onclick="switchGuruTab('tab-scores', this)">📊 Rekap Nilai PG (Excel)</button>
+      <button class="nav-btn active" onclick="switchGuruTab('tab-bank', this)">Bank Soal & Impor Word</button>
+      <button class="nav-btn" onclick="switchGuruTab('tab-scores', this)">Rekap Nilai Peserta</button>
     </aside>
 
     <main class="main-content">
       <!-- PILIH MATA PELAJARAN / JADWAL UJIAN -->
-      <div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;background:#ecfdf5;border-color:#a7f3d0;">
+      <div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
         <div>
-          <span style="font-size:11px;font-weight:800;color:#065f46;text-transform:uppercase;">Mata Pelajaran & Paket Ujian Aktif</span>
+          <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;">Mata Pelajaran & Paket Ujian</span>
           <div style="margin-top:4px;">
-            <select id="examSelector" class="input" style="min-width:280px;font-weight:700;" onchange="onExamChange()"></select>
+            <select id="examSelector" class="input" style="min-width:280px;font-weight:600;" onchange="onExamChange()"></select>
           </div>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <a href="/api/guru/template-word" class="btn btn-outline">📥 Unduh Template Word (.docx)</a>
-          <button class="btn btn-green" onclick="downloadExcel()">📊 Download Nilai PG (.xlsx)</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <a href="/api/guru/template-word" class="btn btn-outline">Unduh Template Word (.docx)</a>
+          <button class="btn btn-green" onclick="downloadExcel()">Ekspor Nilai (.xlsx)</button>
         </div>
       </div>
 
       <!-- TAB 1: IMPORT WORD & BANK SOAL -->
       <section id="tab-bank">
-        <div class="card" style="border:2px dashed #6ee7b7;background:#f0fdf4;">
+        <div class="card">
           <div class="card-header">
             <div>
-              <div class="card-title" style="color:#065f46;">📤 Import Soal Sekaligus dari Microsoft Word (.docx)</div>
-              <p style="font-size:12.5px;color:#047857;">
-                Ketik soal Pilihan Ganda (<code>[PG]</code> beserta <code>KUNCI: A/B/C/D/E</code>) dan Soal Esai (<code>[ESAI]</code>) di Microsoft Word, lalu upload di sini.
+              <div class="card-title">Impor Naskah Soal dari Microsoft Word (.docx)</div>
+              <p style="font-size:12.5px;color:var(--muted);margin-top:2px;">
+                Format dokumen menggunakan penanda <code>[PG]</code> disertai <code>KUNCI: A/B/C/D/E</code> untuk Pilihan Ganda, atau <code>[ESAI]</code> untuk Soal Uraian.
               </p>
             </div>
           </div>
 
           <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
             <input type="file" id="wordFileInput" accept=".docx" class="input" style="max-width:340px;">
-            <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;">
-              <input type="checkbox" id="replaceCheck"> Ganti/hapus soal lama di mapel ini
+            <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--slate);">
+              <input type="checkbox" id="replaceCheck"> Timpa soal lama pada paket ini
             </label>
-            <button class="btn btn-green" onclick="uploadWordFile()">🚀 Upload & Import File Word (.docx)</button>
+            <button class="btn btn-primary" onclick="uploadWordFile()">Unggah & Impor Soal (.docx)</button>
           </div>
-          <div id="importResultMsg" style="margin-top:10px;font-size:13px;font-weight:700;color:#065f46;display:none;"></div>
+          <div id="importResultMsg" style="margin-top:10px;font-size:13px;font-weight:600;color:var(--green);display:none;"></div>
         </div>
 
         <!-- TAMBAH SOAL MANUAL CEPAT -->
         <div class="card">
           <div class="card-header">
-            <div class="card-title">➕ Tambah Soal Manual (Opsional)</div>
+            <div class="card-title">Input Soal Manual</div>
           </div>
           <div class="form-grid">
             <div class="form-group">
@@ -95,8 +95,8 @@
             <div class="form-group">
               <label>Jenis Soal</label>
               <select id="qType" onchange="togglePgFields()">
-                <option value="PG">Pilihan Ganda (Dijawab di HP)</option>
-                <option value="ESAI">Soal Esai (Tampil di HP, Dijawab di Kertas)</option>
+                <option value="PG">Pilihan Ganda</option>
+                <option value="ESAI">Soal Esai (Lembar Kertas)</option>
               </select>
             </div>
             <div class="form-group" id="keyGroup">
@@ -112,15 +112,15 @@
           </div>
           <div class="form-group" style="margin-bottom:12px;">
             <label>Pertanyaan / Naskah Soal</label>
-            <textarea id="qText" rows="2" class="input" placeholder="Ketik naskah soal di sini..."></textarea>
+            <textarea id="qText" rows="2" class="input" placeholder="Ketik naskah soal..."></textarea>
           </div>
           <div class="form-grid" style="margin-bottom:12px;">
             <div class="form-group">
-              <label>🖼️ Gambar Soal — Diagram / Tabel / Foto (Opsional)</label>
+              <label>Lampiran Gambar Soal (Opsional)</label>
               <input type="file" id="qImageInput" accept="image/*" class="input">
             </div>
             <div class="form-group">
-              <label>🔊 Audio Listening — Bahasa Inggris / Indonesia .MP3/.WAV (Opsional)</label>
+              <label>Lampiran Audio Listening .MP3/.WAV (Opsional)</label>
               <input type="file" id="qAudioInput" accept="audio/*,.mp3,.wav,.ogg,.m4a" class="input">
             </div>
           </div>
@@ -131,18 +131,18 @@
             <div class="form-group"><label>Pilihan D</label><input id="optD" class="input"></div>
             <div class="form-group"><label>Pilihan E</label><input id="optE" class="input"></div>
           </div>
-          <button class="btn btn-primary" onclick="addManualQuestion()">+ Simpan ke Bank Soal</button>
+          <button class="btn btn-primary" onclick="addManualQuestion()">Simpan Soal</button>
         </div>
 
         <!-- DAFTAR BANK SOAL -->
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="card-title">📋 Daftar Bank Soal (<span id="totalQBadge">0 Soal</span>)</div>
-              <p style="font-size:12px;color:var(--muted);">Pratinjau soal yang akan tampil di aplikasi Exambro HP Siswa</p>
+              <div class="card-title">Daftar Bank Soal (<span id="totalQBadge">0 Soal</span>)</div>
+              <p style="font-size:12px;color:var(--muted);margin-top:2px;">Pratinjau naskah soal yang tampil pada perangkat peserta</p>
             </div>
           </div>
-          <div id="questionsListContainer" style="display:flex;flex-direction:column;gap:12px;"></div>
+          <div id="questionsListContainer" style="display:flex;flex-direction:column;gap:10px;"></div>
         </div>
       </section>
 
@@ -151,10 +151,10 @@
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="card-title">📊 Rekap Nilai Pilihan Ganda (Hanya Tampil di Guru & Operator)</div>
-              <p style="font-size:12.5px;color:var(--muted);">Nilai PG dihitung otomatis skala 0–100. Untuk nilai Esai, silakan periksa dari Lembar Jawaban Kertas siswa.</p>
+              <div class="card-title">Rekap Nilai Pilihan Ganda Peserta</div>
+              <p style="font-size:12.5px;color:var(--muted);margin-top:2px;">Skor Pilihan Ganda dihitung otomatis (skala 0–100).</p>
             </div>
-            <button class="btn btn-green" onclick="downloadExcel()">📥 Export ke Excel (.xlsx)</button>
+            <button class="btn btn-green" onclick="downloadExcel()">Ekspor ke Excel (.xlsx)</button>
           </div>
           <div class="table-wrap">
             <table>
@@ -264,11 +264,11 @@
         const mediaActionBtns = `
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
             <label class="btn btn-sm btn-outline" style="cursor:pointer;margin:0;">
-              🖼️ ${q.image_data ? 'Ganti Gambar' : '+ Gambar'}
+              ${q.image_data ? 'Ganti Gambar' : '+ Gambar'}
               <input type="file" accept="image/*" style="display:none;" onchange="uploadQuestionMedia(${q.id}, 'image', this)">
             </label>
             <label class="btn btn-sm btn-outline" style="cursor:pointer;margin:0;">
-              🔊 ${q.audio_data ? 'Ganti Audio (.mp3)' : '+ Audio (.mp3)'}
+              ${q.audio_data ? 'Ganti Audio (.mp3)' : '+ Audio (.mp3)'}
               <input type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a" style="display:none;" onchange="uploadQuestionMedia(${q.id}, 'audio', this)">
             </label>
             <button class="btn btn-sm btn-outline" onclick="deleteQuestion(${q.id})">Hapus</button>
@@ -277,41 +277,41 @@
         const mediaPreview = `
           ${q.image_data ? `
             <div style="margin:8px 0;">
-              <img src="${q.image_data}" style="max-width:280px;border-radius:8px;border:1px solid #cbd5e1;display:block;">
-              <button class="btn btn-sm btn-outline" style="margin-top:4px;font-size:11px;padding:3px 8px;" onclick="clearQuestionMedia(${q.id}, 'image')">✕ Hapus Gambar</button>
+              <img src="${q.image_data}" style="max-width:280px;border-radius:4px;border:1px solid var(--border-subtle);display:block;">
+              <button class="btn btn-sm btn-outline" style="margin-top:4px;font-size:11px;padding:3px 8px;" onclick="clearQuestionMedia(${q.id}, 'image')">Hapus Gambar</button>
             </div>
           ` : ''}
           ${q.audio_data ? `
-            <div style="margin:8px 0;background:#eff6ff;border:1px solid #bfdbfe;padding:8px 12px;border-radius:10px;max-width:380px;">
-              <div style="font-size:11.5px;font-weight:800;color:#1e40af;margin-bottom:4px;">🔊 Audio Listening Terpasang:</div>
+            <div style="margin:8px 0;background:#f9fafb;border:1px solid var(--border-subtle);padding:8px 12px;border-radius:4px;max-width:380px;">
+              <div style="font-size:11px;font-weight:600;color:var(--slate);text-transform:uppercase;margin-bottom:4px;">Audio Listening:</div>
               <audio controls preload="metadata" src="${q.audio_data}" style="width:100%;height:36px;"></audio>
-              <button class="btn btn-sm btn-outline" style="margin-top:4px;font-size:11px;padding:3px 8px;" onclick="clearQuestionMedia(${q.id}, 'audio')">✕ Hapus Audio</button>
+              <button class="btn btn-sm btn-outline" style="margin-top:4px;font-size:11px;padding:3px 8px;" onclick="clearQuestionMedia(${q.id}, 'audio')">Hapus Audio</button>
             </div>
           ` : ''}
         `;
 
         if (q.type === 'ESAI') {
           return `
-            <div style="border:1.5px solid #fde68a;background:#fffbeb;border-radius:12px;padding:14px;">
+            <div style="border:1px solid #fcd34d;background:#fffbeb;border-radius:6px;padding:14px;">
               <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
-                <span class="badge" style="background:#fef3c7;color:#b45309;">SOAL ESAI NO. ${q.number} • Dijawab Siswa di Lembar Kertas</span>
+                <span class="badge" style="background:#fef3c7;color:#b45309;border-color:#fde68a;">SOAL ESAI NO. ${q.number} • Lembar Kertas</span>
                 ${mediaActionBtns}
               </div>
-              <p style="font-size:14px;font-weight:600;color:#78350f;">${q.question_text}</p>
+              <p style="font-size:14px;font-weight:500;color:#78350f;">${q.question_text}</p>
               ${mediaPreview}
             </div>
           `;
         }
         return `
-          <div style="border:1px solid var(--border);background:#fff;border-radius:12px;padding:14px;">
+          <div style="border:1px solid var(--border-subtle);background:#fff;border-radius:6px;padding:14px;">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
               <div>
                 <span class="badge badge-working">PILIHAN GANDA NO. ${q.number}</span>
-                <span class="badge badge-finished" style="margin-left:6px;">Kunci Jawaban: ${q.answer_key}</span>
+                <span class="badge badge-finished" style="margin-left:6px;">Kunci: ${q.answer_key}</span>
               </div>
               ${mediaActionBtns}
             </div>
-            <p style="font-size:14px;font-weight:600;margin-bottom:10px;">${q.question_text}</p>
+            <p style="font-size:14px;font-weight:500;margin-bottom:10px;">${q.question_text}</p>
             ${mediaPreview}
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px;font-size:12.5px;color:var(--slate);">
               <div><b>A.</b> ${q.option_a || '-'}</div>

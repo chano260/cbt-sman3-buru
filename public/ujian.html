@@ -3,34 +3,44 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Exambro Ujian CBT — SMA Negeri 3 Buru</title>
+  <title>Portal Ujian CBT — SMA Negeri 3 Buru</title>
   <link rel="stylesheet" href="/styles.css">
   <style>
     body {
       user-select: none;
       -webkit-user-select: none;
-      background: #f8fafc;
+      background: #f4f5f7;
+      color: #111827;
     }
     .exam-topbar {
-      background: #0f172a;
-      color: #fff;
-      padding: 10px 16px;
+      background: #111827;
+      color: #f9fafb;
+      padding: 10px 18px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 600;
+      border-bottom: 1px solid #1f2937;
+      letter-spacing: 0.02em;
     }
     .lock-indicator {
-      color: #34d399;
+      color: #e5e7eb;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+      display: inline-block;
     }
     .exam-header {
-      background: #fff;
-      border-bottom: 1px solid var(--border);
-      padding: 14px 18px;
+      background: #ffffff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 12px 18px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -39,252 +49,307 @@
       z-index: 40;
     }
     .timer-badge {
-      background: #fef2f2;
-      color: #dc2626;
-      border: 1.5px solid #fecaca;
-      padding: 6px 14px;
-      border-radius: 999px;
+      background: #111827;
+      color: #ffffff;
+      border: 1px solid #374151;
+      padding: 6px 12px;
+      border-radius: 4px;
       font-size: 14px;
-      font-weight: 800;
-      letter-spacing: 0.03em;
+      font-weight: 700;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.04em;
     }
     .exam-container {
-      max-width: 640px;
+      max-width: 660px;
       margin: 0 auto;
-      padding: 16px 16px 90px;
+      padding: 20px 16px 96px;
     }
     .num-strip {
       display: flex;
-      gap: 7px;
+      gap: 6px;
       overflow-x: auto;
       padding-bottom: 8px;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
     }
     .num-dot {
       min-width: 36px;
       height: 36px;
-      border-radius: 10px;
-      border: 1.5px solid #cbd5e1;
-      background: #fff;
-      color: #475569;
+      border-radius: 4px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #374151;
       font-size: 12.5px;
-      font-weight: 800;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       padding: 0 8px;
       flex-shrink: 0;
+      transition: all 0.1s ease;
     }
     .num-dot.done {
-      background: #dcfce7;
+      background: #f0fdf4;
       border-color: #86efac;
       color: #15803d;
     }
     .num-dot.essay {
-      background: #fef3c7;
-      border-color: #fde68a;
+      background: #fffbeb;
+      border-color: #fcd34d;
       color: #b45309;
     }
     .num-dot.active {
-      background: #2563eb !important;
-      border-color: #2563eb !important;
-      color: #fff !important;
-      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+      background: #1e40af !important;
+      border-color: #1e40af !important;
+      color: #ffffff !important;
     }
 
     .question-box {
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 20px;
-      box-shadow: var(--shadow);
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 24px;
+      box-shadow: 0 1px 2px rgba(17, 24, 39, 0.05);
       margin-bottom: 16px;
     }
     .q-type-pill {
       display: inline-block;
       font-size: 11px;
-      font-weight: 800;
+      font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      padding: 4px 10px;
-      border-radius: 6px;
-      margin-bottom: 12px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 14px;
+      border: 1px solid transparent;
     }
-    .q-type-pg { background: #eff6ff; color: #2563eb; }
-    .q-type-esai { background: #fef3c7; color: #b45309; }
+    .q-type-pg { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
+    .q-type-esai { background: #fffbeb; color: #b45309; border-color: #fde68a; }
 
     .q-body-text {
       font-size: 15.5px;
-      font-weight: 600;
-      color: #0f172a;
-      line-height: 1.65;
-      margin-bottom: 18px;
+      font-weight: 500;
+      color: #111827;
+      line-height: 1.7;
+      margin-bottom: 20px;
       white-space: pre-line;
     }
 
     .choice-btn {
       width: 100%;
       text-align: left;
-      background: #fff;
-      border: 1.5px solid #cbd5e1;
-      border-radius: 14px;
-      padding: 13px 16px;
-      margin-bottom: 10px;
+      background: #ffffff;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 12px;
       font-size: 14px;
-      font-weight: 600;
-      color: #1e293b;
+      font-weight: 500;
+      color: #1f2937;
       cursor: pointer;
-      transition: all 0.12s ease;
+      transition: background 0.1s ease, border-color 0.1s ease;
+      line-height: 1.5;
+    }
+    .choice-btn:hover {
+      background: #f9fafb;
+      border-color: #9ca3af;
     }
     .choice-letter {
-      width: 30px;
-      height: 30px;
-      border-radius: 9px;
-      background: #f1f5f9;
-      color: #475569;
-      font-weight: 800;
-      font-size: 13px;
+      width: 26px;
+      height: 26px;
+      border-radius: 4px;
+      background: #f3f4f6;
+      border: 1px solid #d1d5db;
+      color: #374151;
+      font-weight: 700;
+      font-size: 12.5px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      margin-top: 1px;
     }
     .choice-btn.selected {
-      border-color: #2563eb;
+      border-color: #1e40af;
       background: #eff6ff;
       color: #1e3a8a;
+      font-weight: 600;
     }
     .choice-btn.selected .choice-letter {
-      background: #2563eb;
-      color: #fff;
+      background: #1e40af;
+      border-color: #1e40af;
+      color: #ffffff;
     }
 
     .essay-paper-instruction {
-      background: linear-gradient(135deg, #fffbeb, #fef3c7);
-      border: 1.5px solid #fde68a;
-      border-radius: 14px;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 6px;
       padding: 16px;
       color: #78350f;
     }
     .essay-paper-instruction h4 {
-      font-size: 13.5px;
-      font-weight: 800;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
       color: #b45309;
       margin-bottom: 6px;
     }
     .essay-paper-instruction p {
-      font-size: 13px;
-      line-height: 1.5;
+      font-size: 13.5px;
+      line-height: 1.55;
     }
 
-    /* LOCKED RED SCREEN OVERLAY */
+    .spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+    }
+    .spec-table tr {
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .spec-table tr:last-child {
+      border-bottom: none;
+    }
+    .spec-table td {
+      padding: 9px 0;
+    }
+    .spec-label {
+      color: #6b7280;
+      width: 145px;
+      font-weight: 500;
+    }
+    .spec-value {
+      color: #111827;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* LOCKED SCREEN OVERLAY */
     .locked-screen {
       position: fixed;
       inset: 0;
-      background: #991b1b;
-      color: #fff;
+      background: rgba(17, 24, 39, 0.96);
+      color: #ffffff;
       z-index: 200;
       display: none;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
-      padding: 28px;
+      padding: 24px;
+    }
+    .locked-modal-card {
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-top: 4px solid #dc2626;
+      border-radius: 6px;
+      padding: 28px 24px;
+      max-width: 440px;
+      width: 100%;
+      text-align: left;
     }
   </style>
 </head>
 <body oncontextmenu="return false;">
-  <!-- BAR STATUS PENGUNCI EXAMBRO -->
+  <!-- BAR STATUS SISTEM -->
   <div class="exam-topbar">
-    <span class="lock-indicator">🔒 EXAMBRO TERKUNCI • SMA NEGERI 3 BURU</span>
-    <span id="saveStatusIndicator" style="color:#93c5fd;">● Siap Ujian</span>
+    <span class="lock-indicator">
+      <span class="status-dot"></span>
+      <span>SMA NEGERI 3 BURU — CBT EXAMBRO</span>
+    </span>
+    <span id="saveStatusIndicator" style="color:#9ca3af;font-weight:500;">Sistem Siap</span>
   </div>
 
-  <!-- LAYAR 1: LOGIN PESERTA UJIAN + TOKEN -->
-  <div id="studentLoginScreen" class="exam-container" style="padding-top:28px;">
-    <div class="question-box" style="padding:24px;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-        <div class="brand-logo" style="width:44px;height:44px;font-size:17px;">S3</div>
+  <!-- LAYAR 1: VERIFIKASI PESERTA UJIAN -->
+  <div id="studentLoginScreen" class="exam-container" style="padding-top:32px;max-width:480px;">
+    <div class="question-box" style="padding:28px 24px;">
+      <div style="display:flex;align-items:center;gap:12px;padding-bottom:16px;margin-bottom:18px;border-bottom:1px solid #e5e7eb;">
+        <div class="brand-logo">S3</div>
         <div>
-          <h2 style="font-size:18px;font-weight:800;">Exambro SMA Negeri 3 Buru</h2>
-          <span style="font-size:12px;color:var(--muted);">Portal Ujian Berbasis Android & Komputer</span>
+          <h2 style="font-size:16px;font-weight:700;color:#111827;letter-spacing:-0.01em;">Portal Ujian Peserta</h2>
+          <span style="font-size:12px;color:#6b7280;">SMA Negeri 3 Buru • Kabupaten Buru</span>
         </div>
       </div>
 
-      <div id="examActivePill" style="display:none;background:#eff6ff;color:#1e40af;padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;margin-bottom:14px;border:1px solid #bfdbfe;">
-        📘 Ujian Aktif: <span id="examActiveTitle">-</span>
-      </div>
-
-      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:11px 13px;font-size:12px;color:#991b1b;margin-bottom:16px;">
-        🔒 <b>Tata Tertib:</b> Selama ujian dilarang keluar aplikasi, membuka layar belah, atau membuka tab lain. Setiap perpindahan aplikasi otomatis dicatat pada rekap guru.
+      <div id="examActivePill" style="display:none;background:#f9fafb;color:#1f2937;padding:9px 12px;border-radius:4px;font-size:12.5px;font-weight:500;margin-bottom:16px;border:1px solid #e5e7eb;">
+        <span style="color:#6b7280;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:2px;">Jadwal Ujian Aktif</span>
+        <span id="examActiveTitle" style="font-weight:600;color:#111827;">-</span>
       </div>
 
       <!-- TAHAP 1: INPUT NAMA LENGKAP & 4 DIGIT TERAKHIR NISN -->
       <div id="directEntryStep">
-        <div class="form-group" style="margin-bottom:12px;">
-          <label style="font-weight:800;color:var(--slate);">Ketik Nama Lengkap Anda</label>
-          <input id="inpSearchName" type="text" class="input" style="font-size:15px;padding:12px 14px;" placeholder="Ketik nama lengkap Anda..." autocomplete="off">
+        <div class="form-group" style="margin-bottom:14px;">
+          <label for="inpSearchName">Nama Lengkap Peserta</label>
+          <input id="inpSearchName" type="text" class="input" style="font-size:14px;padding:10px 12px;" placeholder="Ketik nama lengkap sesuai absen sekolah" autocomplete="off">
         </div>
 
-        <div class="form-group" style="margin-bottom:14px;">
-          <label style="font-weight:800;color:var(--slate);">4 Digit Terakhir NISN Anda</label>
-          <input id="inpNisnLast4" type="text" inputmode="numeric" maxlength="4" class="input" style="font-size:16px;padding:12px 14px;font-weight:800;letter-spacing:0.18em;" placeholder="Contoh: 4501" autocomplete="off">
-          <div style="font-size:11.5px;color:var(--muted);margin-top:5px;">
-            💡 Masukkan 4 angka paling belakang dari NISN Anda (misal NISN 008123<b>4501</b> → ketik <b>4501</b>).
+        <div class="form-group" style="margin-bottom:16px;">
+          <label for="inpNisnLast4">4 Digit Terakhir NISN</label>
+          <input id="inpNisnLast4" type="text" inputmode="numeric" maxlength="4" class="input" style="font-size:15px;padding:10px 12px;font-weight:600;letter-spacing:0.15em;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;" placeholder="0000" autocomplete="off">
+          <div style="font-size:11.5px;color:#6b7280;margin-top:5px;">
+            Masukkan 4 angka paling belakang dari NISN Anda sebagai kode verifikasi.
           </div>
         </div>
 
-        <div id="stFindError" style="color:var(--red);font-size:12.5px;font-weight:700;margin-bottom:12px;display:none;"></div>
-        <button class="btn btn-primary" style="width:100%;padding:13px;font-size:14.5px;font-weight:800;" onclick="submitCheckStudent()">
-          🔎 Cek Data Diri Saya →
+        <div id="stFindError" style="background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;padding:9px 12px;border-radius:4px;font-size:12.5px;font-weight:500;margin-bottom:14px;display:none;"></div>
+
+        <button class="btn btn-primary" style="width:100%;padding:11px;font-size:13.5px;" onclick="submitCheckStudent()">
+          Verifikasi Identitas Peserta
         </button>
+
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f3f4f6;font-size:12px;color:#6b7280;line-height:1.5;">
+          Selama ujian berlangsung, peserta dilarang membuka tab lain, membagi layar, atau berpindah aplikasi.
+        </div>
       </div>
 
       <!-- TAHAP 2: KONFIRMASI DATA DIRI SEBELUM MASUK SOAL -->
       <div id="confirmStudentStep" style="display:none;">
-        <div style="background:#ecfdf5;border:1.5px solid #a7f3d0;border-radius:14px;padding:16px;margin-bottom:16px;">
-          <div style="font-size:12px;font-weight:800;color:#065f46;text-transform:uppercase;margin-bottom:10px;letter-spacing:0.04em;">
-            📋 KONFIRMASI DATA DIRI PESERTA:
+        <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;padding:14px 16px;margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;margin-bottom:8px;letter-spacing:0.05em;">
+            Data Identitas Peserta Terverifikasi
           </div>
-          <table style="width:100%;font-size:13.5px;border-collapse:collapse;">
+          <table class="spec-table">
             <tr>
-              <td style="padding:5px 0;color:var(--muted);width:130px;">Nama Lengkap</td>
-              <td style="padding:5px 0;font-weight:800;color:#0f172a;" id="confStudentName">-</td>
+              <td class="spec-label">Nama Lengkap</td>
+              <td class="spec-value" id="confStudentName">-</td>
             </tr>
             <tr>
-              <td style="padding:5px 0;color:var(--muted);">NISN</td>
-              <td style="padding:5px 0;font-weight:800;color:#0f172a;" id="confStudentNisn">-</td>
+              <td class="spec-label">NISN</td>
+              <td class="spec-value" id="confStudentNisn">-</td>
             </tr>
             <tr>
-              <td style="padding:5px 0;color:var(--muted);">TTL</td>
-              <td style="padding:5px 0;font-weight:800;color:#0f172a;" id="confStudentBirth">-</td>
+              <td class="spec-label">Tempat, Tgl Lahir</td>
+              <td class="spec-value" id="confStudentBirth">-</td>
             </tr>
             <tr>
-              <td style="padding:5px 0;color:var(--muted);">Kelas</td>
-              <td style="padding:5px 0;font-weight:800;color:#0f172a;" id="confStudentClass">-</td>
+              <td class="spec-label">Kelas</td>
+              <td class="spec-value" id="confStudentClass">-</td>
             </tr>
           </table>
         </div>
 
-        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:11px 13px;font-size:12px;color:#1e3a8a;margin-bottom:16px;">
-          ✓ Data diri Anda telah diverifikasi. Klik tombol hijau di bawah untuk langsung membuka naskah soal.
+        <div style="font-size:12.5px;color:#374151;margin-bottom:16px;line-height:1.5;">
+          Pastikan seluruh data di atas adalah milik Anda. Setelah ujian dimulai dan dikumpulkan, jawaban tidak dapat diubah kembali.
         </div>
 
-        <button class="btn btn-green" id="btnConfirmStart" style="width:100%;padding:14px;font-size:15px;font-weight:800;" onclick="confirmAndStartDirectExam()">
-          🚀 Ya, Data Benar & Siap Mengikuti Ujian
+        <button class="btn btn-green" id="btnConfirmStart" style="width:100%;padding:11px;font-size:13.5px;" onclick="confirmAndStartDirectExam()">
+          Siap Mengikuti Ujian
         </button>
-        <button class="btn btn-outline" style="width:100%;padding:10px;margin-top:10px;font-size:12.5px;" onclick="cancelConfirm()">
-          ← Bukan Saya / Ganti Nama
+        <button class="btn btn-outline" style="width:100%;padding:9px;margin-top:8px;font-size:12.5px;" onclick="cancelConfirm()">
+          Kembali / Ganti Data
         </button>
       </div>
 
       <!-- TAHAP 3: MODE LOGIN MANUAL LAMA (OPSIONAL DENGAN TOKEN & NOMOR PESERTA) -->
-      <div id="legacyLoginSection" style="display:none;margin-top:18px;padding-top:16px;border-top:1px dashed var(--border);">
-        <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;">Login Manual (Nomor Peserta & Password):</div>
+      <div id="legacyLoginSection" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb;">
+        <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:10px;">Login dengan Nomor Peserta & Token Ruangan</div>
         <div class="form-group" style="margin-bottom:10px;">
           <label>Nomor Peserta Ujian</label>
           <input id="inpExamNo" class="input" value="" placeholder="Contoh: 26-03-001">
@@ -295,15 +360,15 @@
         </div>
         <div class="form-group" style="margin-bottom:14px;">
           <label>Token Ujian</label>
-          <input id="inpToken" class="input" style="font-weight:800;letter-spacing:0.12em;text-transform:uppercase;" placeholder="5 huruf Token">
+          <input id="inpToken" class="input" style="font-weight:700;letter-spacing:0.12em;text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;" placeholder="TOKEN">
         </div>
-        <div id="stLoginError" style="color:var(--red);font-size:12.5px;font-weight:700;margin-bottom:12px;display:none;"></div>
-        <button class="btn btn-primary" style="width:100%;padding:12px;font-size:13.5px;" onclick="startStudentExam()">Masuk via Nomor Peserta →</button>
+        <div id="stLoginError" style="color:var(--red);font-size:12.5px;font-weight:600;margin-bottom:12px;display:none;"></div>
+        <button class="btn btn-primary" style="width:100%;padding:10px;font-size:13px;" onclick="startStudentExam()">Masuk dengan Nomor Peserta</button>
       </div>
 
-      <div style="text-align:center;margin-top:16px;">
-        <a href="javascript:void(0)" onclick="toggleLegacyLogin()" id="linkToggleLegacy" style="font-size:11.5px;color:var(--muted);text-decoration:underline;">
-          Opsi: Login Manual dengan Nomor Peserta & Token
+      <div style="text-align:center;margin-top:14px;">
+        <a href="javascript:void(0)" onclick="toggleLegacyLogin()" id="linkToggleLegacy" style="font-size:11.5px;color:#6b7280;text-decoration:underline;">
+          Gunakan Nomor Peserta & Token
         </a>
       </div>
     </div>
@@ -313,16 +378,16 @@
   <div id="studentExamScreen" style="display:none;">
     <div class="exam-header">
       <div>
-        <div style="font-size:14px;font-weight:800;" id="hdrStudentName">-</div>
-        <div style="font-size:11.5px;color:var(--muted);" id="hdrExamInfo">-</div>
+        <div style="font-size:13.5px;font-weight:700;color:#111827;" id="hdrStudentName">-</div>
+        <div style="font-size:11.5px;color:#6b7280;font-variant-numeric:tabular-nums;" id="hdrExamInfo">-</div>
       </div>
       <div class="timer-badge" id="hdrTimer">01:30:00</div>
     </div>
 
     <div class="exam-container">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <span style="font-size:12.5px;font-weight:800;color:var(--slate);" id="qProgressLabel">Soal 1</span>
-        <span style="font-size:11.5px;color:var(--muted);">Hijau = PG Terjawab • Kuning = Soal Esai</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+        <span style="font-size:12px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.04em;" id="qProgressLabel">Soal 1</span>
+        <span style="font-size:11.5px;color:#6b7280;">Hijau: Terjawab • Kuning: Soal Esai</span>
       </div>
 
       <!-- Strip Navigasi Nomor Soal -->
@@ -332,62 +397,68 @@
       <div class="question-box" id="activeQuestionCard"></div>
 
       <!-- Navigasi Bawah -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;">
-        <button class="btn btn-outline" id="btnPrevQ" style="padding:13px;" onclick="prevQuestion()">← Sebelumnya</button>
-        <button class="btn btn-primary" id="btnNextQ" style="padding:13px;" onclick="nextQuestion()">Selanjutnya →</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;">
+        <button class="btn btn-outline" id="btnPrevQ" style="padding:11px;" onclick="prevQuestion()">Sebelumnya</button>
+        <button class="btn btn-primary" id="btnNextQ" style="padding:11px;" onclick="nextQuestion()">Selanjutnya</button>
       </div>
 
-      <div style="margin-top:20px;text-align:center;">
-        <button class="btn btn-green" id="btnFinishExam" style="width:100%;padding:13px;display:none;" onclick="confirmFinishExam()">✓ Selesai & Kumpulkan Jawaban Ujian</button>
+      <div style="margin-top:18px;">
+        <button class="btn btn-green" id="btnFinishExam" style="width:100%;padding:12px;display:none;" onclick="confirmFinishExam()">Selesai & Kumpulkan Jawaban Ujian</button>
       </div>
     </div>
   </div>
 
-  <!-- LAYAR 3: UJIAN SELESAI (TANPA MENAMPILKAN NILAI!) -->
-  <div id="studentFinishedScreen" class="exam-container" style="display:none;padding-top:40px;">
-    <div class="question-box" style="text-align:center;padding:32px 22px;">
-      <div style="width:64px;height:64px;border-radius:50%;background:#dcfce7;color:#15803d;font-size:32px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">✓</div>
-      <h2 style="font-size:20px;font-weight:800;margin-bottom:8px;">Ujian Telah Selesai</h2>
-      <p style="font-size:14px;color:var(--slate);margin-bottom:18px;" id="finishMsgText">
-        Seluruh jawaban Pilihan Ganda Anda telah tersimpan dengan aman di Server CBT SMA Negeri 3 Buru.
+  <!-- LAYAR 3: UJIAN SELESAI (TANPA MENAMPILKAN NILAI) -->
+  <div id="studentFinishedScreen" class="exam-container" style="display:none;padding-top:40px;max-width:480px;">
+    <div class="question-box" style="padding:28px 24px;">
+      <div style="width:40px;height:40px;border-radius:4px;background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:16px;">✓</div>
+      <h2 style="font-size:17px;font-weight:700;color:#111827;margin-bottom:6px;">Ujian Telah Dikumpulkan</h2>
+      <p style="font-size:13.5px;color:#374151;margin-bottom:16px;line-height:1.55;" id="finishMsgText">
+        Seluruh jawaban Pilihan Ganda Anda telah tersimpan secara permanen di Server CBT SMA Negeri 3 Buru.
       </p>
-      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:14px;font-size:13px;color:#92400e;margin-bottom:20px;">
-        📝 <b>Jangan Lupa:</b> Pastikan <b>Lembar Jawaban Kertas untuk Soal Esai</b> sudah diberi Nama & Nomor Peserta, lalu serahkan kepada Pengawas Ruangan sebelum meninggalkan kelas.
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:4px;padding:12px 14px;font-size:12.5px;color:#78350f;margin-bottom:18px;line-height:1.5;">
+        <b>Catatan Soal Esai:</b> Pastikan Lembar Jawaban Kertas untuk Soal Esai telah diberi Nama Lengkap dan Kelas, lalu serahkan kepada Pengawas sebelum meninggalkan ruangan.
       </div>
-      <a href="/ujian.html" class="btn btn-outline" style="width:100%;">Kembali ke Halaman Login</a>
+      <a href="/ujian.html" class="btn btn-outline" style="width:100%;">Kembali ke Halaman Awal</a>
     </div>
   </div>
 
-  <!-- LAYAR MERAH TERKUNCI SAAT TERDETEKSI KELUAR APLIKASI -->
+  <!-- LAYAR PERINGATAN SAAT TERDETEKSI KELUAR APLIKASI -->
   <div id="lockedRedOverlay" class="locked-screen">
-    <div style="font-size:52px;margin-bottom:12px;">🚨</div>
-    <h1 style="font-size:22px;font-weight:900;margin-bottom:8px;">PERINGATAN: KELUAR DARI APLIKASI!</h1>
-    <p style="font-size:14px;max-width:440px;opacity:0.92;margin-bottom:16px;" id="lockedReasonText">
-      Sistem mendeteksi Anda berpindah aplikasi atau meminimalkan layar ujian CBT.
-    </p>
-    <div style="background:rgba(0,0,0,0.32);padding:14px 20px;border-radius:14px;font-size:13px;max-width:420px;margin-bottom:20px;line-height:1.5;">
-      ⚠️ <b>Catatan:</b> Pelanggaran ini telah otomatis <b>tercatat di Rekap Nilai Guru</b>. Silakan kembali mengerjakan soal dan jangan membuka aplikasi lain lagi!
+    <div class="locked-modal-card">
+      <div style="font-size:11px;font-weight:700;color:#f87171;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">
+        Peringatan Keamanan Ujian
+      </div>
+      <h1 style="font-size:18px;font-weight:700;color:#ffffff;margin-bottom:10px;">Terdeteksi Keluar dari Layar Ujian</h1>
+      <p style="font-size:13.5px;color:#d1d5db;margin-bottom:14px;line-height:1.55;" id="lockedReasonText">
+        Sistem mendeteksi Anda berpindah aplikasi atau meminimalkan layar ujian CBT.
+      </p>
+      <div style="background:rgba(0,0,0,0.25);border:1px solid #374151;padding:12px 14px;border-radius:4px;font-size:12.5px;color:#9ca3af;margin-bottom:18px;line-height:1.5;">
+        Aktivitas perpindahan layar ini telah tercatat secara otomatis pada rekap pengawasan guru mata pelajaran.
+      </div>
+      <button class="btn btn-green" style="width:100%;padding:11px;font-size:13.5px;" onclick="selfResumeExam()">
+        Saya Mengerti, Lanjutkan Pengerjaan Soal
+      </button>
     </div>
-    <button class="btn btn-green" style="font-size:14.5px;padding:14px 28px;font-weight:800;border:none;box-shadow:0 6px 18px rgba(0,0,0,0.4);" onclick="selfResumeExam()">
-      ✓ Saya Mengerti, Lanjutkan Pengerjaan Soal →
-    </button>
   </div>
 
-  <!-- LAYAR VERIFIKASI TOKEN 15-MENIT SETELAH GANGGUAN / DIBUKA PENGAWAS -->
-  <div id="reverifyTokenOverlay" class="locked-screen" style="background:#1e3a8a;">
-    <div style="font-size:48px;margin-bottom:10px;">🔑</div>
-    <h1 style="font-size:22px;font-weight:900;margin-bottom:8px;">LANJUTKAN PENGERJAAN SOAL</h1>
-    <p style="font-size:13.5px;max-width:420px;opacity:0.92;margin-bottom:16px;">
-      Sesi pengerjaan soal Anda dijeda sementara. Tekan tombol di bawah untuk langsung melanjutkan pengerjaan:
-    </p>
-    <div style="max-width:320px;width:100%;">
-      <button class="btn btn-green" style="width:100%;padding:13px;font-size:14px;font-weight:800;" onclick="selfResumeExam()">
-        ✓ Lanjutkan Ujian Sekarang →
+  <!-- LAYAR VERIFIKASI TOKEN / LANJUTKAN SESI -->
+  <div id="reverifyTokenOverlay" class="locked-screen">
+    <div class="locked-modal-card" style="border-top-color:#3b82f6;">
+      <div style="font-size:11px;font-weight:700;color:#93c5fd;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">
+        Pemulihan Sesi Ujian
+      </div>
+      <h1 style="font-size:18px;font-weight:700;color:#ffffff;margin-bottom:8px;">Lanjutkan Pengerjaan Soal</h1>
+      <p style="font-size:13px;color:#d1d5db;margin-bottom:16px;line-height:1.5;">
+        Sesi pengerjaan soal Anda dijeda sementara. Klik tombol di bawah untuk kembali ke lembar soal:
+      </p>
+      <button class="btn btn-green" style="width:100%;padding:11px;font-size:13.5px;" onclick="selfResumeExam()">
+        Lanjutkan Ujian Sekarang
       </button>
-      <div style="margin-top:14px;border-top:1px dashed rgba(255,255,255,0.25);padding-top:12px;">
-        <input id="inpResumeToken" class="input" style="text-align:center;font-size:17px;font-weight:900;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:8px;" placeholder="TOKEN (JIKA ADA)">
-        <div id="resumeTokenErr" style="color:#fecaca;font-size:12px;font-weight:700;margin-bottom:8px;display:none;"></div>
-        <button class="btn btn-outline" style="width:100%;padding:10px;color:#fff;border-color:rgba(255,255,255,0.4);font-size:12px;" onclick="submitResumeToken()">Verifikasi via Token</button>
+      <div style="margin-top:14px;border-top:1px solid #374151;padding-top:12px;">
+        <input id="inpResumeToken" class="input" style="text-align:center;font-size:14px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px;background:#111827;color:#fff;border-color:#374151;" placeholder="TOKEN RUANGAN (OPSIONAL)">
+        <div id="resumeTokenErr" style="color:#fca5a5;font-size:12px;font-weight:500;margin-bottom:8px;display:none;"></div>
+        <button class="btn btn-outline" style="width:100%;padding:8px;color:#d1d5db;background:transparent;border-color:#4b5563;font-size:12px;" onclick="submitResumeToken()">Verifikasi dengan Token</button>
       </div>
     </div>
   </div>
@@ -405,7 +476,6 @@
     let pollStatusInterval = null;
     let examActive = false;
 
-    // Load info ujian aktif
     async function loadStudentsAutocomplete() {
       try {
         const res = await fetch('/api/ujian/students-list');
@@ -414,7 +484,7 @@
         if (data.exam) {
           const pill = document.getElementById('examActivePill');
           if (pill) {
-            document.getElementById('examActiveTitle').textContent = `${data.exam.subject} (${data.exam.class_target || 'Semua Kelas'}) • Durasi: ${data.exam.duration_minutes} Menit`;
+            document.getElementById('examActiveTitle').textContent = `${data.exam.subject} (${data.exam.class_target || 'Semua Kelas'}) — ${data.exam.duration_minutes} Menit`;
             pill.style.display = 'block';
           }
         }
@@ -422,7 +492,6 @@
     }
     loadStudentsAutocomplete();
 
-    // Event listener Enter pada kolom ketik nama & 4 digit NISN
     document.addEventListener('DOMContentLoaded', () => {
       ['inpSearchName', 'inpNisnLast4'].forEach(id => {
         const el = document.getElementById(id);
@@ -437,7 +506,6 @@
       });
     });
 
-    // Cek data diri siswa saat nama & 4 digit terakhir NISN disubmit
     async function submitCheckStudent() {
       const name = (document.getElementById('inpSearchName').value || '').trim();
       const nisnLast4 = (document.getElementById('inpNisnLast4').value || '').trim();
@@ -478,7 +546,7 @@
         document.getElementById('directEntryStep').style.display = 'none';
         document.getElementById('confirmStudentStep').style.display = 'block';
       } catch (err) {
-        errEl.textContent = 'Gagal memeriksa nama ke server. Periksa koneksi internet Anda.';
+        errEl.textContent = 'Gagal memeriksa data ke server. Periksa koneksi jaringan Anda.';
         errEl.style.display = 'block';
       }
     }
@@ -496,7 +564,7 @@
       if (!selectedStudent) return;
       const btn = document.getElementById('btnConfirmStart');
       btn.disabled = true;
-      btn.textContent = '⏳ Menyiapkan Naskah Soal Ujian...';
+      btn.textContent = 'Menyiapkan Naskah Soal...';
 
       try {
         const res = await fetch('/api/ujian/start-direct', {
@@ -508,14 +576,13 @@
         if (!res.ok) {
           alert(data.error || 'Gagal memulai ujian.');
           btn.disabled = false;
-          btn.textContent = '🚀 Ya, Data Benar & Siap Mengikuti Ujian';
+          btn.textContent = 'Siap Mengikuti Ujian';
           return;
         }
 
         sessionId = data.sessionId;
         sessionStorage.setItem('cbt_active_session_id', String(sessionId));
 
-        // Fullscreen / Android Exambro Lock
         if (window.AndroidExambro && typeof window.AndroidExambro.enterLockMode === 'function') {
           window.AndroidExambro.enterLockMode();
         } else if (document.documentElement.requestFullscreen) {
@@ -530,7 +597,7 @@
       } catch (err) {
         alert('Gagal terhubung ke server CBT.');
         btn.disabled = false;
-        btn.textContent = '🚀 Ya, Data Benar & Siap Mengikuti Ujian';
+        btn.textContent = 'Siap Mengikuti Ujian';
       }
     }
 
@@ -539,10 +606,10 @@
       const lnk = document.getElementById('linkToggleLegacy');
       if (sec.style.display === 'none') {
         sec.style.display = 'block';
-        lnk.textContent = 'Tutup Mode Login Manual';
+        lnk.textContent = 'Tutup Login Nomor Peserta';
       } else {
         sec.style.display = 'none';
-        lnk.textContent = 'Opsi: Login Manual dengan Nomor Peserta & Token';
+        lnk.textContent = 'Gunakan Nomor Peserta & Token';
       }
     }
 
@@ -560,7 +627,6 @@
       await loadExamSession();
     }
 
-    // Auto-resume sesi jika halaman di-refresh oleh siswa
     if (sessionId) {
       loadExamSession().then(() => {
         if (examData && examData.session && examData.session.status !== 'FINISHED') {
@@ -593,7 +659,6 @@
 
       sessionId = data.sessionId;
       sessionStorage.setItem('cbt_active_session_id', String(sessionId));
-      // Aktifkan Fullscreen / Android Native LockTask Bridge jika ada
       if (window.AndroidExambro && typeof window.AndroidExambro.enterLockMode === 'function') {
         window.AndroidExambro.enterLockMode();
       } else if (document.documentElement.requestFullscreen) {
@@ -617,7 +682,7 @@
       remainingSeconds = data.session.remaining_seconds || 5400;
 
       document.getElementById('hdrStudentName').textContent = `${data.student.full_name} (${data.student.class_name})`;
-      document.getElementById('hdrExamInfo').textContent = `${data.exam.subject} • NISN: ${data.student.nisn || '-'} • TTL: ${data.student.birth_info || '-'}`;
+      document.getElementById('hdrExamInfo').textContent = `${data.exam.subject} • NISN ${data.student.nisn || '-'}`;
 
       if (data.session.status === 'LOCKED') {
         showLockedScreen(data.session.last_violation_reason);
@@ -666,14 +731,14 @@
           isEssay ? 'essay' : '',
           isDone ? 'done' : ''
         ].join(' ');
-        return `<div class="${cls}" onclick="jumpToQuestion(${idx})">${isEssay ? `${q.number} Esai` : q.number}</div>`;
+        return `<div class="${cls}" onclick="jumpToQuestion(${idx})">${isEssay ? `${q.number}E` : q.number}</div>`;
       }).join('');
     }
 
     function renderCurrentQuestion() {
       if (questions.length === 0) return;
       const q = questions[currentIndex];
-      document.getElementById('qProgressLabel').textContent = `Soal Nomor ${q.number} (Urutan ${currentIndex + 1} dari ${questions.length})`;
+      document.getElementById('qProgressLabel').textContent = `Soal Nomor ${q.number} (${currentIndex + 1} / ${questions.length})`;
       if (sessionId && examActive) {
         fetch('/api/ujian/heartbeat', {
           method: 'POST',
@@ -685,22 +750,22 @@
       const card = document.getElementById('activeQuestionCard');
       const mediaHtml = `
         ${q.audio_data ? `
-          <div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:12px;padding:12px 14px;margin-bottom:14px;">
-            <div style="font-size:12px;font-weight:800;color:#1e40af;margin-bottom:6px;">🔊 AUDIO SOAL / LISTENING (Tekan Tombol ▶ Play untuk Mendengarkan):</div>
-            <audio controls preload="metadata" controlsList="nodownload" src="${q.audio_data}" style="width:100%;height:40px;"></audio>
+          <div style="background:#f9fafb;border:1px solid #d1d5db;border-radius:4px;padding:10px 12px;margin-bottom:14px;">
+            <div style="font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Audio Soal (Listening)</div>
+            <audio controls preload="metadata" controlsList="nodownload" src="${q.audio_data}" style="width:100%;height:38px;"></audio>
           </div>
         ` : ''}
-        ${q.image_data ? `<img src="${q.image_data}" style="max-width:100%;border-radius:10px;margin-bottom:14px;border:1px solid #e2e8f0;display:block;">` : ''}
+        ${q.image_data ? `<img src="${q.image_data}" style="max-width:100%;border-radius:4px;margin-bottom:14px;border:1px solid #e5e7eb;display:block;">` : ''}
       `;
       if (q.type === 'ESAI') {
         card.innerHTML = `
-          <span class="q-type-pill q-type-esai">Bagian B: Soal Esai / Uraian (No. ${q.number})</span>
+          <span class="q-type-pill q-type-esai">Soal Esai / Uraian — Nomor ${q.number}</span>
           <div class="q-body-text">${q.question_text}</div>
           ${mediaHtml}
           <div class="essay-paper-instruction">
-            <h4>📝 INSTRUKSI PENGERJAAN SOAL ESAI:</h4>
+            <h4>Instruksi Pengerjaan Soal Esai</h4>
             <p>
-              Tuliskan jawaban lengkap untuk <b>Soal Esai Nomor ${q.number}</b> ini pada <b>Lembar Jawaban Kertas</b> yang telah dibagikan oleh Pengawas Ruangan. Pastikan mencantumkan Nama, Kelas, dan Nomor Soal dengan jelas.
+              Tuliskan jawaban lengkap untuk <b>Soal Esai Nomor ${q.number}</b> pada <b>Lembar Jawaban Kertas</b> yang telah disediakan. Pastikan mencantumkan Nama Lengkap, Kelas, dan Nomor Soal.
             </p>
           </div>
         `;
@@ -715,7 +780,7 @@
         ].filter(([, text]) => text !== null && text !== '');
 
         card.innerHTML = `
-          <span class="q-type-pill q-type-pg">Bagian A: Pilihan Ganda (No. ${q.number})</span>
+          <span class="q-type-pill q-type-pg">Pilihan Ganda — Nomor ${q.number}</span>
           <div class="q-body-text">${q.question_text}</div>
           ${mediaHtml}
           <div>
@@ -739,7 +804,7 @@
       answers[questionId] = letter;
       renderCurrentQuestion();
       const ind = document.getElementById('saveStatusIndicator');
-      ind.textContent = '⏳ Menyimpan jawaban...';
+      ind.textContent = 'Menyimpan...';
 
       const res = await fetch('/api/ujian/answer', {
         method: 'POST',
@@ -747,7 +812,7 @@
         body: JSON.stringify({ sessionId, questionId, chosenOption: letter })
       });
       if (res.status === 423) {
-        showLockedScreen('Sesi ujian terkunci oleh sistem keamanan Exambro.');
+        showLockedScreen('Sesi ujian dijeda oleh sistem keamanan CBT.');
         return;
       }
       if (res.status === 428) {
@@ -755,7 +820,7 @@
         return;
       }
       if (res.ok) {
-        ind.textContent = '✓ Jawaban Otomatis Tersimpan';
+        ind.textContent = 'Jawaban Tersimpan';
       }
     }
 
@@ -789,7 +854,7 @@
     }
 
     function showLockedScreen(reason) {
-      document.getElementById('lockedReasonText').textContent = reason || 'Terdeteksi keluar dari mode kunci layar Exambro.';
+      document.getElementById('lockedReasonText').textContent = reason || 'Terdeteksi keluar dari layar ujian CBT.';
       document.getElementById('lockedRedOverlay').style.display = 'flex';
     }
 
@@ -814,7 +879,7 @@
     async function confirmFinishExam() {
       const pgQuestions = questions.filter(q => q.type === 'PG');
       const answeredCount = pgQuestions.filter(q => Boolean(answers[q.id])).length;
-      if (!confirm(`Anda telah menjawab ${answeredCount} dari ${pgQuestions.length} soal Pilihan Ganda.\nPastikan Soal Esai juga sudah Anda kerjakan di Lembar Kertas.\n\nYakin ingin mengakhiri dan mengumpulkan ujian sekarang?`)) {
+      if (!confirm(`Anda telah menjawab ${answeredCount} dari ${pgQuestions.length} soal Pilihan Ganda.\nSetelah dikumpulkan, Anda tidak dapat masuk atau mengubah jawaban lagi.\n\nKumpulkan jawaban ujian sekarang?`)) {
         return;
       }
       const res = await fetch('/api/ujian/finish', {
@@ -831,7 +896,6 @@
     }
 
     function startTimersAndSecurityWatch() {
-      // 1. Timer hitung mundur
       timerInterval = setInterval(async () => {
         if (remainingSeconds > 0) {
           remainingSeconds--;
@@ -851,7 +915,6 @@
         }
       }, 1000);
 
-      // 2. Pantau status buka kunci dari Pengawas Ruangan setiap 2.5 detik
       pollStatusInterval = setInterval(async () => {
         if (!sessionId || !examActive) return;
         try {
@@ -871,15 +934,13 @@
         } catch {}
       }, 2500);
 
-      // 3. Deteksi keluar aplikasi / pindah tab / split-screen
       document.addEventListener('visibilitychange', () => {
         if (document.hidden && examActive) {
-          reportExamViolation('Siswa berpindah aplikasi / menekan tombol Home atau Recent Apps.');
+          reportExamViolation('Peserta berpindah tab atau meninggalkan layar aplikasi ujian.');
         }
       });
     }
 
-    // Dipanggil langsung oleh aplikasi Android Native Exambro jika siswa mencoba keluar LockTask
     window.onExambroViolationDetected = function(reason) {
       reportExamViolation(reason || 'Keluar dari Mode Kunci Layar Android Exambro');
     };

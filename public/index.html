@@ -3,70 +3,78 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Portal Server CBT Lokal — SMA Negeri 3 Buru</title>
+  <title>Portal Server CBT — SMA Negeri 3 Buru</title>
   <link rel="stylesheet" href="/styles.css">
   <style>
     .hero {
-      max-width: 1100px;
-      margin: 40px auto;
+      max-width: 1120px;
+      margin: 36px auto;
       padding: 0 20px;
     }
     .hero-head {
-      background: linear-gradient(135deg, #0f172a, #1e3a8a);
-      color: #fff;
-      border-radius: 22px;
-      padding: 32px;
-      margin-bottom: 28px;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-left: 4px solid #1e40af;
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      margin-bottom: 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
       gap: 20px;
-      box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.35);
+      box-shadow: var(--shadow);
     }
-    .hero-head h1 { font-size: 26px; font-weight: 800; margin-bottom: 6px; }
-    .hero-head p { color: #cbd5e1; font-size: 14px; }
+    .hero-head h1 { font-size: 20px; font-weight: 700; color: var(--dark); margin-bottom: 4px; letter-spacing: -0.01em; }
+    .hero-head p { color: var(--muted); font-size: 13.5px; }
     .ip-box {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      padding: 14px 20px;
-      border-radius: 16px;
+      background: #f9fafb;
+      border: 1px solid var(--border-subtle);
+      padding: 10px 16px;
+      border-radius: 4px;
       text-align: right;
     }
-    .ip-box span { font-size: 11px; color: #93c5fd; text-transform: uppercase; font-weight: 700; display: block; }
-    .ip-box b { font-size: 20px; color: #38bdf8; letter-spacing: 0.03em; }
+    .ip-box span { font-size: 10.5px; color: var(--muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; display: block; margin-bottom: 2px; }
+    .ip-box b { font-size: 15px; color: var(--dark); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
     .portal-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
     }
     .portal-card {
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 24px;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 22px;
       box-shadow: var(--shadow);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
-    .portal-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 20px 30px -10px rgba(15, 23, 42, 0.12);
+    .p-num {
+      display: inline-block;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--primary);
+      background: var(--primary-soft);
+      border: 1px solid #bfdbfe;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 12px;
     }
-    .p-icon {
-      width: 48px; height: 48px; border-radius: 14px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; margin-bottom: 16px;
-    }
-    .portal-card h3 { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
-    .portal-card p { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+    .portal-card h3 { font-size: 15.5px; font-weight: 700; color: var(--dark); margin-bottom: 6px; }
+    .portal-card p { font-size: 13px; color: var(--muted); margin-bottom: 18px; line-height: 1.55; }
     .cred-hint {
-      background: #f8fafc; border: 1px solid var(--border);
-      border-radius: 10px; padding: 8px 10px; font-size: 11.5px;
-      color: var(--slate); margin-bottom: 14px;
+      background: #f9fafb;
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 7px 10px;
+      font-size: 11.5px;
+      color: var(--slate);
+      margin-bottom: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
   </style>
 </head>
@@ -76,11 +84,11 @@
       <div class="brand-logo">S3</div>
       <div class="brand-text">
         <h1>SMA NEGERI 3 BURU</h1>
-        <span>Sistem Server CBT Jaringan Lokal (100% Offline LAN/Wi-Fi)</span>
+        <span>Sistem Evaluasi & Ujian Berbasis Komputer (CBT)</span>
       </div>
     </div>
     <div class="topbar-right">
-      <span class="chip" id="topStatus">● Server Lokal Aktif</span>
+      <span class="chip" id="topStatus">Status: Aktif</span>
       <span class="chip chip-token" id="topToken">TOKEN: -</span>
     </div>
   </div>
@@ -88,11 +96,11 @@
   <div class="hero">
     <div class="hero-head">
       <div>
-        <h1>Pusat Sistem Ujian Berbasis Komputer & Android (CBT)</h1>
-        <p>Pilih panel sesuai peran Anda di SMA Negeri 3 Buru. Siswa wajib mengakses ujian melalui aplikasi Android <b>Exambro SMAN 3 Buru</b>.</p>
+        <h1>Direktori Layanan Ujian CBT</h1>
+        <p>Pilih modul manajemen atau portal peserta sesuai penugasan di SMA Negeri 3 Buru.</p>
       </div>
       <div class="ip-box">
-        <span>Alamat IP Server Lokal (Wi-Fi)</span>
+        <span>Alamat Server Aktif</span>
         <b id="lanIpDisplay">Memuat...</b>
       </div>
     </div>
@@ -101,52 +109,52 @@
       <!-- PANEL 1: OPERATOR -->
       <div class="portal-card">
         <div>
-          <div class="p-icon" style="background:#eff6ff;color:#2563eb;">⚙️</div>
-          <h3>1. Panel Operator / Admin</h3>
-          <p>Kelola data siswa & kelas, jadwal sesi ujian, rilis Token Ujian, serta <b>Cetak Daftar Hadir, Kartu Peserta, Kartu Login & Kartu Meja</b>.</p>
+          <span class="p-num">MODUL 01</span>
+          <h3>Panel Operator & Administrasi</h3>
+          <p>Kelola daftar peserta, jadwal sesi ujian, QR Exambro, serta cetak daftar hadir, kartu peserta, dan kartu meja.</p>
         </div>
         <div>
-          <div class="cred-hint">Login Bawaan: <b>operator</b> / <b>admin123</b></div>
-          <a href="/operator.html" class="btn btn-primary" style="width:100%;">Buka Panel Operator →</a>
+          <div class="cred-hint">Akun: <b>operator</b> / <b>admin123</b></div>
+          <a href="/operator.html" class="btn btn-primary" style="width:100%;">Buka Panel Operator</a>
         </div>
       </div>
 
       <!-- PANEL 2: GURU MAPEL -->
       <div class="portal-card">
         <div>
-          <div class="p-icon" style="background:#dcfce7;color:#059669;">📚</div>
-          <h3>2. Panel Guru Mapel</h3>
-          <p>Download template Word, <b>Import Soal PG & Esai dari Microsoft Word (.docx)</b> sekaligus, pratinjau soal, dan unduh Nilai PG ke Excel.</p>
+          <span class="p-num">MODUL 02</span>
+          <h3>Panel Guru Mata Pelajaran</h3>
+          <p>Unduh template soal, impor naskah soal Pilihan Ganda & Esai dari Microsoft Word (.docx), dan ekspor rekap nilai ke Excel.</p>
         </div>
         <div>
-          <div class="cred-hint">Login Bawaan: <b>guru</b> / <b>guru123</b></div>
-          <a href="/guru.html" class="btn btn-green" style="width:100%;">Buka Panel Guru →</a>
+          <div class="cred-hint">Akun: <b>guru</b> / <b>guru123</b></div>
+          <a href="/guru.html" class="btn btn-green" style="width:100%;">Buka Panel Guru</a>
         </div>
       </div>
 
       <!-- PANEL 3: PENGAWAS RUANGAN -->
       <div class="portal-card">
         <div>
-          <div class="p-icon" style="background:#ffedd5;color:#ea580c;">🛡️</div>
-          <h3>3. Panel Pengawas Ruang</h3>
-          <p>Buka dari HP Pengawas di kelas: pantau kehadiran, peringatan merah siswa keluar aplikasi, <b>Buka Kunci</b> siswa, dan <b>Reset Login</b>.</p>
+          <span class="p-num">MODUL 03</span>
+          <h3>Panel Pengawas Ruangan</h3>
+          <p>Pemantauan status pengerjaan peserta secara langsung, manajemen sesi ruang ujian, dan berita acara pelaksanaan.</p>
         </div>
         <div>
-          <div class="cred-hint">Login Bawaan: <b>pengawas</b> / <b>pengawas123</b></div>
-          <a href="/pengawas.html" class="btn btn-orange" style="width:100%;">Buka Panel Pengawas →</a>
+          <div class="cred-hint">Akun: <b>pengawas</b> / <b>pengawas123</b></div>
+          <a href="/pengawas.html" class="btn btn-outline" style="width:100%;">Buka Panel Pengawas</a>
         </div>
       </div>
 
       <!-- PANEL 4: PORTAL UJIAN SISWA (EXAMBRO) -->
       <div class="portal-card">
         <div>
-          <div class="p-icon" style="background:#f1f5f9;color:#0f172a;">📱</div>
-          <h3>4. Aplikasi Android Exambro Siswa</h3>
-          <p>Download & instal aplikasi <b>Exambro-SMAN3-Buru.apk</b> di HP Android siswa (pengunci layar, anti-screenshot, blokir split-screen).</p>
+          <span class="p-num">MODUL 04</span>
+          <h3>Portal Peserta Ujian</h3>
+          <p>Halaman pengerjaan soal untuk peserta didik melalui verifikasi Nama Lengkap dan 4 digit terakhir NISN.</p>
         </div>
         <div>
-          <a href="/Exambro-SMAN3-Buru.apk" download class="btn btn-primary" style="width:100%;margin-bottom:8px;">📲 Download Exambro-SMAN3-Buru.apk</a>
-          <a href="/ujian.html" class="btn btn-outline" style="width:100%;border-color:#0f172a;color:#0f172a;">Buka Simulasi Layar Ujian →</a>
+          <a href="/ujian.html" class="btn btn-primary" style="width:100%;margin-bottom:8px;">Buka Portal Ujian Siswa</a>
+          <a href="/Exambro-SMAN3-Buru.apk" download class="btn btn-outline" style="width:100%;">Unduh Aplikasi Exambro (.apk)</a>
         </div>
       </div>
     </div>
@@ -157,7 +165,7 @@
       .then(r => r.json())
       .then(data => {
         const port = window.location.port ? ':' + window.location.port : '';
-        document.getElementById('lanIpDisplay').textContent = 'http://' + data.lanIp + port;
+        document.getElementById('lanIpDisplay').textContent = window.location.origin || ('http://' + data.lanIp + port);
         if (data.activeExam) {
           document.getElementById('topToken').textContent = 'TOKEN: ' + data.activeExam.token;
         }

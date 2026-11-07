@@ -227,8 +227,7 @@
       <div id="directEntryStep">
         <div class="form-group" style="margin-bottom:12px;">
           <label style="font-weight:800;color:var(--slate);">Ketik Nama Lengkap Anda</label>
-          <input id="inpSearchName" list="studentsNameList" class="input" style="font-size:15px;padding:12px 14px;" placeholder="Contoh: Ahmad Fauzi..." autocomplete="off">
-          <datalist id="studentsNameList"></datalist>
+          <input id="inpSearchName" type="text" class="input" style="font-size:15px;padding:12px 14px;" placeholder="Ketik nama lengkap Anda..." autocomplete="off">
         </div>
 
         <div class="form-group" style="margin-bottom:14px;">
@@ -406,7 +405,7 @@
     let pollStatusInterval = null;
     let examActive = false;
 
-    // Load daftar siswa untuk autocomplete pencarian nama
+    // Load info ujian aktif
     async function loadStudentsAutocomplete() {
       try {
         const res = await fetch('/api/ujian/students-list');
@@ -418,12 +417,6 @@
             document.getElementById('examActiveTitle').textContent = `${data.exam.subject} (${data.exam.class_target || 'Semua Kelas'}) • Durasi: ${data.exam.duration_minutes} Menit`;
             pill.style.display = 'block';
           }
-        }
-        const datalist = document.getElementById('studentsNameList');
-        if (datalist && Array.isArray(data.students)) {
-          datalist.innerHTML = data.students.map(s => 
-            `<option value="${s.full_name}">${s.class_name}</option>`
-          ).join('');
         }
       } catch {}
     }

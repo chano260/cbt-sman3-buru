@@ -851,28 +851,30 @@ function createApp(db) {
   });
 
   // ==================== PORTAL UJIAN SISWA (EXAMBRO & DIRECT ENTRY) ====================
-  // Ambil daftar nama siswa aktif & info ujian untuk autocomplete pencarian nama
+  // Ambil daftar nama siswa aktif & info ujian untuk autocomplete pencarian nama (tanpa membocorkan NISN)
   app.get('/api/ujian/students-list', (req, res) => {
     const rawExam = db.prepare('SELECT id, title, subject, class_target, duration_minutes FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
-    const students = db.prepare('SELECT id, full_name, class_name, nisn, birth_info FROM students ORDER BY full_name ASC').all();
+    const students = db.prepare('SELECT id, full_name, class_name FROM students ORDER BY full_name ASC').all();
     res.json({
       exam: rawExam || null,
       students: students.map(s => ({
         id: s.id,
         full_name: s.full_name,
-        class_name: s.class_name,
-        nisn: s.nisn,
-        birth_info: s.birth_info || '-'
+        class_name: s.class_name
       }))
     });
   });
 
-  // Pencarian nama siswa untuk langsung menampilkan konfirmasi identitas (Nama, NISN, TTL, Kelas)
+  // Pencarian nama siswa + verifikasi 4 digit terakhir NISN untuk menampilkan konfirmasi identitas (Nama, NISN, TTL, Kelas)
   app.post('/api/ujian/find-student', (req, res) => {
-    const { name } = req.body || {};
+    const { name, nisnLast4 } = req.body || {};
     const query = String(name || '').trim();
+    const pin = String(nisnLast4 || '').trim();
     if (!query) {
       return res.status(400).json({ error: 'Silakan ketik nama lengkap Anda terlebih dahulu.' });
+    }
+    if (!pin || pin.length < 4) {
+      return res.status(400).json({ error: 'Masukkan 4 digit terakhir NISN Anda.' });
     }
 
     const rawExam = db.prepare('SELECT id, title, subject, class_target, duration_minutes FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
@@ -880,26 +882,28 @@ function createApp(db) {
       return res.status(404).json({ error: 'Belum ada jadwal ujian yang diaktifkan oleh sekolah.' });
     }
 
-    // 1. Coba pencarian persis (exact match case-insensitive)
-    let student = db.prepare('SELECT id, exam_number, nisn, full_name, class_name, room, seat_number, birth_info FROM students WHERE LOWER(TRIM(full_name)) = LOWER(TRIM(?)) LIMIT 1').get(query);
-
-    // 2. Jika belum ketemu, cari kemiripan (LIKE)
-    let candidates = [];
-    if (!student) {
-      candidates = db.prepare('SELECT id, exam_number, nisn, full_name, class_name, room, seat_number, birth_info FROM students WHERE LOWER(full_name) LIKE LOWER(?) LIMIT 5').all(`%${query}%`);
-      if (candidates.length === 1) {
-        student = candidates[0];
-      }
+    // 1. Cari kandidat berdasarkan nama (exact match lalu LIKE)
+    let matches = db.prepare('SELECT id, exam_number, nisn, full_name, class_name, room, seat_number, birth_info FROM students WHERE LOWER(TRIM(full_name)) = LOWER(TRIM(?))').all(query);
+    if (matches.length === 0) {
+      matches = db.prepare('SELECT id, exam_number, nisn, full_name, class_name, room, seat_number, birth_info FROM students WHERE LOWER(full_name) LIKE LOWER(?) LIMIT 10').all(`%${query}%`);
     }
 
-    if (!student && candidates.length === 0) {
+    if (matches.length === 0) {
       return res.status(404).json({
         error: `Nama "${query}" tidak ditemukan dalam daftar peserta ujian. Pastikan ejaan nama Anda sesuai.`
       });
     }
 
+    // 2. Cocokkan dengan 4 digit terakhir NISN
+    const student = matches.find(s => String(s.nisn || '').trim().slice(-4) === pin);
+    if (!student) {
+      return res.status(401).json({
+        error: '4 digit terakhir NISN tidak sesuai dengan nama tersebut. Pastikan Anda memasukkan NISN milik Anda sendiri.'
+      });
+    }
+
     res.json({
-      student: student ? {
+      student: {
         id: student.id,
         exam_number: student.exam_number,
         full_name: student.full_name,
@@ -908,21 +912,15 @@ function createApp(db) {
         class_name: student.class_name,
         room: student.room,
         seat_number: student.seat_number
-      } : null,
-      candidates: candidates.map(c => ({
-        id: c.id,
-        full_name: c.full_name,
-        class_name: c.class_name,
-        nisn: c.nisn,
-        birth_info: c.birth_info || '-'
-      })),
+      },
       exam: rawExam
     });
   });
 
-  // Masuk langsung ke soal ("Siap Mengikuti Ujian") tanpa memerlukan teknisi atau token pengawas
+  // Masuk langsung ke soal ("Siap Mengikuti Ujian") dengan verifikasi 4 digit terakhir NISN
   app.post('/api/ujian/start-direct', (req, res) => {
-    const { studentId, name, device_info } = req.body || {};
+    const { studentId, name, nisnLast4, device_info } = req.body || {};
+    const pin = String(nisnLast4 || '').trim();
     let student = null;
     if (studentId) {
       student = db.prepare('SELECT * FROM students WHERE id = ?').get(Number(studentId));
@@ -931,6 +929,9 @@ function createApp(db) {
     }
     if (!student) {
       return res.status(404).json({ error: 'Data peserta tidak ditemukan.' });
+    }
+    if (!pin || String(student.nisn || '').trim().slice(-4) !== pin) {
+      return res.status(401).json({ error: 'Verifikasi 4 digit terakhir NISN tidak sesuai.' });
     }
 
     const rawExam = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();

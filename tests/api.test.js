@@ -310,16 +310,25 @@ test('Direct student name search, confirmation with TTL & NISN, direct exam star
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
 
-  // 1. Cek list nama siswa untuk autocomplete
+  // 1. Cek list nama siswa untuk autocomplete (pastikan NISN tidak bocor di endpoint publik ini)
   const listRes = await fetch(`${base}/api/ujian/students-list`).then(r => r.json());
   assert.ok(listRes.students.length >= 8);
   assert.ok(listRes.students.some(s => s.full_name === 'Ahmad Fauzi'));
+  assert.equal(listRes.students[0].nisn, undefined);
 
-  // 2. Cari nama siswa "ahmad fauzi" (case-insensitive)
+  // 2a. Jika teman iseng cari nama "ahmad fauzi" dengan 4 digit NISN salah -> ditolak (401)
+  const wrongPinRes = await fetch(`${base}/api/ujian/find-student`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'ahmad fauzi', nisnLast4: '9999' })
+  });
+  assert.equal(wrongPinRes.status, 401);
+
+  // 2b. Cari nama siswa "ahmad fauzi" + 4 digit terakhir NISN benar ("4501")
   const findRes = await fetch(`${base}/api/ujian/find-student`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'ahmad fauzi' })
+    body: JSON.stringify({ name: 'ahmad fauzi', nisnLast4: '4501' })
   }).then(r => r.json());
 
   assert.ok(findRes.student, 'Student should be found');
@@ -328,11 +337,11 @@ test('Direct student name search, confirmation with TTL & NISN, direct exam star
   assert.equal(findRes.student.class_name, 'XII IPA 1');
   assert.ok(findRes.student.birth_info.includes('Namlea'));
 
-  // 3. Masuk langsung ke soal ("Siap Mengikuti Ujian") tanpa token/password pengawas
+  // 3. Masuk langsung ke soal ("Siap Mengikuti Ujian") dengan verifikasi 4 digit NISN
   const startRes = await fetch(`${base}/api/ujian/start-direct`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ studentId: findRes.student.id })
+    body: JSON.stringify({ studentId: findRes.student.id, nisnLast4: '4501' })
   }).then(r => r.json());
 
   assert.ok(startRes.sessionId);

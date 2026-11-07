@@ -223,14 +223,19 @@
         🔒 <b>Tata Tertib:</b> Selama ujian dilarang keluar aplikasi, membuka layar belah, atau membuka tab lain. Setiap perpindahan aplikasi otomatis dicatat pada rekap guru.
       </div>
 
-      <!-- TAHAP 1: INPUT NAMA LENGKAP -->
+      <!-- TAHAP 1: INPUT NAMA LENGKAP & 4 DIGIT TERAKHIR NISN -->
       <div id="directEntryStep">
-        <div class="form-group" style="margin-bottom:14px;">
+        <div class="form-group" style="margin-bottom:12px;">
           <label style="font-weight:800;color:var(--slate);">Ketik Nama Lengkap Anda</label>
           <input id="inpSearchName" list="studentsNameList" class="input" style="font-size:15px;padding:12px 14px;" placeholder="Contoh: Ahmad Fauzi..." autocomplete="off">
           <datalist id="studentsNameList"></datalist>
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label style="font-weight:800;color:var(--slate);">4 Digit Terakhir NISN Anda</label>
+          <input id="inpNisnLast4" type="text" inputmode="numeric" maxlength="4" class="input" style="font-size:16px;padding:12px 14px;font-weight:800;letter-spacing:0.18em;" placeholder="Contoh: 4501" autocomplete="off">
           <div style="font-size:11.5px;color:var(--muted);margin-top:5px;">
-            💡 Ketik 2-3 huruf nama Anda lalu pilih dari daftar saran yang muncul.
+            💡 Masukkan 4 angka paling belakang dari NISN Anda (misal NISN 008123<b>4501</b> → ketik <b>4501</b>).
           </div>
         </div>
 
@@ -391,6 +396,7 @@
   <script>
     let sessionId = sessionStorage.getItem('cbt_active_session_id') || null;
     let selectedStudent = null;
+    let verifiedNisnLast4 = '';
     let examData = null;
     let questions = [];
     let answers = {};
@@ -416,29 +422,32 @@
         const datalist = document.getElementById('studentsNameList');
         if (datalist && Array.isArray(data.students)) {
           datalist.innerHTML = data.students.map(s => 
-            `<option value="${s.full_name}">${s.class_name} • TTL: ${s.birth_info || '-'}</option>`
+            `<option value="${s.full_name}">${s.class_name}</option>`
           ).join('');
         }
       } catch {}
     }
     loadStudentsAutocomplete();
 
-    // Event listener Enter pada kolom ketik nama
+    // Event listener Enter pada kolom ketik nama & 4 digit NISN
     document.addEventListener('DOMContentLoaded', () => {
-      const inp = document.getElementById('inpSearchName');
-      if (inp) {
-        inp.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            submitCheckStudent();
-          }
-        });
-      }
+      ['inpSearchName', 'inpNisnLast4'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              submitCheckStudent();
+            }
+          });
+        }
+      });
     });
 
-    // Cek data diri siswa saat nama disubmit
+    // Cek data diri siswa saat nama & 4 digit terakhir NISN disubmit
     async function submitCheckStudent() {
       const name = (document.getElementById('inpSearchName').value || '').trim();
+      const nisnLast4 = (document.getElementById('inpNisnLast4').value || '').trim();
       const errEl = document.getElementById('stFindError');
       errEl.style.display = 'none';
 
@@ -447,21 +456,27 @@
         errEl.style.display = 'block';
         return;
       }
+      if (!nisnLast4 || nisnLast4.length < 4) {
+        errEl.textContent = 'Silakan masukkan 4 digit terakhir NISN Anda.';
+        errEl.style.display = 'block';
+        return;
+      }
 
       try {
         const res = await fetch('/api/ujian/find-student', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name })
+          body: JSON.stringify({ name, nisnLast4 })
         });
         const data = await res.json();
         if (!res.ok || !data.student) {
-          errEl.textContent = data.error || 'Nama siswa tidak ditemukan. Periksa kembali ejaan nama Anda.';
+          errEl.textContent = data.error || 'Data tidak cocok. Periksa kembali nama dan 4 digit terakhir NISN Anda.';
           errEl.style.display = 'block';
           return;
         }
 
         selectedStudent = data.student;
+        verifiedNisnLast4 = nisnLast4;
         document.getElementById('confStudentName').textContent = selectedStudent.full_name;
         document.getElementById('confStudentNisn').textContent = selectedStudent.nisn || '-';
         document.getElementById('confStudentBirth').textContent = selectedStudent.birth_info || '-';
@@ -477,6 +492,7 @@
 
     function cancelConfirm() {
       selectedStudent = null;
+      verifiedNisnLast4 = '';
       document.getElementById('confirmStudentStep').style.display = 'none';
       document.getElementById('directEntryStep').style.display = 'block';
       const inp = document.getElementById('inpSearchName');
@@ -493,7 +509,7 @@
         const res = await fetch('/api/ujian/start-direct', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentId: selectedStudent.id })
+          body: JSON.stringify({ studentId: selectedStudent.id, nisnLast4: verifiedNisnLast4 })
         });
         const data = await res.json();
         if (!res.ok) {

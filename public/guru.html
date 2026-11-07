@@ -9,54 +9,66 @@
 <body>
   <div class="topbar">
     <div class="brand">
-      <div class="brand-logo">S3</div>
+      <div class="brand-logo" style="background:linear-gradient(145deg,#059669,#047857);box-shadow:0 4px 10px rgba(5,150,105,0.22);">S3</div>
       <div class="brand-text">
-        <h1>PANEL GURU MATA PELAJARAN</h1>
+        <h1>Panel Guru Mata Pelajaran</h1>
         <span>SMA Negeri 3 Buru • Manajemen Bank Soal & Rekap Nilai</span>
       </div>
     </div>
     <div class="topbar-right">
       <span class="chip" id="guruNameChip">Guru Mapel</span>
-      <a href="/" class="btn btn-sm btn-outline" style="background:transparent;color:#e5e7eb;border-color:#374151;">Menu Utama</a>
+      <a href="/" class="btn btn-sm btn-outline">Menu Utama</a>
     </div>
   </div>
 
   <!-- MODAL LOGIN GURU -->
-  <div id="loginOverlay" style="position:fixed;inset:0;background:rgba(17,24,39,0.88);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;">
-    <div class="card" style="max-width:390px;width:100%;margin:0;padding:24px;">
-      <h3 style="font-size:16px;font-weight:700;margin-bottom:4px;">Login Guru Mata Pelajaran</h3>
-      <p style="font-size:12.5px;color:var(--muted);margin-bottom:16px;">Masuk untuk mengelola bank soal dan mengunduh rekap nilai.</p>
+  <div id="loginOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(6px);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;">
+    <div class="card" style="max-width:400px;width:100%;margin:0;padding:28px;border-radius:16px;box-shadow:var(--shadow-lg);">
+      <h3 style="font-size:17px;font-weight:800;margin-bottom:4px;">Login Guru Mata Pelajaran</h3>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:18px;">Masuk untuk mengelola bank soal dan mengunduh rekap nilai.</p>
       <div class="form-group" style="margin-bottom:12px;">
         <label>Username</label>
         <input id="loginUser" class="input" value="guru">
       </div>
-      <div class="form-group" style="margin-bottom:16px;">
+      <div class="form-group" style="margin-bottom:18px;">
         <label>Password</label>
         <input id="loginPass" type="password" class="input" value="guru123">
       </div>
-      <div id="loginErr" style="color:var(--red);font-size:12px;margin-bottom:10px;display:none;"></div>
-      <button class="btn btn-primary" style="width:100%;padding:10px;" onclick="doGuruLogin()">Masuk ke Panel Guru</button>
+      <div id="loginErr" style="color:var(--red);font-size:12.5px;margin-bottom:10px;display:none;"></div>
+      <button class="btn btn-green" style="width:100%;padding:11px;" onclick="doGuruLogin()">Masuk ke Panel Guru</button>
     </div>
   </div>
 
   <div class="app-shell">
     <aside class="sidebar">
-      <button class="nav-btn active" onclick="switchGuruTab('tab-bank', this)">Bank Soal & Impor Word</button>
-      <button class="nav-btn" onclick="switchGuruTab('tab-scores', this)">Rekap Nilai Peserta</button>
+      <button class="nav-btn active" onclick="switchGuruTab('tab-bank', this)">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span>Bank Soal & Impor Word</span>
+      </button>
+      <button class="nav-btn" onclick="switchGuruTab('tab-scores', this)">
+        <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span>Rekap Nilai Peserta</span>
+      </button>
     </aside>
 
     <main class="main-content">
       <!-- PILIH MATA PELAJARAN / JADWAL UJIAN -->
-      <div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;">
         <div>
-          <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;">Mata Pelajaran & Paket Ujian</span>
-          <div style="margin-top:4px;">
-            <select id="examSelector" class="input" style="min-width:280px;font-weight:600;" onchange="onExamChange()"></select>
+          <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;">Mata Pelajaran & Paket Ujian</span>
+          <div style="margin-top:5px;">
+            <select id="examSelector" class="input" style="min-width:290px;font-weight:600;background:#fff;" onchange="onExamChange()"></select>
           </div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <a href="/api/guru/template-word" class="btn btn-outline">Unduh Template Word (.docx)</a>
-          <button class="btn btn-green" onclick="downloadExcel()">Ekspor Nilai (.xlsx)</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <a href="/api/guru/template-word" class="btn btn-outline">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Template Word (.docx)</span>
+          </a>
+          <button class="btn btn-green" onclick="downloadExcel()">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M14 13h2"/><path d="M14 17h2"/></svg>
+            <span>Ekspor Nilai (.xlsx)</span>
+          </button>
         </div>
       </div>
 

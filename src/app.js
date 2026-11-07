@@ -902,6 +902,15 @@ function createApp(db) {
       });
     }
 
+    // 3. Cek apakah siswa sudah menyelesaikan ujian (FINISHED) -> blokir agar tidak bisa masuk lagi
+    const existingSession = db.prepare('SELECT id, status, finished_at FROM exam_sessions WHERE exam_id = ? AND student_id = ?').get(rawExam.id, student.id);
+    if (existingSession && existingSession.status === 'FINISHED') {
+      return res.status(403).json({
+        error: `Ujian atas nama ${student.full_name} sudah selesai dikumpulkan dan tidak dapat dibuka atau diubah kembali.`,
+        status: 'FINISHED'
+      });
+    }
+
     res.json({
       student: {
         id: student.id,
@@ -948,8 +957,13 @@ function createApp(db) {
         VALUES (?, ?, 'WORKING', 0, 1, ?, 0, ?, ?)
       `).run(activeExam.id, student.id, nowIso, nowIso, device_info || 'Direct Entry Web');
       session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(info.lastInsertRowid));
+    } else if (session.status === 'FINISHED') {
+      return res.status(403).json({
+        error: `Ujian atas nama ${student.full_name} sudah selesai dikumpulkan dan tidak dapat dibuka atau mengubah jawaban lagi.`,
+        status: 'FINISHED'
+      });
     } else {
-      // Izinkan siswa melanjutkan kembali tanpa harus menunggu buka kunci pengawas
+      // Izinkan siswa yang belum selesai (WORKING/LOCKED) melanjutkan kembali
       db.prepare("UPDATE exam_sessions SET status = 'WORKING', need_token_reverify = 0, last_activity_at = ? WHERE id = ?").run(nowIso, session.id);
       session.status = 'WORKING';
       session.need_token_reverify = 0;
@@ -1016,6 +1030,11 @@ function createApp(db) {
         VALUES (?, ?, 'WORKING', 0, 1, ?, 0, ?, ?)
       `).run(activeExam.id, student.id, nowIso, nowIso, device_info || 'Exambro Android');
       session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(info.lastInsertRowid));
+    } else if (session.status === 'FINISHED') {
+      return res.status(403).json({
+        error: 'Ujian Anda sudah selesai dikumpulkan dan tidak dapat dibuka atau diubah kembali.',
+        status: 'FINISHED'
+      });
     } else {
       // Karena siswa baru saja memasukkan Token 15-menit terbaru saat login, matikan flag need_token_reverify
       db.prepare('UPDATE exam_sessions SET need_token_reverify = 0, last_activity_at = ? WHERE id = ?').run(nowIso, session.id);

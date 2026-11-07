@@ -374,6 +374,35 @@ test('Direct student name search, confirmation with TTL & NISN, direct exam star
     body: JSON.stringify({ sessionId: startRes.sessionId })
   }).then(r => r.json());
   assert.equal(resumeRes.status, 'WORKING');
+
+  // 7. Selesaikan ujian -> setelah selesai, tidak bisa masuk lagi dan tidak bisa ubah jawaban
+  const finRes = await fetch(`${base}/api/ujian/finish`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: startRes.sessionId })
+  });
+  assert.equal(finRes.status, 200);
+
+  const reFindRes = await fetch(`${base}/api/ujian/find-student`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'ahmad fauzi', nisnLast4: '4501' })
+  });
+  assert.equal(reFindRes.status, 403);
+
+  const reStartRes = await fetch(`${base}/api/ujian/start-direct`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentId: findRes.student.id, nisnLast4: '4501' })
+  });
+  assert.equal(reStartRes.status, 403);
+
+  const lateAnsRes = await fetch(`${base}/api/ujian/answer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: startRes.sessionId, questionId: q1.id, chosenOption: 'A' })
+  });
+  assert.equal(lateAnsRes.status, 400);
 });
 
 

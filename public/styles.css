@@ -508,267 +508,874 @@ tr:last-child td {
   .print-sheet { border: none !important; padding: 0 !important; margin: 0 !important; }
 }
 
-/* ABM KEMENDIKDASMEN THEME & LOGIN */
-.image-ui {
-  background-image: url('/new-background.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+/* =======================================================
+   BPPP KEMENDIKDASMEN THEME (DASHBOARD & EXAMBPPP SYSTEM)
+   ======================================================= */
+
+/* 1. MONITORING DASHBOARD (Sesuai Screenshot media_1794916705547_2a6c4f5c.jpg) */
+.bp3-body {
+  background-color: #f6f8f8;
+  color: #1e293b;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
   min-height: 100vh;
 }
 
-.abm-login-wrapper {
-  min-height: 100vh;
-  width: 100%;
+.bp3-topbar {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  height: 60px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  background-image: url('/new-background.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  padding: 16px;
-  box-sizing: border-box;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 
-.abm-login-container {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 1040px;
-  min-height: 560px;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 20px;
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
-  overflow: hidden;
-}
-
-@media (min-width: 768px) {
-  .abm-login-container {
-    flex-direction: row;
-  }
-}
-
-.abm-form-side {
-  flex: 1 1 50%;
-  padding: 32px 28px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-@media (min-width: 1024px) {
-  .abm-form-side {
-    padding: 44px 48px;
-  }
-}
-
-.abm-hero-side {
-  display: none;
-  flex: 1 1 50%;
-  background: linear-gradient(135deg, rgba(240, 246, 255, 0.65) 0%, rgba(241, 245, 249, 0.85) 100%);
-  align-items: center;
-  justify-content: center;
-  padding: 36px;
-  position: relative;
-  border-left: 1px solid rgba(226, 232, 240, 0.6);
-}
-
-@media (min-width: 768px) {
-  .abm-hero-side {
-    display: flex;
-  }
-}
-
-.abm-hero-img {
-  width: 85%;
-  max-width: 440px;
-  filter: drop-shadow(0 20px 25px rgba(0, 0, 0, 0.12));
-  animation: abmFloat 4s ease-in-out infinite alternate;
-}
-
-@keyframes abmFloat {
-  0% { transform: translateY(0px); }
-  100% { transform: translateY(-8px); }
-}
-
-.abm-logo-box {
-  margin-bottom: 20px;
+.bp3-topbar-left {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.abm-bp3-logo {
-  height: 44px;
+.bp3-logo-img {
+  height: 38px;
   width: auto;
   object-fit: contain;
 }
 
-.abm-welcome-text {
-  font-size: 20px;
-  font-weight: 500;
-  color: #475569;
-  letter-spacing: -0.01em;
-  margin-bottom: 2px;
+.bp3-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
-@media (min-width: 768px) {
-  .abm-welcome-text {
-    font-size: 24px;
-  }
-}
-
-.abm-title-text {
-  font-size: 28px;
-  font-weight: 800;
-  color: #0f172a;
-  letter-spacing: -0.02em;
-  line-height: 1.18;
-  margin-bottom: 10px;
-}
-
-@media (min-width: 768px) {
-  .abm-title-text {
-    font-size: 36px;
-  }
-}
-
-.abm-subtitle-text {
-  font-size: 13.5px;
+.bp3-icon-btn {
+  background: none;
+  border: none;
   color: #64748b;
-  margin-bottom: 22px;
-  line-height: 1.5;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: color 0.15s, background-color 0.15s;
 }
 
-.abm-active-pill {
-  background: #eff6ff;
-  color: #1e40af;
-  padding: 9px 13px;
-  border-radius: 10px;
-  font-size: 12.5px;
-  margin-bottom: 16px;
-  border: 1px solid #dbeafe;
+.bp3-icon-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.bp3-user-pill {
   display: flex;
   align-items: center;
   gap: 9px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1e293b;
 }
 
-.abm-active-pill .abm-pill-label {
-  font-size: 10.5px;
+.bp3-avatar-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f59e0b;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.bp3-dashboard-grid {
+  display: grid;
+  grid-template-columns: 240px 1fr 310px;
+  gap: 24px;
+  max-width: 1380px;
+  margin: 24px auto;
+  padding: 0 24px 60px;
+}
+
+@media (max-width: 1080px) {
+  .bp3-dashboard-grid {
+    grid-template-columns: 220px 1fr;
+  }
+  .bp3-sidebar-right {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 768px) {
+  .bp3-dashboard-grid {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+  .bp3-sidebar-right {
+    grid-column: span 1;
+  }
+}
+
+/* Sidebar Kiri */
+.bp3-sidebar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bp3-menu-section-label {
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.8;
-  display: block;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  padding: 0 12px 6px;
+  margin-top: 4px;
 }
 
-.abm-active-pill .abm-pill-value {
-  font-weight: 700;
-  color: #1e3a8a;
-}
-
-.abm-form-group {
-  margin-bottom: 15px;
-}
-
-.abm-label {
-  display: block;
+.bp3-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 9px;
   font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bp3-nav-item:hover {
+  background: #eaefee;
+  color: #1e293b;
+}
+
+.bp3-nav-item.active {
+  background: #4f7774;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(79, 119, 116, 0.25);
+}
+
+.bp3-nav-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 10px 12px;
+}
+
+/* Konten Utama */
+.bp3-main-content h2.bp3-section-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f2d2a;
+  letter-spacing: -0.01em;
+  margin-bottom: 16px;
+}
+
+.bp3-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.bp3-announcement-card {
+  padding: 24px 28px;
+}
+
+.bp3-announce-item {
+  display: flex;
+  gap: 16px;
+  padding-bottom: 22px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.bp3-announce-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.bp3-num-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #4f7774;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.bp3-announce-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0f2d2a;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.bp3-announce-desc {
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.65;
+}
+
+/* Sidebar Kanan */
+.bp3-sidebar-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bp3-side-card {
+  padding: 20px;
+}
+
+.bp3-side-card-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 16px;
+}
+
+.bp3-token-box-wrapper {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.bp3-token-digit {
+  width: 38px;
+  height: 48px;
+  border-radius: 8px;
+  background: #e6f0ee;
+  border: 1px solid #cfe0dd;
+  color: #1e3d3b;
+  font-size: 22px;
+  font-weight: 800;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bp3-token-countdown-note {
+  text-align: center;
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 3px;
+}
+
+.bp3-token-countdown-val {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f2d2a;
+}
+
+.bp3-doc-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  text-decoration: none;
+  color: #1e293b;
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  transition: all 0.15s ease;
+  background: #ffffff;
+}
+
+.bp3-doc-item:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateX(2px);
+}
+
+.bp3-doc-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bp3-footer {
+  text-align: center;
+  font-size: 12px;
+  color: #94a3b8;
+  padding: 24px 0 36px;
+}
+
+/* =======================================================
+   2. EXAMBPPP PORTAL PESERTA (Sesuai PDF ExamBPPP Hal 6-14)
+   ======================================================= */
+.exambppp-body {
+  background-color: #f5f8f8;
+  color: #1e293b;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Halaman Login ExamBPPP (Hal 8 kiri) */
+.exambppp-login-wrap {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+  box-sizing: border-box;
+}
+
+.exambppp-login-card {
+  width: 100%;
+  max-width: 390px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 32px 24px 28px;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06);
+}
+
+.exambppp-brand-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 24px;
+  font-weight: 800;
+  color: #1e3d3b;
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+
+.exambppp-brand-sub {
+  text-align: center;
+  font-size: 12.5px;
+  color: #64748b;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.exambppp-label {
+  display: block;
+  font-size: 12.5px;
   font-weight: 600;
   color: #334155;
   margin-bottom: 6px;
 }
 
-.abm-input {
+.exambppp-input {
   width: 100%;
   padding: 12px 14px;
   font-size: 14.5px;
   color: #0f172a;
   background: #ffffff;
   border: 1.5px solid #cbd5e1;
-  border-radius: 10px;
-  transition: all 0.2s ease;
-  outline: none;
-  font-family: inherit;
+  border-radius: 8px;
   box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: inherit;
 }
 
-.abm-input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+.exambppp-input:focus {
+  border-color: #4f7774;
+  box-shadow: 0 0 0 3px rgba(79, 119, 116, 0.18);
 }
 
-.abm-input-digit {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.25em;
-}
-
-.abm-btn-primary {
+.exambppp-btn-teal {
   width: 100%;
-  padding: 12px 20px;
-  border: none;
-  border-radius: 10px;
-  background: #6B8F8E;
+  padding: 12px 16px;
+  background: #4f7774;
   color: #ffffff;
+  border: none;
+  border-radius: 8px;
   font-size: 14.5px;
   font-weight: 700;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(107, 143, 142, 0.35);
+  transition: all 0.15s ease;
   margin-top: 6px;
 }
 
-.abm-btn-primary:hover {
-  background: #5a7d7c;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(107, 143, 142, 0.45);
+.exambppp-btn-teal:hover {
+  background: #406461;
 }
 
-.abm-btn-primary:active {
-  transform: translateY(0);
+.exambppp-btn-teal:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
 }
 
-.abm-security-notice {
-  margin-top: 18px;
-  padding: 10px 13px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  font-size: 11.5px;
-  color: #64748b;
+.exambppp-login-footer {
+  text-align: center;
+  margin-top: 26px;
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  line-height: 1.5;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
 
-.abm-footer-text {
-  margin-top: 24px;
+.exambppp-login-footer img {
+  height: 28px;
+  opacity: 0.85;
+}
+
+.exambppp-login-footer span {
   font-size: 11px;
   color: #94a3b8;
-  text-align: center;
-  line-height: 1.45;
-  border-top: 1px solid #f1f5f9;
-  padding-top: 14px;
+  font-weight: 500;
 }
 
-.abm-error-alert {
+/* Konfirmasi Data Peserta (Hal 8 kanan) */
+.exambppp-top-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.exambppp-rec-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.05em;
+}
+
+.exambppp-rec-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #dc2626;
+  animation: exambpppBlink 1.4s infinite;
+}
+
+@keyframes exambpppBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.exambppp-subbar {
+  background: #4f7774;
+  color: #ffffff;
+  padding: 8px 18px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.exambppp-container {
+  max-width: 580px;
+  margin: 0 auto;
+  padding: 20px 16px 80px;
+}
+
+.exambppp-data-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 22px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.exambppp-watermark-bp3 {
+  position: absolute;
+  right: -20px;
+  bottom: -20px;
+  width: 140px;
+  opacity: 0.06;
+  pointer-events: none;
+}
+
+.exambppp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.exambppp-table td {
+  padding: 7px 4px;
+  vertical-align: top;
+}
+
+.exambppp-table td:first-child {
+  color: #64748b;
+  width: 140px;
+  font-weight: 500;
+}
+
+.exambppp-table td:last-child {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.exambppp-rules-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.55;
+  margin-bottom: 18px;
+}
+
+.exambppp-rules-box b {
+  color: #0f172a;
+}
+
+/* Petunjuk Pengerjaan & Token (Hal 9) */
+.exambppp-agree-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #4f7774;
+  color: #ffffff;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  cursor: pointer;
+}
+
+.exambppp-agree-check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #ffffff;
+  cursor: pointer;
+}
+
+/* Halaman Soal ExamBPPP (Hal 10-13) */
+.exambppp-exam-subbar {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 8px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 59px;
+  z-index: 35;
+}
+
+.exambppp-zoom-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.exambppp-zoom-btn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  width: 32px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+}
+
+.exambppp-zoom-btn:hover {
+  background: #f1f5f9;
+}
+
+.exambppp-timer-pill {
   background: #fff1f2;
   border: 1px solid #fecdd3;
   color: #be123c;
-  padding: 10px 13px;
-  border-radius: 10px;
-  font-size: 12.5px;
-  font-weight: 600;
-  margin-bottom: 13px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
+
+/* Floating Daftar Soal Tab (Kanan) */
+.exambppp-floating-daftar {
+  position: fixed;
+  right: 0;
+  top: 140px;
+  background: #4f7774;
+  color: #ffffff;
+  padding: 10px 8px;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  cursor: pointer;
+  box-shadow: -2px 4px 10px rgba(0, 0, 0, 0.15);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Drawer / Modal Daftar Soal */
+.exambppp-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: none;
+  justify-content: flex-end;
+}
+
+.exambppp-drawer-card {
+  width: 320px;
+  max-width: 85%;
+  height: 100%;
+  background: #ffffff;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+  padding: 20px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.exambppp-num-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.exambppp-num-btn {
+  height: 38px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.exambppp-num-btn.done {
+  background: #4f7774;
+  border-color: #4f7774;
+  color: #ffffff;
+}
+
+.exambppp-num-btn.essay {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #ffffff;
+}
+
+.exambppp-num-btn.active {
+  box-shadow: 0 0 0 3px #10b981;
+}
+
+/* Radio button pilihan jawaban ExamBPPP */
+.exambppp-choice-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9px;
+  background: #ffffff;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.exambppp-choice-row:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.exambppp-choice-row.selected {
+  border-color: #4f7774;
+  background: #f0f6f5;
+  box-shadow: 0 0 0 1px #4f7774;
+}
+
+.exambppp-radio-circle {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.exambppp-choice-row.selected .exambppp-radio-circle {
+  border-color: #4f7774;
+}
+
+.exambppp-radio-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #4f7774;
+  display: none;
+}
+
+.exambppp-choice-row.selected .exambppp-radio-dot {
+  display: block;
+}
+
+/* Bottom Bar Soal */
+.exambppp-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 40;
+}
+
+.exambppp-nav-arrow-btn {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  color: #334155;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.exambppp-nav-arrow-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Modal Pop-up Dialogs (Konfirmasi Data, Mulai Tes, Selesai Subtes) */
+.exambppp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(5px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 150;
+}
+
+.exambppp-modal-card {
+  background: #ffffff;
+  border-radius: 14px;
+  max-width: 400px;
+  width: 100%;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.exambppp-modal-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f2d2a;
+  margin-bottom: 10px;
+}
+
+.exambppp-modal-desc {
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.55;
+  margin-bottom: 20px;
+}
+
+.exambppp-modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.exambppp-btn-modal-cancel {
+  flex: 1;
+  padding: 10px;
+  border: 1.5px solid #ef4444;
+  background: #ffffff;
+  color: #dc2626;
+  border-radius: 7px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.exambppp-btn-modal-confirm {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: #4f7774;
+  color: #ffffff;
+  border-radius: 7px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* Font Sizing */
+.q-font-sm .q-body-text { font-size: 13.5px !important; }
+.q-font-md .q-body-text { font-size: 15.5px !important; }
+.q-font-lg .q-body-text { font-size: 18px !important; }

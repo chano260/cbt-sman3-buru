@@ -3,188 +3,223 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Portal Server CBT — SMA Negeri 3 Buru</title>
+  <title>Monitoring ABM CBT — Balai Pengelolaan Pengujian Pendidikan (BP3)</title>
   <link rel="stylesheet" href="/styles.css">
-  <style>
-    .hero {
-      max-width: 1120px;
-      margin: 36px auto;
-      padding: 0 20px;
-    }
-    .hero-head {
-      background: #ffffff;
-      border: 1px solid var(--border-subtle);
-      border-radius: 16px;
-      padding: 28px 32px;
-      margin-bottom: 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 20px;
-      box-shadow: var(--shadow);
-    }
-    .hero-head h1 { font-size: 22px; font-weight: 800; color: var(--dark); margin-bottom: 6px; letter-spacing: -0.02em; }
-    .hero-head p { color: var(--muted); font-size: 14px; }
-    .ip-box {
-      background: #f8fafc;
-      border: 1px solid var(--border-subtle);
-      padding: 12px 18px;
-      border-radius: 12px;
-      text-align: right;
-    }
-    .ip-box span { font-size: 10.5px; color: var(--muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; display: block; margin-bottom: 2px; }
-    .ip-box b { font-size: 15px; color: var(--primary); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-
-    .portal-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 18px;
-    }
-    .portal-card {
-      background: #ffffff;
-      border: 1px solid var(--border-subtle);
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: var(--shadow);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease, border-color 0.18s ease;
-    }
-    .portal-card:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow-lg);
-      border-color: #cbd5e1;
-    }
-    .p-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 16px;
-    }
-    .p-icon svg {
-      width: 22px;
-      height: 22px;
-    }
-    .portal-card h3 { font-size: 16px; font-weight: 700; color: var(--dark); margin-bottom: 6px; }
-    .portal-card p { font-size: 13px; color: var(--muted); margin-bottom: 18px; line-height: 1.55; }
-    .cred-hint {
-      background: #f8fafc;
-      border: 1px solid #f1f5f9;
-      border-radius: 8px;
-      padding: 8px 11px;
-      font-size: 11.5px;
-      color: var(--slate);
-      margin-bottom: 12px;
-    }
-  </style>
 </head>
-<body class="image-ui">
-  <div class="topbar">
-    <div class="brand">
-      <img src="/logoBP3.png" alt="Logo BP3 Kemendikdasmen" style="height:36px;width:auto;object-fit:contain;">
-      <div style="width:1px;height:24px;background:#cbd5e1;"></div>
-      <div class="brand-text">
-        <h1>SMA NEGERI 3 BURU</h1>
-        <span>Portal Asesmen & Ujian Berbasis Komputer (CBT)</span>
+<body class="bp3-body">
+  <!-- TOP BAR (Sesuai Gambar media_1794916705547_2a6c4f5c.jpg) -->
+  <header class="bp3-topbar">
+    <div class="bp3-topbar-left">
+      <img src="/logoBP3.png" alt="Balai Pengelolaan Pengujian Pendidikan" class="bp3-logo-img">
+    </div>
+    <div class="bp3-topbar-right">
+      <button class="bp3-icon-btn" title="Layar Penuh" onclick="toggleFullscreen()">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+      </button>
+      <button class="bp3-icon-btn" title="Ganti Password">
+        <svg class="icon" viewBox="0 0 24 24"><path d="m21 2-2 2m-1.5 1.5L10 13m-3 3-4 4 3 1 1-3 3-1-1-3 4-4m-3-3 2-2"/></svg>
+      </button>
+      <button class="bp3-icon-btn" title="Bantuan / Panduan">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      </button>
+      <div class="bp3-user-pill">
+        <span>Operator SMA NEGERI 3 BURU</span>
+        <div class="bp3-avatar-circle">O</div>
       </div>
     </div>
-    <div class="topbar-right">
-      <span class="chip" id="topStatus">Server Aktif</span>
-      <span class="chip chip-token" id="topToken">TOKEN: -</span>
-    </div>
+  </header>
+
+  <!-- GRID LAYOUT (Sidebar Kiri, Konten Tengah, Sidebar Kanan) -->
+  <div class="bp3-dashboard-grid">
+    <!-- SIDEBAR KIRI -->
+    <aside class="bp3-sidebar-left">
+      <div class="bp3-menu-section-label">MONITORING ABM</div>
+      <button class="bp3-nav-item active">
+        <svg class="icon" viewBox="0 0 24 24"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+        <span>Pengumuman</span>
+      </button>
+      <a href="/operator.html" class="bp3-nav-item">
+        <svg class="icon" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+        <span>Penjadwalan & Sesi</span>
+      </a>
+
+      <div class="bp3-nav-divider"></div>
+      <div class="bp3-menu-section-label">PORTAL & MODUL</div>
+      <a href="/operator.html" class="bp3-nav-item">
+        <svg class="icon" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+        <span>Panel Operator</span>
+      </a>
+      <a href="/guru.html" class="bp3-nav-item">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M8 7h6"/><path d="M8 11h8"/></svg>
+        <span>Panel Guru Mapel</span>
+      </a>
+      <a href="/pengawas.html" class="bp3-nav-item">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+        <span>Panel Pengawas</span>
+      </a>
+      <a href="/ujian.html" class="bp3-nav-item" style="color:#047857;font-weight:700;">
+        <svg class="icon" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+        <span>Portal Ujian Siswa</span>
+      </a>
+    </aside>
+
+    <!-- KONTEN TENGAH: PENGUMUMAN (Sesuai Gambar media_1794916705547_2a6c4f5c.jpg) -->
+    <main class="bp3-main-content">
+      <h2 class="bp3-section-title">Pengumuman</h2>
+      <div class="bp3-card bp3-announcement-card">
+        <!-- ITEM 1 -->
+        <div class="bp3-announce-item">
+          <div class="bp3-num-circle">1</div>
+          <div>
+            <h3 class="bp3-announce-title">INFORMASI LANJUTAN UJI COBA SERENTAK ABM TAHUN 2026</h3>
+            <p class="bp3-announce-desc">
+              Terima kasih kepada seluruh Tim ABM Provinsi (Dinas dan Kemenag) serta satuan pendidikan yang telah berpartisipasi dalam Uji Coba Serentak ABM Tahun 2026.<br><br>
+              Kami mohon maaf atas kendala akses yang dialami peserta pada pelaksanaan uji coba pagi ini. Kendala tersebut telah menjadi bahan evaluasi dan perbaikan sistem sebelum pelaksanaan ABM Tahun 2026.<br><br>
+              <b>Satuan pendidikan dipersilakan melanjutkan kegiatan belajar mengajar seperti biasa.</b><br><br>
+              Bagi satuan pendidikan yang masih ingin melanjutkan uji coba, <b>akses tetap dibuka sampai pukul 16.00 waktu setempat.</b><br><br>
+              Terima kasih atas partisipasi, dukungan, dan kerja sama Bapak/Ibu.
+            </p>
+          </div>
+        </div>
+
+        <!-- ITEM 2 -->
+        <div class="bp3-announce-item">
+          <div class="bp3-num-circle">2</div>
+          <div>
+            <h3 class="bp3-announce-title">UJI COBA SERENTAK ASESMEN BAKAT MURID TAHUN 2026</h3>
+            <p class="bp3-announce-desc">
+              Pelaksanaan Asesmen Bakat Murid (ABM) di SMA Negeri 3 Buru didukung infrastruktur CBT mandiri dengan pengamanan aplikasi Exambro. Seluruh peserta didik mengikuti ujian melalui perangkat seluler/komputer yang terhubung ke jaringan server lokal.
+            </p>
+          </div>
+        </div>
+
+        <!-- ITEM 3 -->
+        <div class="bp3-announce-item">
+          <div class="bp3-num-circle">3</div>
+          <div>
+            <h3 class="bp3-announce-title">Latar Belakang dan Tujuan ABM Tahun 2026</h3>
+            <p class="bp3-announce-desc">
+              Asesmen Bakat Murid bertujuan untuk memprediksi kemampuan peserta didik pada bidang-bidang khusus serta memetakan bakat dan minat untuk pertimbangan kelanjutan studi dan pemilihan karir masa depan.
+            </p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- SIDEBAR KANAN: TOKEN & DOKUMEN -->
+    <aside class="bp3-sidebar-right">
+      <!-- KARTU TOKEN (Sesuai Gambar media_1794916705547_2a6c4f5c.jpg) -->
+      <div class="bp3-card bp3-side-card">
+        <div class="bp3-side-card-title">Token</div>
+        <div class="bp3-token-box-wrapper" id="tokenDigitBoxes">
+          <div class="bp3-token-digit">-</div>
+          <div class="bp3-token-digit">-</div>
+          <div class="bp3-token-digit">-</div>
+          <div class="bp3-token-digit">-</div>
+          <div class="bp3-token-digit">-</div>
+          <div class="bp3-token-digit">-</div>
+        </div>
+        <div class="bp3-token-countdown-note">token akan berganti dalam waktu</div>
+        <div class="bp3-token-countdown-val" id="tokenCountdownVal">Memuat...</div>
+      </div>
+
+      <!-- KARTU DOKUMEN -->
+      <div class="bp3-card bp3-side-card">
+        <div class="bp3-side-card-title">Dokumen</div>
+        <a href="javascript:void(0)" onclick="alert('Pedoman Pelaksanaan ABM 2026 tersedia pada panel Operator & Guru')" class="bp3-doc-item">
+          <div class="bp3-doc-left">
+            <svg class="icon" style="color:#ef4444;" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span>Pedoman Pelaksanaan ABM 2026</span>
+          </div>
+          <svg class="icon" style="width:14px;height:14px;color:#94a3b8;" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+
+        <a href="/Exambro-SMAN3-Buru.apk" download class="bp3-doc-item">
+          <div class="bp3-doc-left">
+            <svg class="icon" style="color:#10b981;" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+            <span>Unduh Aplikasi Exambro (.apk)</span>
+          </div>
+          <svg class="icon" style="width:14px;height:14px;color:#94a3b8;" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+
+        <a href="/ujian.html" class="bp3-doc-item">
+          <div class="bp3-doc-left">
+            <svg class="icon" style="color:#0284c7;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+            <span>Masuk Portal Ujian Peserta</span>
+          </div>
+          <svg class="icon" style="width:14px;height:14px;color:#94a3b8;" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+      </div>
+    </aside>
   </div>
 
-  <div class="hero">
-    <div class="hero-head" style="background:rgba(255,255,255,0.95);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);">
-      <div>
-        <h1>Pusat Layanan Asesmen & Ujian CBT</h1>
-        <p>Pilih modul manajemen atau portal ujian sesuai peran Anda di SMA Negeri 3 Buru.</p>
-      </div>
-      <div class="ip-box">
-        <span>Alamat Server Aktif</span>
-        <b id="lanIpDisplay">Memuat...</b>
-      </div>
-    </div>
-
-    <div class="portal-grid">
-      <!-- PANEL 1: OPERATOR -->
-      <div class="portal-card">
-        <div>
-          <div class="p-icon" style="background:#eff6ff;color:#2563eb;">
-            <svg class="icon" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
-          </div>
-          <h3>Panel Operator & Admin</h3>
-          <p>Kelola data peserta, jadwal sesi ujian, QR Exambro, serta cetak daftar hadir, kartu peserta, dan kartu meja.</p>
-        </div>
-        <div>
-          <div class="cred-hint">Akun: <b>operator</b> / <b>admin123</b></div>
-          <a href="/operator.html" class="btn btn-primary" style="width:100%;">Buka Panel Operator</a>
-        </div>
-      </div>
-
-      <!-- PANEL 2: GURU MAPEL -->
-      <div class="portal-card">
-        <div>
-          <div class="p-icon" style="background:#ecfdf5;color:#059669;">
-            <svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M8 7h6"/><path d="M8 11h8"/></svg>
-          </div>
-          <h3>Panel Guru Mapel</h3>
-          <p>Unduh template soal, impor naskah Pilihan Ganda & Esai dari Microsoft Word (.docx), dan ekspor nilai ke Excel.</p>
-        </div>
-        <div>
-          <div class="cred-hint">Akun: <b>guru</b> / <b>guru123</b></div>
-          <a href="/guru.html" class="btn btn-green" style="width:100%;">Buka Panel Guru</a>
-        </div>
-      </div>
-
-      <!-- PANEL 3: PENGAWAS RUANGAN -->
-      <div class="portal-card">
-        <div>
-          <div class="p-icon" style="background:#fff7ed;color:#ea580c;">
-            <svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-          </div>
-          <h3>Panel Pengawas Ruang</h3>
-          <p>Pemantauan status pengerjaan peserta secara langsung, manajemen sesi ruang ujian, dan berita acara pelaksanaan.</p>
-        </div>
-        <div>
-          <div class="cred-hint">Akun: <b>pengawas</b> / <b>pengawas123</b></div>
-          <a href="/pengawas.html" class="btn btn-outline" style="width:100%;">Buka Panel Pengawas</a>
-        </div>
-      </div>
-
-      <!-- PANEL 4: PORTAL UJIAN SISWA -->
-      <div class="portal-card">
-        <div>
-          <div class="p-icon" style="background:#f1f5f9;color:#0f172a;">
-            <svg class="icon" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
-          </div>
-          <h3>Portal Peserta Ujian</h3>
-          <p>Halaman pengerjaan soal untuk peserta didik melalui verifikasi Nama Lengkap dan 4 digit terakhir NISN.</p>
-        </div>
-        <div>
-          <a href="/ujian.html" class="btn btn-primary" style="width:100%;margin-bottom:8px;">Buka Portal Ujian Siswa</a>
-          <a href="/Exambro-SMAN3-Buru.apk" download class="btn btn-outline" style="width:100%;">Unduh Aplikasi Exambro (.apk)</a>
-        </div>
-      </div>
-    </div>
-  </div>
+  <footer class="bp3-footer">
+    Powered By BP3 © 2026 • SMA Negeri 3 Buru
+  </footer>
 
   <script>
-    fetch('/api/server-info')
-      .then(r => r.json())
-      .then(data => {
-        const port = window.location.port ? ':' + window.location.port : '';
-        document.getElementById('lanIpDisplay').textContent = window.location.origin || ('http://' + data.lanIp + port);
-        if (data.activeExam) {
-          document.getElementById('topToken').textContent = 'TOKEN: ' + data.activeExam.token;
+    let remainingSeconds = 0;
+    let countdownTimer = null;
+
+    function renderTokenDigits(tokenStr) {
+      const container = document.getElementById('tokenDigitBoxes');
+      const safeToken = String(tokenStr || '------').padEnd(6, '-').slice(0, 6);
+      container.innerHTML = safeToken.split('').map(ch => `<div class="bp3-token-digit">${ch}</div>`).join('');
+    }
+
+    function formatCountdown(sec) {
+      if (sec <= 0) return 'Memperbarui token...';
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      if (m > 0) return `${m} menit ${s} detik`;
+      return `${s} detik`;
+    }
+
+    function updateCountdownDisplay() {
+      const el = document.getElementById('tokenCountdownVal');
+      if (el) el.textContent = formatCountdown(remainingSeconds);
+    }
+
+    async function loadServerInfo() {
+      try {
+        const res = await fetch('/api/server-info');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.activeExam && data.activeExam.token) {
+          renderTokenDigits(data.activeExam.token);
+          remainingSeconds = data.activeExam.token_remaining_seconds || 900;
+          updateCountdownDisplay();
+        } else {
+          renderTokenDigits('BELUM');
+          document.getElementById('tokenCountdownVal').textContent = 'Belum ada ujian aktif';
         }
-      })
-      .catch(() => {});
+      } catch {}
+    }
+
+    function startTimerLoop() {
+      loadServerInfo();
+      if (countdownTimer) clearInterval(countdownTimer);
+      countdownTimer = setInterval(() => {
+        if (remainingSeconds > 0) {
+          remainingSeconds--;
+          updateCountdownDisplay();
+          if (remainingSeconds === 0) {
+            loadServerInfo();
+          }
+        }
+      }, 1000);
+      setInterval(loadServerInfo, 30000);
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    startTimerLoop();
   </script>
 </body>
 </html>

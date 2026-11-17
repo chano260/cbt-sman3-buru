@@ -299,7 +299,9 @@ function createApp(db) {
         exam_date: activeExam.exam_date,
         start_time: activeExam.start_time,
         session_name: activeExam.session_name,
-        duration_minutes: activeExam.duration_minutes
+        duration_minutes: activeExam.duration_minutes,
+        token: activeExam.token,
+        token_remaining_seconds: activeExam.token_remaining_seconds
       } : null
     });
   });

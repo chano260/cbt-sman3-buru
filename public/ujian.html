@@ -300,7 +300,7 @@
 </head>
 <body oncontextmenu="return false;">
   <!-- BAR STATUS SISTEM -->
-  <div class="exam-topbar">
+  <div class="exam-topbar" id="mainExamTopbar" style="display:none;">
     <span class="lock-indicator">
       <span class="status-dot"></span>
       <span>SMA NEGERI 3 BURU • CBT EXAMBRO</span>
@@ -308,113 +308,124 @@
     <span id="saveStatusIndicator" style="color:#94a3b8;font-weight:500;">Sistem Siap</span>
   </div>
 
-  <!-- LAYAR 1: VERIFIKASI PESERTA UJIAN -->
-  <div id="studentLoginScreen" class="exam-container" style="padding-top:28px;max-width:460px;">
-    <div class="question-box" style="padding:28px 24px;">
-      <div style="display:flex;align-items:center;gap:13px;margin-bottom:20px;">
-        <div class="brand-logo" style="width:42px;height:42px;border-radius:12px;font-size:15px;">S3</div>
-        <div>
-          <h2 style="font-size:17px;font-weight:800;color:#0f172a;letter-spacing:-0.01em;">Portal Ujian Peserta</h2>
-          <span style="font-size:12.5px;color:#64748b;">SMA Negeri 3 Buru</span>
+  <!-- LAYAR 1: VERIFIKASI PESERTA UJIAN (ABM KEMENDIKDASMEN STYLE) -->
+  <div id="studentLoginScreen" class="abm-login-wrapper">
+    <div class="abm-login-container">
+      <!-- Sisi Kiri: Form Identitas & Login -->
+      <div class="abm-form-side">
+        <div class="abm-logo-box">
+          <img src="/logoBP3.png" alt="BP3 Kemendikdasmen" class="abm-bp3-logo">
         </div>
-      </div>
 
-      <div id="examActivePill" style="display:none;background:#eff6ff;color:#1e40af;padding:10px 14px;border-radius:11px;font-size:12.5px;margin-bottom:18px;border:1px solid #dbeafe;">
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div class="abm-welcome-text">Selamat Datang di</div>
+        <div class="abm-title-text">Portal CBT SMAN 3 Buru</div>
+        <div class="abm-subtitle-text">Silahkan masuk aplikasi menggunakan Nama Lengkap dan 4 Digit Terakhir NISN Anda.</div>
+
+        <div id="examActivePill" class="abm-active-pill" style="display:none;">
           <svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
           <div>
-            <span style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;opacity:0.8;display:block;">Mata Pelajaran Aktif</span>
-            <span id="examActiveTitle" style="font-weight:700;color:#1e3a8a;">-</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- TAHAP 1: INPUT NAMA LENGKAP & 4 DIGIT TERAKHIR NISN -->
-      <div id="directEntryStep">
-        <div class="form-group" style="margin-bottom:14px;">
-          <label for="inpSearchName">Nama Lengkap Peserta</label>
-          <input id="inpSearchName" type="text" class="input" style="font-size:14.5px;padding:11px 14px;" autocomplete="off">
-        </div>
-
-        <div class="form-group" style="margin-bottom:18px;">
-          <label for="inpNisnLast4">4 Digit Terakhir NISN</label>
-          <input id="inpNisnLast4" type="text" inputmode="numeric" maxlength="4" class="input" style="font-size:16px;padding:11px 14px;font-weight:700;letter-spacing:0.2em;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;" autocomplete="off">
-        </div>
-
-        <div id="stFindError" style="background:#fff1f2;border:1px solid #fecdd3;color:#be123c;padding:10px 13px;border-radius:10px;font-size:12.5px;font-weight:600;margin-bottom:14px;display:none;"></div>
-
-        <button class="btn btn-primary" style="width:100%;padding:12px;font-size:14px;" onclick="submitCheckStudent()">
-          <span>Periksa Data Diri</span>
-          <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-        </button>
-
-        <div style="margin-top:18px;padding:11px 13px;background:#f8fafc;border-radius:10px;border:1px solid #f1f5f9;font-size:12px;color:#64748b;display:flex;align-items:flex-start;gap:9px;line-height:1.5;">
-          <svg class="icon" style="color:#3b82f6;margin-top:1px;" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span>Selama ujian berlangsung, tetap berada di layar ujian dan tidak berpindah ke aplikasi lain.</span>
-        </div>
-      </div>
-
-      <!-- TAHAP 2: KARTU KONFIRMASI DATA DIRI -->
-      <div id="confirmStudentStep" style="display:none;">
-        <div class="id-card">
-          <div class="id-card-top">
-            <div class="id-avatar">
-              <svg class="icon" style="width:22px;height:22px;" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            </div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:0.04em;">Identitas Terverifikasi</div>
-              <div style="font-size:16px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="confStudentName">-</div>
-            </div>
-          </div>
-
-          <div class="id-grid">
-            <div class="id-item">
-              <div class="id-item-label">NISN</div>
-              <div class="id-item-val" id="confStudentNisn">-</div>
-            </div>
-            <div class="id-item">
-              <div class="id-item-label">Kelas</div>
-              <div class="id-item-val" id="confStudentClass">-</div>
-            </div>
-            <div class="id-item" style="grid-column: span 2;">
-              <div class="id-item-label">Tempat, Tanggal Lahir</div>
-              <div class="id-item-val" id="confStudentBirth">-</div>
-            </div>
+            <span class="abm-pill-label">Mata Pelajaran Aktif</span>
+            <span id="examActiveTitle" class="abm-pill-value">-</span>
           </div>
         </div>
 
-        <button class="btn btn-green" id="btnConfirmStart" style="width:100%;padding:13px;font-size:14.5px;" onclick="confirmAndStartDirectExam()">
-          <svg class="icon" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          <span>Siap Mengikuti Ujian</span>
-        </button>
-        <button class="btn btn-outline" style="width:100%;padding:10px;margin-top:9px;font-size:13px;" onclick="cancelConfirm()">
-          Bukan Saya / Ubah Nama
-        </button>
+        <!-- TAHAP 1: INPUT NAMA LENGKAP & 4 DIGIT TERAKHIR NISN -->
+        <div id="directEntryStep">
+          <div class="abm-form-group">
+            <label for="inpSearchName" class="abm-label">Nama Lengkap Peserta</label>
+            <input id="inpSearchName" type="text" class="abm-input" autocomplete="off">
+          </div>
+
+          <div class="abm-form-group">
+            <label for="inpNisnLast4" class="abm-label">4 Digit Terakhir NISN</label>
+            <input id="inpNisnLast4" type="text" inputmode="numeric" maxlength="4" class="abm-input abm-input-digit" autocomplete="off">
+          </div>
+
+          <div id="stFindError" class="abm-error-alert" style="display:none;"></div>
+
+          <button class="abm-btn-primary" onclick="submitCheckStudent()">
+            <span>Masuk</span>
+            <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          </button>
+
+          <div class="abm-security-notice">
+            <svg class="icon" style="color:#2563eb;margin-top:1px;" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>Selama ujian berlangsung, tetap berada di layar ujian dan tidak berpindah ke aplikasi lain.</span>
+          </div>
+        </div>
+
+        <!-- TAHAP 2: KARTU KONFIRMASI DATA DIRI -->
+        <div id="confirmStudentStep" style="display:none;">
+          <div class="id-card">
+            <div class="id-card-top">
+              <div class="id-avatar">
+                <svg class="icon" style="width:22px;height:22px;" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:0.04em;">Identitas Terverifikasi</div>
+                <div style="font-size:16px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="confStudentName">-</div>
+              </div>
+            </div>
+
+            <div class="id-grid">
+              <div class="id-item">
+                <div class="id-item-label">NISN</div>
+                <div class="id-item-val" id="confStudentNisn">-</div>
+              </div>
+              <div class="id-item">
+                <div class="id-item-label">Kelas</div>
+                <div class="id-item-val" id="confStudentClass">-</div>
+              </div>
+              <div class="id-item" style="grid-column: span 2;">
+                <div class="id-item-label">Tempat, Tanggal Lahir</div>
+                <div class="id-item-val" id="confStudentBirth">-</div>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn btn-green" id="btnConfirmStart" style="width:100%;padding:13px;font-size:14.5px;" onclick="confirmAndStartDirectExam()">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <span>Mulai Mengerjakan Ujian</span>
+          </button>
+          <button class="btn btn-outline" style="width:100%;padding:10px;margin-top:9px;font-size:13px;" onclick="cancelConfirm()">
+            Bukan Saya / Kembali
+          </button>
+        </div>
+
+        <!-- TAHAP 3: MODE LOGIN MANUAL LAMA (OPSIONAL DENGAN TOKEN & NOMOR PESERTA) -->
+        <div id="legacyLoginSection" style="display:none;margin-top:18px;padding-top:16px;border-top:1px solid #f1f5f9;">
+          <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:10px;">Login dengan Nomor Peserta & Token</div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label>Nomor Peserta Ujian</label>
+            <input id="inpExamNo" class="input" value="" autocomplete="off">
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label>Password Kartu Login</label>
+            <input id="inpPassword" type="password" class="input" value="" placeholder="Password ujian">
+          </div>
+          <div class="form-group" style="margin-bottom:14px;">
+            <label>Token Ujian</label>
+            <input id="inpToken" class="input" style="font-weight:700;letter-spacing:0.12em;text-transform:uppercase;" placeholder="TOKEN">
+          </div>
+          <div id="stLoginError" style="color:var(--red);font-size:12.5px;font-weight:600;margin-bottom:12px;display:none;"></div>
+          <button class="btn btn-primary" style="width:100%;padding:10px;font-size:13px;" onclick="startStudentExam()">Masuk via Nomor Peserta</button>
+        </div>
+
+        <div style="text-align:center;margin-top:16px;">
+          <a href="javascript:void(0)" onclick="toggleLegacyLogin()" id="linkToggleLegacy" style="font-size:12px;color:#94a3b8;">
+            Gunakan Nomor Peserta & Token
+          </a>
+        </div>
+
+        <div class="abm-footer-text">
+          Pusat Asesmen Pendidikan • Balai Pengelolaan Pengujian Pendidikan (BPPP)<br>
+          SMA Negeri 3 Buru CBT Portal
+        </div>
       </div>
 
-      <!-- TAHAP 3: MODE LOGIN MANUAL LAMA (OPSIONAL DENGAN TOKEN & NOMOR PESERTA) -->
-      <div id="legacyLoginSection" style="display:none;margin-top:18px;padding-top:16px;border-top:1px solid #f1f5f9;">
-        <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:10px;">Login dengan Nomor Peserta & Token</div>
-        <div class="form-group" style="margin-bottom:10px;">
-          <label>Nomor Peserta Ujian</label>
-          <input id="inpExamNo" class="input" value="" autocomplete="off">
-        </div>
-        <div class="form-group" style="margin-bottom:10px;">
-          <label>Password Kartu Login</label>
-          <input id="inpPassword" type="password" class="input" value="" placeholder="Password ujian">
-        </div>
-        <div class="form-group" style="margin-bottom:14px;">
-          <label>Token Ujian</label>
-          <input id="inpToken" class="input" style="font-weight:700;letter-spacing:0.12em;text-transform:uppercase;" placeholder="TOKEN">
-        </div>
-        <div id="stLoginError" style="color:var(--red);font-size:12.5px;font-weight:600;margin-bottom:12px;display:none;"></div>
-        <button class="btn btn-primary" style="width:100%;padding:10px;font-size:13px;" onclick="startStudentExam()">Masuk via Nomor Peserta</button>
-      </div>
-
-      <div style="text-align:center;margin-top:16px;">
-        <a href="javascript:void(0)" onclick="toggleLegacyLogin()" id="linkToggleLegacy" style="font-size:12px;color:#94a3b8;">
-          Gunakan Nomor Peserta & Token
-        </a>
+      <!-- Sisi Kanan: Hero Illustration ABM -->
+      <div class="abm-hero-side">
+        <img src="/logo_aplikasi.png" alt="Logo Aplikasi Asesmen" class="abm-hero-img">
       </div>
     </div>
   </div>
@@ -651,6 +662,8 @@
         await loadExamSession();
         document.getElementById('studentLoginScreen').style.display = 'none';
         document.getElementById('studentExamScreen').style.display = 'block';
+        const topbar = document.getElementById('mainExamTopbar');
+        if (topbar) topbar.style.display = 'flex';
         examActive = true;
         startTimersAndSecurityWatch();
       } catch (err) {
@@ -691,6 +704,8 @@
         if (examData && examData.session && examData.session.status !== 'FINISHED') {
           document.getElementById('studentLoginScreen').style.display = 'none';
           document.getElementById('studentExamScreen').style.display = 'block';
+          const topbar = document.getElementById('mainExamTopbar');
+          if (topbar) topbar.style.display = 'flex';
           examActive = true;
           startTimersAndSecurityWatch();
         }
@@ -727,6 +742,8 @@
       await loadExamSession();
       document.getElementById('studentLoginScreen').style.display = 'none';
       document.getElementById('studentExamScreen').style.display = 'block';
+      const topbar = document.getElementById('mainExamTopbar');
+      if (topbar) topbar.style.display = 'flex';
       examActive = true;
 
       startTimersAndSecurityWatch();
@@ -930,6 +947,8 @@
         window.AndroidExambro.exitLockMode();
       }
       document.getElementById('studentExamScreen').style.display = 'none';
+      const topbar = document.getElementById('mainExamTopbar');
+      if (topbar) topbar.style.display = 'none';
       document.getElementById('lockedRedOverlay').style.display = 'none';
       if (customMsg) document.getElementById('finishMsgText').textContent = customMsg;
       document.getElementById('studentFinishedScreen').style.display = 'block';

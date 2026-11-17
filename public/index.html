@@ -3,37 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Monitoring ABM CBT — Balai Pengelolaan Pengujian Pendidikan (BP3)</title>
+  <title>Monitoring CBT — SMA Negeri 3 Buru</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="bp3-body">
-  <!-- TOP BAR (Sesuai Gambar media_1794916705547_2a6c4f5c.jpg) -->
+  <!-- TOP BAR (Terinspirasi Desain BPPP Monitoring) -->
   <header class="bp3-topbar">
     <div class="bp3-topbar-left">
-      <img src="/logoBP3.png" alt="Balai Pengelolaan Pengujian Pendidikan" class="bp3-logo-img">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="brand-logo" style="width:38px;height:38px;border-radius:10px;font-size:14px;background:#4f7774;box-shadow:none;">S3</div>
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#0f2d2a;letter-spacing:-0.01em;">SMA NEGERI 3 BURU</div>
+          <div style="font-size:11.5px;color:#64748b;font-weight:500;">Portal Monitoring Evaluasi & Asesmen CBT</div>
+        </div>
+      </div>
     </div>
     <div class="bp3-topbar-right">
       <button class="bp3-icon-btn" title="Layar Penuh" onclick="toggleFullscreen()">
         <svg class="icon" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
       </button>
-      <button class="bp3-icon-btn" title="Ganti Password">
-        <svg class="icon" viewBox="0 0 24 24"><path d="m21 2-2 2m-1.5 1.5L10 13m-3 3-4 4 3 1 1-3 3-1-1-3 4-4m-3-3 2-2"/></svg>
-      </button>
-      <button class="bp3-icon-btn" title="Bantuan / Panduan">
+      <button class="bp3-icon-btn" title="Petunjuk & Bantuan" onclick="alert('Silakan hubungi Proktor / Teknisi Server jika membutuhkan bantuan teknis.')">
         <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
       </button>
       <div class="bp3-user-pill">
-        <span>Operator SMA NEGERI 3 BURU</span>
+        <span>Operator CBT SMAN 3 Buru</span>
         <div class="bp3-avatar-circle">O</div>
       </div>
     </div>
   </header>
 
-  <!-- GRID LAYOUT (Sidebar Kiri, Konten Tengah, Sidebar Kanan) -->
+  <!-- GRID LAYOUT (Sidebar Kiri, Konten Utama, Sidebar Kanan) -->
   <div class="bp3-dashboard-grid">
     <!-- SIDEBAR KIRI -->
     <aside class="bp3-sidebar-left">
-      <div class="bp3-menu-section-label">MONITORING ABM</div>
+      <div class="bp3-menu-section-label">MONITORING CBT</div>
       <button class="bp3-nav-item active">
         <svg class="icon" viewBox="0 0 24 24"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
         <span>Pengumuman</span>
@@ -44,7 +47,7 @@
       </a>
 
       <div class="bp3-nav-divider"></div>
-      <div class="bp3-menu-section-label">PORTAL & MODUL</div>
+      <div class="bp3-menu-section-label">MODUL PENGELOLAAN</div>
       <a href="/operator.html" class="bp3-nav-item">
         <svg class="icon" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
         <span>Panel Operator</span>
@@ -55,7 +58,7 @@
       </a>
       <a href="/pengawas.html" class="bp3-nav-item">
         <svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-        <span>Panel Pengawas</span>
+        <span>Panel Pengawas Ruang</span>
       </a>
       <a href="/ujian.html" class="bp3-nav-item" style="color:#047857;font-weight:700;">
         <svg class="icon" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
@@ -63,21 +66,19 @@
       </a>
     </aside>
 
-    <!-- KONTEN TENGAH: PENGUMUMAN (Sesuai Gambar media_1794916705547_2a6c4f5c.jpg) -->
+    <!-- KONTEN TENGAH: PENGUMUMAN CBT SMAN 3 BURU -->
     <main class="bp3-main-content">
-      <h2 class="bp3-section-title">Pengumuman</h2>
+      <h2 class="bp3-section-title">Pengumuman & Petunjuk Ujian</h2>
       <div class="bp3-card bp3-announcement-card">
         <!-- ITEM 1 -->
         <div class="bp3-announce-item">
           <div class="bp3-num-circle">1</div>
           <div>
-            <h3 class="bp3-announce-title">INFORMASI LANJUTAN UJI COBA SERENTAK ABM TAHUN 2026</h3>
+            <h3 class="bp3-announce-title">PELAKSANAAN EVALUASI & ASESMEN CBT SMA NEGERI 3 BURU</h3>
             <p class="bp3-announce-desc">
-              Terima kasih kepada seluruh Tim ABM Provinsi (Dinas dan Kemenag) serta satuan pendidikan yang telah berpartisipasi dalam Uji Coba Serentak ABM Tahun 2026.<br><br>
-              Kami mohon maaf atas kendala akses yang dialami peserta pada pelaksanaan uji coba pagi ini. Kendala tersebut telah menjadi bahan evaluasi dan perbaikan sistem sebelum pelaksanaan ABM Tahun 2026.<br><br>
-              <b>Satuan pendidikan dipersilakan melanjutkan kegiatan belajar mengajar seperti biasa.</b><br><br>
-              Bagi satuan pendidikan yang masih ingin melanjutkan uji coba, <b>akses tetap dibuka sampai pukul 16.00 waktu setempat.</b><br><br>
-              Terima kasih atas partisipasi, dukungan, dan kerja sama Bapak/Ibu.
+              Selamat datang di Portal Evaluasi dan Asesmen Berbasis Komputer SMA Negeri 3 Buru. Pelaksanaan evaluasi diselenggarakan secara mandiri dan aman melalui infrastruktur server sekolah serta aplikasi Exambro.<br><br>
+              Seluruh Proktor dan Pengawas Ruang dapat memantau status login, perkembangan pengerjaan, dan kehadiran peserta didik secara langsung dari panel masing-masing.<br><br>
+              <b>Peserta didik dipersilakan mengikuti ujian sesuai jadwal sesi yang telah ditentukan.</b>
             </p>
           </div>
         </div>
@@ -86,9 +87,9 @@
         <div class="bp3-announce-item">
           <div class="bp3-num-circle">2</div>
           <div>
-            <h3 class="bp3-announce-title">UJI COBA SERENTAK ASESMEN BAKAT MURID TAHUN 2026</h3>
+            <h3 class="bp3-announce-title">TATA TERTIB PESERTA UJIAN BERBASIS EXAMBRO</h3>
             <p class="bp3-announce-desc">
-              Pelaksanaan Asesmen Bakat Murid (ABM) di SMA Negeri 3 Buru didukung infrastruktur CBT mandiri dengan pengamanan aplikasi Exambro. Seluruh peserta didik mengikuti ujian melalui perangkat seluler/komputer yang terhubung ke jaringan server lokal.
+              Peserta didik masuk ke aplikasi menggunakan <b>Nama Lengkap</b> dan <b>4 Digit Terakhir NISN</b>. Selama ujian berlangsung, dilarang berpindah aplikasi, membuka catatan, atau keluar dari layar soal. Setiap bentuk pelanggaran akan dicatat otomatis oleh sistem pengawasan ruang.
             </p>
           </div>
         </div>
@@ -97,9 +98,9 @@
         <div class="bp3-announce-item">
           <div class="bp3-num-circle">3</div>
           <div>
-            <h3 class="bp3-announce-title">Latar Belakang dan Tujuan ABM Tahun 2026</h3>
+            <h3 class="bp3-announce-title">PETUNJUK PENGERJAAN SOAL PILIHAN GANDA & ESAI</h3>
             <p class="bp3-announce-desc">
-              Asesmen Bakat Murid bertujuan untuk memprediksi kemampuan peserta didik pada bidang-bidang khusus serta memetakan bakat dan minat untuk pertimbangan kelanjutan studi dan pemilihan karir masa depan.
+              Jawaban soal Pilihan Ganda dipilih langsung pada aplikasi CBT dan tersimpan secara otomatis di server. Untuk soal bertipe Esai, siswa menuliskan jawaban lengkap pada Lembar Jawaban Kertas yang disediakan pengawas dan menyerahkannya sebelum meninggalkan kelas.
             </p>
           </div>
         </div>
@@ -108,9 +109,9 @@
 
     <!-- SIDEBAR KANAN: TOKEN & DOKUMEN -->
     <aside class="bp3-sidebar-right">
-      <!-- KARTU TOKEN (Sesuai Gambar media_1794916705547_2a6c4f5c.jpg) -->
+      <!-- KARTU TOKEN (Terinspirasi Kotak Digit BPPP) -->
       <div class="bp3-card bp3-side-card">
-        <div class="bp3-side-card-title">Token</div>
+        <div class="bp3-side-card-title">Token Ujian Aktif</div>
         <div class="bp3-token-box-wrapper" id="tokenDigitBoxes">
           <div class="bp3-token-digit">-</div>
           <div class="bp3-token-digit">-</div>
@@ -123,13 +124,13 @@
         <div class="bp3-token-countdown-val" id="tokenCountdownVal">Memuat...</div>
       </div>
 
-      <!-- KARTU DOKUMEN -->
+      <!-- KARTU DOKUMEN & AKSES CEPAT -->
       <div class="bp3-card bp3-side-card">
-        <div class="bp3-side-card-title">Dokumen</div>
-        <a href="javascript:void(0)" onclick="alert('Pedoman Pelaksanaan ABM 2026 tersedia pada panel Operator & Guru')" class="bp3-doc-item">
+        <div class="bp3-side-card-title">Akses & Dokumen</div>
+        <a href="/ujian.html" class="bp3-doc-item">
           <div class="bp3-doc-left">
-            <svg class="icon" style="color:#ef4444;" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-            <span>Pedoman Pelaksanaan ABM 2026</span>
+            <svg class="icon" style="color:#0284c7;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+            <span>Buka Portal Ujian Siswa</span>
           </div>
           <svg class="icon" style="width:14px;height:14px;color:#94a3b8;" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
         </a>
@@ -142,10 +143,10 @@
           <svg class="icon" style="width:14px;height:14px;color:#94a3b8;" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
         </a>
 
-        <a href="/ujian.html" class="bp3-doc-item">
+        <a href="javascript:void(0)" onclick="alert('Alamat server aktif: ' + window.location.origin)" class="bp3-doc-item">
           <div class="bp3-doc-left">
-            <svg class="icon" style="color:#0284c7;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
-            <span>Masuk Portal Ujian Peserta</span>
+            <svg class="icon" style="color:#6366f1;" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+            <span>Informasi Jaringan Server</span>
           </div>
           <svg class="icon" style="width:14px;height:14px;color:#94a3b8;" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
         </a>
@@ -154,7 +155,7 @@
   </div>
 
   <footer class="bp3-footer">
-    Powered By BP3 © 2026 • SMA Negeri 3 Buru
+    Sistem Evaluasi CBT SMA Negeri 3 Buru © 2026 • Terinspirasi Standar Desain Asesmen Nasional
   </footer>
 
   <script>

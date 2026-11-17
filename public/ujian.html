@@ -3,24 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>ExamBPPP — Portal Ujian Asesmen Siswa SMAN 3 Buru</title>
+  <title>Portal Ujian CBT — SMA Negeri 3 Buru</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="exambppp-body" oncontextmenu="return false;">
 
   <!-- ==========================================
-       SCREEN 1: LOGIN EXAMBPPP (Sesuai PDF Hal 8 Kiri)
+       SCREEN 1: LOGIN PESERTA (Terinspirasi Layout ExamBPPP)
        ========================================== -->
   <div id="screenLogin" class="exambppp-login-wrap">
     <div class="exambppp-login-card">
-      <div style="text-align:center;margin-bottom:12px;">
-        <img src="/logoBP3.png" alt="ExamBPPP" style="height:44px;width:auto;object-fit:contain;">
-      </div>
-      <div class="exambppp-brand-title">
-        <span>Exam</span><span style="color:#0284c7;">BPPP</span>
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px;">
+        <div class="brand-logo" style="width:38px;height:38px;border-radius:10px;font-size:15px;background:#4f7774;box-shadow:none;">S3</div>
+        <div style="text-align:left;">
+          <div style="font-size:16px;font-weight:800;color:#0f2d2a;line-height:1.2;">SMA NEGERI 3 BURU</div>
+          <div style="font-size:11.5px;color:#64748b;font-weight:600;">Portal Evaluasi & Ujian CBT</div>
+        </div>
       </div>
       <p class="exambppp-brand-sub">
-        Silahkan masuk aplikasi menggunakan Nama Lengkap dan 4 Digit Terakhir NISN Anda
+        Silakan masuk aplikasi menggunakan Nama Lengkap dan 4 Digit Terakhir NISN Anda
       </p>
 
       <div id="examActivePill" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:9px 12px;border-radius:8px;font-size:12px;margin-bottom:16px;">
@@ -62,8 +63,8 @@
       </div>
 
       <div class="exambppp-login-footer">
-        <img src="/logoBP3.png" alt="BP3">
-        <span>Build 2.1.19 • SMA Negeri 3 Buru</span>
+        <span style="font-weight:600;color:#475569;">CBT SMA NEGERI 3 BURU</span>
+        <span>Exambro Secure Engine • Versi 2.1</span>
       </div>
     </div>
   </div>
@@ -73,18 +74,20 @@
        ========================================== -->
   <div id="screenConfirmData" style="display:none;">
     <header class="exambppp-top-header">
-      <img src="/logoBP3.png" alt="BP3 Logo" style="height:32px;width:auto;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="brand-logo" style="width:28px;height:28px;border-radius:7px;font-size:11px;background:#4f7774;box-shadow:none;">S3</div>
+        <span style="font-size:13px;font-weight:800;color:#0f2d2a;">CBT SMAN 3 BURU</span>
+      </div>
       <div class="exambppp-rec-badge">
         <span class="exambppp-rec-dot"></span>
-        <span>REC</span>
+        <span>REC (PENGAWASAN AKTIF)</span>
       </div>
     </header>
 
     <div class="exambppp-container">
       <div class="exambppp-data-card">
-        <img src="/logoBP3.png" alt="" class="exambppp-watermark-bp3">
-        <div style="font-size:18px;font-weight:800;color:#1e3d3b;margin-bottom:2px;">ExamBPPP</div>
-        <div style="font-size:13px;color:#64748b;margin-bottom:16px;">Selamat Datang</div>
+        <div style="font-size:18px;font-weight:800;color:#1e3d3b;margin-bottom:2px;">Konfirmasi Identitas Peserta</div>
+        <div style="font-size:13px;color:#64748b;margin-bottom:16px;">Selamat Datang di Lembar Ujian CBT SMAN 3 Buru</div>
 
         <table class="exambppp-table">
           <tr>
@@ -161,7 +164,10 @@
        ========================================== -->
   <div id="screenInstructions" style="display:none;">
     <header class="exambppp-top-header">
-      <img src="/logoBP3.png" alt="BP3 Logo" style="height:32px;width:auto;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="brand-logo" style="width:28px;height:28px;border-radius:7px;font-size:11px;background:#4f7774;box-shadow:none;">S3</div>
+        <span style="font-size:13px;font-weight:800;color:#0f2d2a;">CBT SMAN 3 BURU</span>
+      </div>
       <div class="exambppp-rec-badge">
         <span class="exambppp-rec-dot"></span>
         <span>REC</span>
@@ -228,7 +234,7 @@
     <!-- TOP HEADER -->
     <header class="exambppp-top-header" style="position:sticky;top:0;z-index:40;">
       <div style="display:flex;align-items:center;gap:10px;">
-        <img src="/logoBP3.png" alt="BP3 Logo" style="height:28px;width:auto;">
+        <div class="brand-logo" style="width:28px;height:28px;border-radius:7px;font-size:11px;background:#4f7774;box-shadow:none;">S3</div>
         <div>
           <div style="font-size:13px;font-weight:800;color:#0f2d2a;" id="hdrStudentName">-</div>
           <div style="font-size:11px;color:#64748b;" id="hdrExamInfo">-</div>
@@ -346,7 +352,10 @@
        ========================================== -->
   <div id="screenFinished" style="display:none;">
     <header class="exambppp-top-header">
-      <img src="/logoBP3.png" alt="BP3 Logo" style="height:32px;width:auto;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="brand-logo" style="width:28px;height:28px;border-radius:7px;font-size:11px;background:#4f7774;box-shadow:none;">S3</div>
+        <span style="font-size:13px;font-weight:800;color:#0f2d2a;">CBT SMAN 3 BURU</span>
+      </div>
       <a href="/" class="btn btn-outline" style="padding:6px 14px;font-size:12px;">Keluar</a>
     </header>
 

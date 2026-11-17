@@ -405,6 +405,63 @@ test('Direct student name search, confirmation with TTL & NISN, direct exam star
   assert.equal(lateAnsRes.status, 400);
 });
 
+test('ExamBPPP flow: student account activation via NISN + NPSN + Tanggal Lahir, login with credentials, and subtest token entry', async (t) => {
+  const db = initDb(':memory:');
+  const app = createApp(db);
+  const server = app.listen(0);
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const exam = db.prepare('SELECT * FROM exams WHERE is_active = 1 LIMIT 1').get();
+  const student = db.prepare("SELECT * FROM students WHERE nisn = '0081234502' LIMIT 1").get();
+  assert.ok(student);
+
+  // 1. Aktivasi dengan tanggal lahir salah -> ditolak 401
+  const badAct = await fetch(`${base}/api/ujian/activate-account`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nisn: student.nisn, npsn: '60101869', birth_date: '2008-12-31' })
+  });
+  assert.equal(badAct.status, 401);
+
+  // 2. Aktivasi dengan data valid (Waprea, 22 Maret 2008) -> berhasil
+  const okAct = await fetch(`${base}/api/ujian/activate-account`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nisn: student.nisn, npsn: '60101869', birth_date: '2008-03-22' })
+  }).then(r => r.json());
+  assert.equal(okAct.ok, true);
+  assert.equal(okAct.student.username, student.exam_number);
+  assert.equal(okAct.student.password, student.password);
+
+  // 3. Login akun menggunakan credentials dari aktivasi (tanpa token saat login awal)
+  const loginRes = await fetch(`${base}/api/ujian/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ exam_number: okAct.student.username, password: okAct.student.password })
+  }).then(r => r.json());
+  assert.ok(loginRes.sessionId);
+  assert.equal(loginRes.student.full_name, student.full_name);
+
+  // 4. Input token saat masuk subtes ujian (PDF Hal 9)
+  // Token salah -> ditolak 403
+  const badTokenRes = await fetch(`${base}/api/ujian/verify-subtest-token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: loginRes.sessionId, token: 'WRONG1' })
+  });
+  assert.equal(badTokenRes.status, 403);
+
+  // Token benar -> berhasil dan status WORKING
+  const okTokenRes = await fetch(`${base}/api/ujian/verify-subtest-token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: loginRes.sessionId, token: exam.token })
+  }).then(r => r.json());
+  assert.equal(okTokenRes.ok, true);
+  assert.equal(okTokenRes.status, 'WORKING');
+});
+
 
 
 

@@ -9,7 +9,7 @@
 <body class="exambppp-body" oncontextmenu="return false;">
 
   <!-- ==========================================
-       SCREEN 1: LOGIN PESERTA (Terinspirasi Layout ExamBPPP)
+       SCREEN 1: AKTIVASI AKUN & LOGIN (Sesuai PDF Hal 7-8)
        ========================================== -->
   <div id="screenLogin" class="exambppp-login-wrap">
     <div class="exambppp-login-card">
@@ -20,51 +20,163 @@
           <div style="font-size:11.5px;color:#64748b;font-weight:600;">Portal Evaluasi & Ujian CBT</div>
         </div>
       </div>
-      <p class="exambppp-brand-sub">
-        Silakan masuk aplikasi menggunakan Nama Lengkap dan 4 Digit Terakhir NISN Anda
-      </p>
 
-      <div id="examActivePill" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:9px 12px;border-radius:8px;font-size:12px;margin-bottom:16px;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;opacity:0.8;">Mata Pelajaran Aktif</div>
-        <div id="examActiveTitle" style="font-weight:700;">-</div>
+      <!-- Segmented Tab Switcher (Aktivasi Akun vs Masuk Akun) -->
+      <div style="display:flex;background:#f1f5f9;border-radius:8px;padding:3px;margin-bottom:18px;">
+        <button id="tabBtnActivate" type="button" onclick="switchAuthTab('activate')" style="flex:1;padding:8px;border-radius:6px;border:none;font-size:12px;font-weight:700;cursor:pointer;background:#4f7774;color:#ffffff;transition:all 0.15s ease;">
+          Aktivasi Akun
+        </button>
+        <button id="tabBtnLogin" type="button" onclick="switchAuthTab('login')" style="flex:1;padding:8px;border-radius:6px;border:none;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:#64748b;transition:all 0.15s ease;">
+          Masuk Akun
+        </button>
       </div>
 
-      <div class="form-group" style="margin-bottom:14px;">
-        <label for="inpSearchName" class="exambppp-label">Nama Lengkap Peserta</label>
-        <input id="inpSearchName" type="text" class="exambppp-input" autocomplete="off">
+      <!-- FORM A: AKTIVASI AKUN (PDF Hal 7 Kiri) -->
+      <div id="viewActivate">
+        <p class="exambppp-brand-sub" style="margin-bottom:16px;">
+          Masukkan NISN, NPSN sekolah, dan tanggal lahir Anda untuk memverifikasi identitas peserta.
+        </p>
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label for="actNisn" class="exambppp-label">NISN Siswa *</label>
+          <input id="actNisn" type="text" inputmode="numeric" class="exambppp-input" autocomplete="off" placeholder="10 digit NISN siswa">
+        </div>
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label for="actNpsn" class="exambppp-label">NPSN Sekolah *</label>
+          <input id="actNpsn" type="text" inputmode="numeric" class="exambppp-input" value="60101869" autocomplete="off" placeholder="8 digit NPSN sekolah">
+        </div>
+
+        <div class="form-group" style="margin-bottom:16px;">
+          <label for="actBirthDate" class="exambppp-label">Tanggal Lahir Siswa *</label>
+          <input id="actBirthDate" type="date" class="exambppp-input" autocomplete="off">
+        </div>
+
+        <div id="actError" class="abm-error-alert" style="display:none;margin-bottom:12px;"></div>
+
+        <button class="exambppp-btn-teal" onclick="submitActivateAccount()">
+          <span>Verifikasi & Dapatkan Akun</span>
+          <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
       </div>
 
-      <div class="form-group" style="margin-bottom:18px;">
-        <label for="inpNisnLast4" class="exambppp-label">4 Digit Terakhir NISN</label>
-        <input id="inpNisnLast4" type="text" inputmode="numeric" maxlength="4" class="exambppp-input" style="font-weight:700;letter-spacing:0.25em;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;" autocomplete="off">
-      </div>
+      <!-- FORM B: LOGIN AKUN UJIAN (PDF Hal 8 Kiri) -->
+      <div id="viewLogin" style="display:none;">
+        <p class="exambppp-brand-sub" style="margin-bottom:16px;">
+          Silakan masuk aplikasi menggunakan ID Peserta dan Kata Sandi yang Anda miliki.
+        </p>
 
-      <div id="stFindError" class="abm-error-alert" style="display:none;"></div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label for="loginExamNo" class="exambppp-label">ID Peserta</label>
+          <input id="loginExamNo" type="text" class="exambppp-input" autocomplete="off" placeholder="Nomor ID Peserta / NISN">
+        </div>
 
-      <button class="exambppp-btn-teal" onclick="submitCheckStudent()">
-        <span>Masuk</span>
-        <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-      </button>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label for="loginPassword" class="exambppp-label">Kata Sandi</label>
+          <div class="exambppp-input-password-wrap">
+            <input id="loginPassword" type="password" class="exambppp-input" placeholder="Kata Sandi Peserta">
+            <button type="button" class="exambppp-eye-btn" onclick="togglePasswordVisibility('loginPassword', this)" title="Lihat/Sembunyikan Sandi">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
 
-      <!-- Mode Login Alternatif (Nomor Peserta & Token) -->
-      <div id="legacyLoginSection" style="display:none;margin-top:16px;padding-top:14px;border-top:1px solid #e2e8f0;">
-        <div style="font-size:11.5px;font-weight:700;color:#475569;margin-bottom:8px;">Login via Nomor Peserta & Token</div>
-        <input id="inpExamNo" class="exambppp-input" style="margin-bottom:8px;" placeholder="Nomor Peserta" autocomplete="off">
-        <input id="inpPassword" type="password" class="exambppp-input" style="margin-bottom:8px;" placeholder="Password Kartu">
-        <input id="inpToken" class="exambppp-input" style="margin-bottom:10px;text-transform:uppercase;font-weight:700;" placeholder="TOKEN">
-        <div id="stLoginError" style="color:#e11d48;font-size:12px;font-weight:600;margin-bottom:8px;display:none;"></div>
-        <button class="exambppp-btn-teal" style="background:#0284c7;" onclick="startStudentExam()">Masuk via Nomor Peserta</button>
-      </div>
+        <div id="loginError" class="abm-error-alert" style="display:none;margin-bottom:12px;"></div>
 
-      <div style="text-align:center;margin-top:14px;">
-        <a href="javascript:void(0)" onclick="toggleLegacyLogin()" id="linkToggleLegacy" style="font-size:11.5px;color:#94a3b8;">
-          Gunakan Nomor Peserta & Token
-        </a>
+        <button class="exambppp-btn-teal" onclick="submitLoginAccount()">
+          <span>Masuk</span>
+          <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
       </div>
 
       <div class="exambppp-login-footer">
         <span style="font-weight:600;color:#475569;">CBT SMA NEGERI 3 BURU</span>
         <span>Exambro Secure Engine • Versi 2.1</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       SCREEN 1B: DATA SISWA & AKUN (Sesuai PDF Hal 7 Kanan)
+       ========================================== -->
+  <div id="screenStudentInfo" style="display:none;">
+    <header class="exambppp-top-header">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="brand-logo" style="width:28px;height:28px;border-radius:7px;font-size:11px;background:#4f7774;box-shadow:none;">S3</div>
+        <span style="font-size:13px;font-weight:800;color:#0f2d2a;">CBT SMAN 3 BURU</span>
+      </div>
+      <button class="btn btn-outline" style="padding:5px 12px;font-size:11.5px;" onclick="showScreen('screenLogin')">
+        &larr; Kembali
+      </button>
+    </header>
+
+    <div class="exambppp-container">
+      <div class="exambppp-data-card">
+        <div style="font-size:17px;font-weight:800;color:#0f2d2a;margin-bottom:2px;">Informasi Data Diri</div>
+        <div style="font-size:12.5px;color:#64748b;margin-bottom:16px;">Silakan cek dan pastikan kebenaran data Anda di bawah.</div>
+
+        <div style="font-size:12px;font-weight:700;color:#4f7774;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Data Diri</div>
+        <table class="exambppp-table">
+          <tr>
+            <td>Nama</td>
+            <td id="infoName">-</td>
+          </tr>
+          <tr>
+            <td>NISN</td>
+            <td id="infoNisn">-</td>
+          </tr>
+          <tr>
+            <td>Kelas</td>
+            <td id="infoClass">-</td>
+          </tr>
+          <tr>
+            <td>Tempat, Tgl Lahir</td>
+            <td id="infoBirth">-</td>
+          </tr>
+          <tr>
+            <td>Asal Sekolah</td>
+            <td id="infoSchool">SMA NEGERI 3 BURU</td>
+          </tr>
+          <tr>
+            <td>NPSN</td>
+            <td id="infoNpsn">60101869</td>
+          </tr>
+          <tr>
+            <td>Ruang / Meja</td>
+            <td id="infoRoom">-</td>
+          </tr>
+        </table>
+
+        <!-- BOX DATA AKUN (PDF Hal 7 Kanan) -->
+        <div class="exambppp-dark-card">
+          <div class="exambppp-dark-title">Data Akun Ujian Anda</div>
+          <div class="exambppp-cred-row">
+            <div>
+              <div class="exambppp-cred-label">Username / ID Peserta</div>
+              <div class="exambppp-cred-val" id="infoUsername">-</div>
+            </div>
+            <button type="button" class="exambppp-copy-btn" onclick="copyCred(document.getElementById('infoUsername').textContent, this)">
+              <svg class="icon" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              <span>Salin</span>
+            </button>
+          </div>
+
+          <div class="exambppp-cred-row">
+            <div>
+              <div class="exambppp-cred-label">Password / Kata Sandi</div>
+              <div class="exambppp-cred-val" id="infoPassword">-</div>
+            </div>
+            <button type="button" class="exambppp-copy-btn" onclick="copyCred(document.getElementById('infoPassword').textContent, this)">
+              <svg class="icon" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              <span>Salin</span>
+            </button>
+          </div>
+        </div>
+
+        <button class="exambppp-btn-teal" style="margin-top:18px;" onclick="goToLoginWithCredentials()">
+          <span>Lanjut Masuk ke Akun Ujian</span>
+          <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
       </div>
     </div>
   </div>
@@ -177,7 +289,7 @@
     <div class="exambppp-subbar">
       <div>
         <span style="font-weight:700;" id="instSubtestTitle">Subtes Ujian</span>
-        <span style="opacity:0.85;margin-left:8px;" id="instSubtestMeta">Durasi 90 menit • 20 soal</span>
+        <span style="opacity:0.85;margin-left:8px;" id="instSubtestMeta">Durasi 90 menit • Sesi 1</span>
       </div>
       <div style="font-weight:700;" id="instSubtestTotal">1/1</div>
     </div>
@@ -195,14 +307,17 @@
         </div>
 
         <label class="exambppp-agree-check" for="chkAgreement">
-          <input type="checkbox" id="chkAgreement" onchange="toggleAgreeButton(this.checked)">
+          <input type="checkbox" id="chkAgreement" onchange="toggleAgreeButton()">
           <span>Saya sudah membaca dan memahami panduan tes di atas.</span>
         </label>
 
-        <!-- TOKEN BOX (PDF Hal 9 Kanan) -->
-        <div style="text-align:center;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:18px;">
-          <div style="font-size:11.5px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:6px;">Token Ujian</div>
-          <div id="instTokenDisplay" style="font-size:26px;font-weight:900;letter-spacing:0.18em;color:#0f2d2a;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;">------</div>
+        <!-- TOKEN INPUT (PDF Hal 9 Kanan) -->
+        <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:18px;">
+          <label for="inpSubtestToken" class="exambppp-label" style="text-align:center;color:#0f2d2a;font-weight:700;margin-bottom:8px;">
+            Masukkan Token Ujian (6 Digit)
+          </label>
+          <input id="inpSubtestToken" type="text" maxlength="6" class="exambppp-input" style="text-align:center;font-size:22px;font-weight:900;letter-spacing:0.25em;text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;" placeholder="TOKEN" oninput="toggleAgreeButton()" autocomplete="off">
+          <div id="subtestTokenErr" style="color:#e11d48;font-size:12px;font-weight:600;margin-top:6px;text-align:center;display:none;"></div>
         </div>
 
         <button id="btnMulaiTes" class="exambppp-btn-teal" disabled onclick="openModalConfirmStartTest()">
@@ -436,108 +551,159 @@
 
     // Helper navigasi antar layar
     function showScreen(screenId) {
-      const screens = ['screenLogin', 'screenConfirmData', 'screenInstructions', 'screenExam', 'screenFinished'];
+      const screens = ['screenLogin', 'screenStudentInfo', 'screenConfirmData', 'screenInstructions', 'screenExam', 'screenFinished'];
       screens.forEach(s => {
         const el = document.getElementById(s);
         if (el) el.style.display = (s === screenId) ? 'block' : 'none';
       });
     }
 
-    async function loadActiveExamHeader() {
-      try {
-        const res = await fetch('/api/server-info');
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.activeExam) {
-          const pill = document.getElementById('examActivePill');
-          if (pill) {
-            document.getElementById('examActiveTitle').textContent = `${data.activeExam.subject} (${data.activeExam.class_target || 'Semua Kelas'}) • ${data.activeExam.duration_minutes} Menit`;
-            pill.style.display = 'block';
-          }
-          const instTitle = document.getElementById('instSubtestTitle');
-          if (instTitle) instTitle.textContent = data.activeExam.subject || 'Asesmen CBT';
-          const instMeta = document.getElementById('instSubtestMeta');
-          if (instMeta) instMeta.textContent = `Durasi ${data.activeExam.duration_minutes || 90} menit • Sesi ${data.activeExam.session_name || '1'}`;
-          const tokenDisp = document.getElementById('instTokenDisplay');
-          if (tokenDisp && data.activeExam.token) tokenDisp.textContent = data.activeExam.token;
-        }
-      } catch {}
+    function switchAuthTab(tab) {
+      const isAct = tab === 'activate';
+      document.getElementById('viewActivate').style.display = isAct ? 'block' : 'none';
+      document.getElementById('viewLogin').style.display = isAct ? 'none' : 'block';
+
+      const btnAct = document.getElementById('tabBtnActivate');
+      const btnLog = document.getElementById('tabBtnLogin');
+      if (isAct) {
+        btnAct.style.background = '#4f7774';
+        btnAct.style.color = '#ffffff';
+        btnLog.style.background = 'transparent';
+        btnLog.style.color = '#64748b';
+      } else {
+        btnLog.style.background = '#4f7774';
+        btnLog.style.color = '#ffffff';
+        btnAct.style.background = 'transparent';
+        btnAct.style.color = '#64748b';
+      }
     }
-    loadActiveExamHeader();
 
-    document.addEventListener('DOMContentLoaded', () => {
-      ['inpSearchName', 'inpNisnLast4'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-          el.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              submitCheckStudent();
-            }
-          });
-        }
-      });
-    });
+    function togglePasswordVisibility(inpId, btnEl) {
+      const inp = document.getElementById(inpId);
+      if (!inp) return;
+      if (inp.type === 'password') {
+        inp.type = 'text';
+        btnEl.innerHTML = `<svg class="icon" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+      } else {
+        inp.type = 'password';
+        btnEl.innerHTML = `<svg class="icon" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+      }
+    }
 
-    // 1. Submit cek siswa
-    async function submitCheckStudent() {
-      const name = (document.getElementById('inpSearchName').value || '').trim();
-      const nisnLast4 = (document.getElementById('inpNisnLast4').value || '').trim();
-      const errEl = document.getElementById('stFindError');
+    function copyCred(val, btnEl) {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(val).then(() => {
+          const orig = btnEl.innerHTML;
+          btnEl.innerHTML = `<span>Tersalin!</span>`;
+          setTimeout(() => { btnEl.innerHTML = orig; }, 1800);
+        });
+      }
+    }
+
+    async function submitActivateAccount() {
+      const nisn = (document.getElementById('actNisn').value || '').trim();
+      const npsn = (document.getElementById('actNpsn').value || '').trim();
+      const birth_date = (document.getElementById('actBirthDate').value || '').trim();
+      const errEl = document.getElementById('actError');
       errEl.style.display = 'none';
 
-      if (!name) {
-        errEl.textContent = 'Silakan ketik nama lengkap Anda terlebih dahulu.';
-        errEl.style.display = 'block';
-        return;
-      }
-      if (!nisnLast4 || nisnLast4.length < 4) {
-        errEl.textContent = 'Silakan masukkan 4 digit terakhir NISN Anda.';
+      if (!nisn) {
+        errEl.textContent = 'Silakan masukkan NISN siswa terlebih dahulu.';
         errEl.style.display = 'block';
         return;
       }
 
       try {
-        const res = await fetch('/api/ujian/find-student', {
+        const res = await fetch('/api/ujian/activate-account', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, nisnLast4 })
+          body: JSON.stringify({ nisn, npsn, birth_date })
         });
         const data = await res.json();
         if (!res.ok || !data.student) {
-          errEl.textContent = data.error || 'Data tidak cocok. Periksa kembali nama dan 4 digit terakhir NISN Anda.';
+          errEl.textContent = data.error || 'Verifikasi gagal. Pastikan NISN dan tanggal lahir Anda sesuai.';
           errEl.style.display = 'block';
           return;
         }
 
+        const s = data.student;
+        document.getElementById('infoName').textContent = s.full_name;
+        document.getElementById('infoNisn').textContent = s.nisn;
+        document.getElementById('infoClass').textContent = s.class_name;
+        document.getElementById('infoBirth').textContent = s.birth_info || '-';
+        document.getElementById('infoRoom').textContent = `${s.room} / Meja ${s.seat_number}`;
+        document.getElementById('infoUsername').textContent = s.username;
+        document.getElementById('infoPassword').textContent = s.password;
+
+        document.getElementById('loginExamNo').value = s.username;
+        document.getElementById('loginPassword').value = s.password;
+
+        showScreen('screenStudentInfo');
+      } catch (err) {
+        errEl.textContent = 'Gagal menghubungi server verifikasi. Periksa jaringan Anda.';
+        errEl.style.display = 'block';
+      }
+    }
+
+    function goToLoginWithCredentials() {
+      showScreen('screenLogin');
+      switchAuthTab('login');
+      submitLoginAccount();
+    }
+
+    async function submitLoginAccount() {
+      const exam_number = (document.getElementById('loginExamNo').value || '').trim();
+      const password = (document.getElementById('loginPassword').value || '').trim();
+      const errEl = document.getElementById('loginError');
+      errEl.style.display = 'none';
+
+      if (!exam_number || !password) {
+        errEl.textContent = 'Silakan masukkan ID Peserta dan Kata Sandi Anda.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/ujian/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ exam_number, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errEl.textContent = data.error || 'ID Peserta atau Kata Sandi salah.';
+          errEl.style.display = 'block';
+          return;
+        }
+
+        sessionId = data.sessionId;
+        sessionStorage.setItem('cbt_active_session_id', String(sessionId));
         selectedStudent = data.student;
-        verifiedNisnLast4 = nisnLast4;
 
         document.getElementById('confStudentName').textContent = selectedStudent.full_name;
-        document.getElementById('confStudentNisn').textContent = selectedStudent.nisn || '-';
+        document.getElementById('confStudentNisn').textContent = selectedStudent.nisn || selectedStudent.exam_number;
         document.getElementById('confStudentBirth').textContent = selectedStudent.birth_info || '-';
         document.getElementById('confStudentClass').textContent = selectedStudent.class_name || '-';
+        document.getElementById('confStudentRoom').textContent = selectedStudent.room || 'Ruang 01';
         if (data.exam) {
           document.getElementById('confStudentSubject').textContent = data.exam.subject;
           document.getElementById('confStudentSession').textContent = data.exam.session_name || 'Sesi 1';
+          document.getElementById('instSubtestTitle').textContent = data.exam.subject;
+          document.getElementById('instSubtestMeta').textContent = `Durasi ${data.exam.duration_minutes || 90} menit • Sesi ${data.exam.session_name || '1'}`;
         }
 
         showScreen('screenConfirmData');
       } catch (err) {
-        errEl.textContent = 'Gagal memeriksa data ke server. Periksa koneksi jaringan Anda.';
+        errEl.textContent = 'Gagal terhubung ke server CBT.';
         errEl.style.display = 'block';
       }
     }
 
     function cancelConfirm() {
       selectedStudent = null;
-      verifiedNisnLast4 = '';
       showScreen('screenLogin');
-      const inp = document.getElementById('inpSearchName');
-      if (inp) inp.focus();
     }
 
-    // Modal Konfirmasi Data
     function openModalConfirmData() {
       document.getElementById('modalConfirmData').style.display = 'flex';
     }
@@ -546,16 +712,25 @@
     }
     function goToInstructionsScreen() {
       closeModalConfirmData();
+      const chk = document.getElementById('chkAgreement');
+      if (chk) chk.checked = false;
+      const inpTok = document.getElementById('inpSubtestToken');
+      if (inpTok) inpTok.value = '';
+      const tokErr = document.getElementById('subtestTokenErr');
+      if (tokErr) tokErr.style.display = 'none';
+      toggleAgreeButton();
       showScreen('screenInstructions');
     }
 
-    // Checkbox Agreement
-    function toggleAgreeButton(isChecked) {
+    function toggleAgreeButton() {
+      const chk = document.getElementById('chkAgreement');
+      const inpTok = document.getElementById('inpSubtestToken');
       const btn = document.getElementById('btnMulaiTes');
-      if (btn) btn.disabled = !isChecked;
+      const hasChecked = chk && chk.checked;
+      const hasToken = inpTok && inpTok.value.trim().length >= 4;
+      if (btn) btn.disabled = !(hasChecked && hasToken);
     }
 
-    // Modal Konfirmasi Mulai Tes
     function openModalConfirmStartTest() {
       document.getElementById('modalConfirmStartTest').style.display = 'flex';
     }
@@ -563,29 +738,35 @@
       document.getElementById('modalConfirmStartTest').style.display = 'none';
     }
 
-    // Mulai Ujian Direct
     async function confirmAndStartDirectExam() {
-      closeModalConfirmStartTest();
-      if (!selectedStudent) return;
+      const inpTok = document.getElementById('inpSubtestToken');
+      const token = (inpTok ? inpTok.value : '').trim();
+      const tokErr = document.getElementById('subtestTokenErr');
+      if (tokErr) tokErr.style.display = 'none';
+
       const btn = document.getElementById('btnRealStart');
       if (btn) btn.disabled = true;
 
       try {
-        const res = await fetch('/api/ujian/start-direct', {
+        const res = await fetch('/api/ujian/verify-subtest-token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentId: selectedStudent.id, nisnLast4: verifiedNisnLast4 })
+          body: JSON.stringify({ sessionId, token })
         });
         const data = await res.json();
         if (!res.ok) {
-          alert(data.error || 'Gagal memulai ujian.');
+          closeModalConfirmStartTest();
           if (btn) btn.disabled = false;
+          if (tokErr) {
+            tokErr.textContent = data.error || 'Token tidak sesuai.';
+            tokErr.style.display = 'block';
+          } else {
+            alert(data.error || 'Token tidak sesuai.');
+          }
           return;
         }
 
-        sessionId = data.sessionId;
-        sessionStorage.setItem('cbt_active_session_id', String(sessionId));
-
+        closeModalConfirmStartTest();
         if (window.AndroidExambro && typeof window.AndroidExambro.enterLockMode === 'function') {
           window.AndroidExambro.enterLockMode();
         } else if (document.documentElement.requestFullscreen) {
@@ -597,8 +778,9 @@
         examActive = true;
         startTimersAndSecurityWatch();
       } catch (err) {
-        alert('Gagal terhubung ke server CBT.');
+        closeModalConfirmStartTest();
         if (btn) btn.disabled = false;
+        alert('Gagal memverifikasi token ke server CBT.');
       }
     }
 

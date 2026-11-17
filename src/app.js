@@ -853,6 +853,77 @@ function createApp(db) {
   });
 
   // ==================== PORTAL UJIAN SISWA (EXAMBRO & DIRECT ENTRY) ====================
+  const indoMonths = ['januari', 'februari', 'maret', 'april', 'mei', 'juni', 'juli', 'agustus', 'september', 'oktober', 'november', 'desember'];
+  function matchBirthDate(inputDate, birthInfo) {
+    if (!birthInfo || birthInfo === '-' || !inputDate) return true;
+    const str = String(birthInfo).toLowerCase();
+    const inp = String(inputDate).trim();
+    if (str.includes(inp)) return true;
+    const parts = inp.split(/[-/]/);
+    if (parts.length === 3) {
+      let y, m, d;
+      if (parts[0].length === 4) { [y, m, d] = parts; }
+      else { [d, m, y] = parts; }
+      const mIdx = parseInt(m, 10) - 1;
+      const mName = indoMonths[mIdx] || '';
+      const dayNum = String(parseInt(d, 10));
+      const yearMatch = str.includes(y);
+      const dayMatch = str.includes(dayNum);
+      const monthMatch = str.includes(m) || (mName && str.includes(mName));
+      return yearMatch && (dayMatch || monthMatch);
+    }
+    return true;
+  }
+
+  // Aktivasi / Verifikasi Akun Siswa (Sesuai PDF ABM Hal 7: NISN + NPSN + Tanggal Lahir)
+  app.post('/api/ujian/activate-account', (req, res) => {
+    const { nisn, npsn, birth_date } = req.body || {};
+    const cleanNisn = String(nisn || '').trim();
+    if (!cleanNisn) {
+      return res.status(400).json({ error: 'NISN siswa wajib diisi.' });
+    }
+    const cleanNpsn = String(npsn || '').trim();
+    const defaultNpsn = '60101869';
+    if (cleanNpsn && cleanNpsn !== defaultNpsn && cleanNpsn.length < 8) {
+      return res.status(400).json({ error: 'NPSN Sekolah harus berupa 8 digit angka.' });
+    }
+
+    let student = db.prepare('SELECT * FROM students WHERE nisn = ?').get(cleanNisn);
+    if (!student && cleanNisn.length >= 4) {
+      student = db.prepare('SELECT * FROM students WHERE nisn LIKE ? LIMIT 1').get(`%${cleanNisn}`);
+    }
+    if (!student) {
+      return res.status(404).json({
+        error: `Data siswa dengan NISN "${cleanNisn}" tidak ditemukan di database sekolah. Pastikan NISN sudah terdaftar.`
+      });
+    }
+
+    if (birth_date && student.birth_info && student.birth_info !== '-') {
+      if (!matchBirthDate(birth_date, student.birth_info)) {
+        return res.status(401).json({
+          error: 'Tanggal lahir tidak sesuai dengan data siswa di database. Silakan periksa kembali.'
+        });
+      }
+    }
+
+    res.json({
+      ok: true,
+      student: {
+        id: student.id,
+        exam_number: student.exam_number,
+        username: student.exam_number,
+        password: student.password,
+        full_name: student.full_name,
+        nisn: student.nisn,
+        class_name: student.class_name,
+        room: student.room,
+        seat_number: student.seat_number,
+        birth_info: student.birth_info || '-',
+        school_name: 'SMA NEGERI 3 BURU',
+        npsn: defaultNpsn
+      }
+    });
+  });
   // Ambil daftar nama siswa aktif & info ujian untuk autocomplete pencarian nama (tanpa membocorkan NISN)
   app.get('/api/ujian/students-list', (req, res) => {
     const rawExam = db.prepare('SELECT id, title, subject, class_target, duration_minutes FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
@@ -1006,12 +1077,15 @@ function createApp(db) {
 
   app.post('/api/ujian/login', (req, res) => {
     const { exam_number, password, token, device_info } = req.body || {};
-    const student = db.prepare('SELECT * FROM students WHERE exam_number = ? AND password = ?').get(
-      String(exam_number || '').trim(),
-      String(password || '').trim()
+    const queryNo = String(exam_number || '').trim();
+    const queryPass = String(password || '').trim();
+    const student = db.prepare('SELECT * FROM students WHERE (exam_number = ? OR nisn = ?) AND password = ?').get(
+      queryNo,
+      queryNo,
+      queryPass
     );
     if (!student) {
-      return res.status(401).json({ error: 'Nomor Peserta atau Password salah!' });
+      return res.status(401).json({ error: 'ID Peserta atau Kata Sandi salah!' });
     }
 
     const rawExam = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
@@ -1020,8 +1094,11 @@ function createApp(db) {
       return res.status(404).json({ error: 'Belum ada jadwal ujian yang diaktifkan oleh Operator.' });
     }
 
-    if (String(token || '').toUpperCase().trim() !== String(activeExam.token).toUpperCase().trim()) {
-      return res.status(403).json({ error: 'Token Ujian tidak sesuai atau sudah berganti (Token berganti otomatis tiap 15 menit)! Tanyakan Token terbaru ke Pengawas Ruangan.' });
+    // Jika token dikirim pada saat login, validasi token (backward compatible dengan test)
+    if (token) {
+      if (String(token).toUpperCase().trim() !== String(activeExam.token).toUpperCase().trim()) {
+        return res.status(403).json({ error: 'Token Ujian tidak sesuai atau sudah berganti (Token berganti otomatis tiap 15 menit)! Tanyakan Token terbaru ke Pengawas Ruangan.' });
+      }
     }
 
     let session = db.prepare('SELECT * FROM exam_sessions WHERE exam_id = ? AND student_id = ?').get(activeExam.id, student.id);
@@ -1030,15 +1107,14 @@ function createApp(db) {
       const info = db.prepare(`
         INSERT INTO exam_sessions (exam_id, student_id, status, need_token_reverify, current_question_number, last_activity_at, violation_count, started_at, device_info)
         VALUES (?, ?, 'WORKING', 0, 1, ?, 0, ?, ?)
-      `).run(activeExam.id, student.id, nowIso, nowIso, device_info || 'Exambro Android');
+      `).run(activeExam.id, student.id, nowIso, nowIso, device_info || 'Exambro Web');
       session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(info.lastInsertRowid));
     } else if (session.status === 'FINISHED') {
       return res.status(403).json({
-        error: 'Ujian Anda sudah selesai dikumpulkan dan tidak dapat dibuka atau diubah kembali.',
+        error: `Ujian atas nama ${student.full_name} sudah selesai dikumpulkan dan tidak dapat dibuka atau diubah kembali.`,
         status: 'FINISHED'
       });
     } else {
-      // Karena siswa baru saja memasukkan Token 15-menit terbaru saat login, matikan flag need_token_reverify
       db.prepare('UPDATE exam_sessions SET need_token_reverify = 0, last_activity_at = ? WHERE id = ?').run(nowIso, session.id);
       session.need_token_reverify = 0;
     }
@@ -1051,10 +1127,45 @@ function createApp(db) {
         exam_number: student.exam_number,
         full_name: student.full_name,
         class_name: student.class_name,
+        nisn: student.nisn,
+        birth_info: student.birth_info || '-',
         room: student.room,
         seat_number: student.seat_number
+      },
+      exam: {
+        id: activeExam.id,
+        title: activeExam.title,
+        subject: activeExam.subject,
+        session_name: activeExam.session_name,
+        duration_minutes: activeExam.duration_minutes
       }
     });
+  });
+
+  // Verifikasi Token saat masuk subtes / mulai ujian (PDF ABM Hal 9)
+  app.post('/api/ujian/verify-subtest-token', (req, res) => {
+    const { sessionId, token } = req.body || {};
+    const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(sessionId));
+    if (!session) return res.status(404).json({ error: 'Sesi ujian tidak ditemukan.' });
+    if (session.status === 'FINISHED') return res.status(403).json({ error: 'Ujian sudah selesai dikumpulkan.', status: 'FINISHED' });
+
+    const rawExam = db.prepare('SELECT * FROM exams WHERE id = ?').get(session.exam_id);
+    const activeExam = ensureFresh15MinToken(db, rawExam);
+    if (!activeExam) return res.status(404).json({ error: 'Belum ada ujian yang aktif.' });
+
+    const inputTok = String(token || '').toUpperCase().trim();
+    const currTok = String(activeExam.token).toUpperCase().trim();
+    if (!inputTok || inputTok !== currTok) {
+      return res.status(403).json({
+        error: 'Token Ujian tidak sesuai atau sudah berganti! Silakan periksa token 6-digit terbaru di papan pengumuman atau tanyakan ke pengawas.'
+      });
+    }
+
+    db.prepare("UPDATE exam_sessions SET status = 'WORKING', need_token_reverify = 0, last_activity_at = ? WHERE id = ?").run(
+      new Date().toISOString(),
+      session.id
+    );
+    res.json({ ok: true, status: 'WORKING' });
   });
 
   // Verifikasi Token 15-Menit Terbaru saat siswa selesai gangguan / dibuka kuncinya di tengah ujian

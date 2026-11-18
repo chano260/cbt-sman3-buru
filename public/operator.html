@@ -124,12 +124,15 @@
         </div>
 
         <div class="card">
-          <div class="card-header">
+          <div class="card-header" style="flex-wrap:wrap;gap:10px;">
             <div>
               <div class="card-title">Pantauan Real-Time Seluruh Ruang & Nilai Sementara PG</div>
               <p style="font-size:12.5px;color:var(--muted);">Nilai PG hanya tampil di layar Operator & Guru (tidak tampil di HP siswa)</p>
             </div>
-            <div style="display:flex;gap:8px;">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <select id="monClassFilter" class="input" style="padding:5px 8px;font-size:12px;width:auto;" onchange="renderMonitoringTable()">
+                <option value="ALL">Semua Kelas</option>
+              </select>
               <button class="btn btn-sm btn-outline" onclick="loadOverview()">🔄 Segarkan</button>
               <button class="btn btn-sm btn-green" onclick="exportActiveExamExcel()">📥 Export Nilai PG (.xlsx)</button>
             </div>
@@ -408,9 +411,48 @@
     </div>
   </div>
 
+  <!-- MODAL PINDAH KELAS SISWA CEPAT -->
+  <div id="changeClassModal" style="position:fixed;inset:0;background:rgba(15,23,42,0.78);z-index:125;display:none;align-items:center;justify-content:center;padding:16px;">
+    <div class="card" style="max-width:480px;width:100%;margin:0;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">✏️ Pindah Kelas Siswa Cepat</div>
+          <p style="font-size:12px;color:var(--muted);">Ganti kelas jika siswa pindah kelas belajar tanpa update Dapodik</p>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="closeChangeClassModal()">✕ Tutup</button>
+      </div>
+      <div style="padding:16px;">
+        <input type="hidden" id="ccStudentId">
+        <div style="background:#f8fafc;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px;line-height:1.6;border:1px solid #e2e8f0;">
+          <div>Nama Siswa: <b id="ccStudentName" style="color:var(--dark);">-</b></div>
+          <div>Kelas Sekarang: <span class="badge badge-idle" id="ccCurrentClass">-</span></div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label style="font-size:12px;font-weight:700;">Pilih / Ketik Kelas Tujuan Baru:</label>
+          <input id="ccNewClass" class="input" placeholder="Contoh: XII IPA 2" list="classListDatalist">
+          <datalist id="classListDatalist"></datalist>
+        </div>
+
+        <div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:8px;padding:10px 12px;margin-bottom:18px;">
+          <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#92400e;cursor:pointer;">
+            <input type="checkbox" id="ccResetExam" checked style="margin-top:2px;">
+            <span><b>Reset Sesi Ujian Aktif:</b> Kosongkan jawaban & sesi lama agar siswa langsung menerima paket soal guru di kelas barunya saat login.</span>
+          </label>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn btn-outline" type="button" onclick="closeChangeClassModal()">Batal</button>
+          <button class="btn btn-primary" type="button" onclick="submitChangeClass()">Simpan Perubahan Kelas</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     let currentOverview = null;
     let currentPrintData = null;
+    let currentMonitoringList = [];
     let staffToken = sessionStorage.getItem('cbt_operator_token') || '';
 
     function authHeaders(extra = {}) {
@@ -490,52 +532,43 @@
       document.getElementById('statActiveSessions').textContent = `${working} / ${finished}`;
       document.getElementById('statLockedCount').textContent = locked;
 
-      // Render tabel monitoring
-      const mBody = document.getElementById('monitoringBody');
-      mBody.innerHTML = data.monitoring.map(m => {
-        let badge = '<span class="badge badge-idle">Belum Login</span>';
-        if (m.status === 'WORKING') badge = `<span class="badge badge-working">● Soal No. ${m.current_question_number || 1}</span>`;
-        if (m.status === 'FINISHED') badge = '<span class="badge badge-finished">✓ Selesai</span>';
-        if (m.status === 'LOCKED') badge = '<span class="badge badge-locked">🔒 TERKUNCI</span>';
+      // Populate filter kelas & datalist
+      if (data.classes && data.classes.length) {
+        const selCls = document.getElementById('monClassFilter');
+        if (selCls) {
+          const currentVal = selCls.value;
+          selCls.innerHTML = '<option value="ALL">Semua Kelas</option>' + data.classes.map(c => `<option value="${c}">${c}</option>`).join('');
+          if (data.classes.includes(currentVal)) selCls.value = currentVal;
+        }
+        const dl = document.getElementById('classListDatalist');
+        if (dl) {
+          dl.innerHTML = data.classes.map(c => `<option value="${c}"></option>`).join('');
+        }
+      }
 
-        const recentStr = (m.recent_choices || []).slice(-6).map(c => `${c.number}:${c.chosen}`).join(' ');
-        return `
-          <tr>
-            <td><b>${m.exam_number}</b></td>
-            <td><b>${m.full_name}</b><br><span style="font-size:11px;color:var(--muted);">Meja ${m.seat_number}</span></td>
-            <td>${m.class_name} • ${m.room}</td>
-            <td>${badge}</td>
-            <td>
-              <b>${m.answered_pg} / ${m.total_pg} PG</b>
-              ${recentStr ? `<div style="font-size:11px;color:var(--primary);font-family:monospace;">[${recentStr}]</div>` : ''}
-            </td>
-            <td style="color:${m.violation_count > 0 ? 'var(--red)' : 'var(--muted)'};font-weight:700;">
-              ${m.violation_count > 0 ? `⚠️ ${m.violation_count}x Keluar App` : 'Aman (0)'}
-            </td>
-            <td><b style="color:var(--green);font-size:14px;">${m.score}</b></td>
-            <td style="display:flex;gap:6px;flex-wrap:wrap;">
-              ${m.session_id ? `<button class="btn btn-sm btn-primary" onclick="openWorkMonitor(${m.session_id})">👁️ Pantau Kerja</button>` : ''}
-              ${m.status === 'LOCKED' ? `<button class="btn btn-sm btn-red" onclick="unlockSession(${m.session_id})">🔓 Buka Kunci</button>` : ''}
-              ${m.session_id ? `<button class="btn btn-sm btn-outline" onclick="resetSession(${m.session_id})">Reset Login</button>` : '-'}
-            </td>
-          </tr>
-        `;
-      }).join('');
+      currentMonitoringList = data.monitoring || [];
+      renderMonitoringTable();
 
       // Render tabel siswa
-      document.getElementById('studentsTableBody').innerHTML = data.students.map(s => `
+      document.getElementById('studentsTableBody').innerHTML = data.students.map(s => {
+        const safeName = (s.full_name || '').replace(/'/g, "\\'");
+        return `
         <tr>
           <td>Meja ${s.seat_number}</td>
           <td><b>${s.exam_number}</b></td>
           <td>${s.nisn}</td>
           <td><b>${s.full_name}</b></td>
           <td>${s.birth_info || '-'}</td>
-          <td>${s.class_name}</td>
+          <td>
+            <b>${s.class_name}</b>
+            <div><button class="btn btn-sm btn-outline" style="font-size:10px;padding:1px 5px;margin-top:2px;" onclick="openChangeClassModal(${s.id}, '${safeName}', '${s.class_name}')">✏️ Pindah</button></div>
+          </td>
           <td>${s.room}</td>
           <td><code>${s.password}</code></td>
           <td><button class="btn btn-sm btn-outline" onclick="deleteStudent(${s.id})">Hapus</button></td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
 
       // Render tabel jadwal ujian
       document.getElementById('examsTableBody').innerHTML = data.exams.map(e => `
@@ -559,6 +592,89 @@
           <td>${u.subject || u.room || '-'}</td>
         </tr>
       `).join('');
+    }
+
+    function renderMonitoringTable() {
+      const filterCls = document.getElementById('monClassFilter') ? document.getElementById('monClassFilter').value : 'ALL';
+      const mBody = document.getElementById('monitoringBody');
+      if (!mBody) return;
+      const filtered = filterCls === 'ALL'
+        ? currentMonitoringList
+        : currentMonitoringList.filter(m => m.class_name === filterCls);
+
+      mBody.innerHTML = filtered.map(m => {
+        let badge = '<span class="badge badge-idle">Belum Login</span>';
+        if (m.status === 'WORKING') badge = `<span class="badge badge-working">● Soal No. ${m.current_question_number || 1}</span>`;
+        if (m.status === 'FINISHED') badge = '<span class="badge badge-finished">✓ Selesai</span>';
+        if (m.status === 'LOCKED') badge = '<span class="badge badge-locked">🔒 TERKUNCI</span>';
+
+        const recentStr = (m.recent_choices || []).slice(-6).map(c => `${c.number}:${c.chosen}`).join(' ');
+        const safeName = (m.full_name || '').replace(/'/g, "\\'");
+        return `
+          <tr>
+            <td><b>${m.exam_number}</b></td>
+            <td><b>${m.full_name}</b><br><span style="font-size:11px;color:var(--muted);">Meja ${m.seat_number}</span></td>
+            <td>
+              <b>${m.class_name}</b> • ${m.room}
+              <div><button class="btn btn-sm btn-outline" style="font-size:10px;padding:1px 5px;margin-top:2px;" onclick="openChangeClassModal(${m.student_id}, '${safeName}', '${m.class_name}')">✏️ Pindah</button></div>
+            </td>
+            <td>${badge}</td>
+            <td>
+              <b>${m.answered_pg} / ${m.total_pg} PG</b>
+              ${recentStr ? `<div style="font-size:11px;color:var(--primary);font-family:monospace;">[${recentStr}]</div>` : ''}
+            </td>
+            <td style="color:${m.violation_count > 0 ? 'var(--red)' : 'var(--muted)'};font-weight:700;">
+              ${m.violation_count > 0 ? `⚠️ ${m.violation_count}x Keluar App` : 'Aman (0)'}
+            </td>
+            <td><b style="color:var(--green);font-size:14px;">${m.score}</b></td>
+            <td style="display:flex;gap:6px;flex-wrap:wrap;">
+              ${m.session_id ? `<button class="btn btn-sm btn-primary" onclick="openWorkMonitor(${m.session_id})">👁️ Pantau Kerja</button>` : ''}
+              ${m.status === 'LOCKED' ? `<button class="btn btn-sm btn-red" onclick="unlockSession(${m.session_id})">🔓 Buka Kunci</button>` : ''}
+              ${m.session_id ? `<button class="btn btn-sm btn-outline" onclick="resetSession(${m.session_id})">Reset Login</button>` : '-'}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openChangeClassModal(studentId, fullName, currentClass) {
+      document.getElementById('ccStudentId').value = studentId;
+      document.getElementById('ccStudentName').textContent = fullName;
+      document.getElementById('ccCurrentClass').textContent = currentClass;
+      document.getElementById('ccNewClass').value = '';
+      document.getElementById('ccResetExam').checked = true;
+      document.getElementById('changeClassModal').style.display = 'flex';
+    }
+
+    function closeChangeClassModal() {
+      document.getElementById('changeClassModal').style.display = 'none';
+    }
+
+    async function submitChangeClass() {
+      const studentId = Number(document.getElementById('ccStudentId').value);
+      const newClass = document.getElementById('ccNewClass').value.trim();
+      const resetExam = document.getElementById('ccResetExam').checked;
+      if (!newClass) {
+        alert('Silakan masukkan nama kelas tujuan baru');
+        return;
+      }
+      try {
+        const res = await fetch('/api/operator/student-change-class', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ student_id: studentId, new_class_name: newClass, reset_active_exam: resetExam })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || 'Gagal memindahkan kelas siswa');
+          return;
+        }
+        alert(data.message || 'Berhasil memindahkan kelas siswa!');
+        closeChangeClassModal();
+        await loadOverview();
+      } catch (err) {
+        alert('Terjadi kesalahan: ' + err.message);
+      }
     }
 
     async function refreshToken() {

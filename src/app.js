@@ -73,6 +73,22 @@ function ensureFresh15MinToken(db, exam) {
   };
 }
 
+// Pencocokan ujian aktif sesuai kelas siswa (multi-guru per mapel, anti-tertukar)
+function getActiveExamForStudent(db, className) {
+  if (className && className !== '-' && className !== 'ALL' && className !== 'Semua Kelas') {
+    const cleanClass = String(className).trim();
+    const specific = db.prepare(`
+      SELECT * FROM exams 
+      WHERE is_active = 1 
+        AND (class_target = 'ALL' OR class_target = 'Semua Kelas' OR class_target LIKE '%' || ? || '%')
+      ORDER BY id DESC LIMIT 1
+    `).get(cleanClass);
+    if (specific) return ensureFresh15MinToken(db, specific);
+  }
+  const fallback = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+  return ensureFresh15MinToken(db, fallback);
+}
+
 // Pengacak urutan soal PG deterministik per siswa (anti-contek antar meja sebelahan)
 function seededShufflePgQuestions(questions, seedNumber) {
   const pgList = questions.filter(q => q.type === 'PG');
@@ -286,8 +302,7 @@ function createApp(db) {
   }
 
   app.get('/api/server-info', (req, res) => {
-    const rawExam = db.prepare('SELECT id, title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
-    const activeExam = ensureFresh15MinToken(db, rawExam);
+    const activeExam = getActiveExamForStudent(db, req.query.class_name);
     res.json({
       school: 'SMA NEGERI 3 BURU',
       lanIp: getLocalLanIp(),
@@ -332,6 +347,7 @@ function createApp(db) {
     const staff = db.prepare('SELECT id, username, full_name, role, subject, room FROM users ORDER BY role ASC, id ASC').all();
     const scoreData = activeExam ? calculateExamScores(db, activeExam.id) : { scores: [], pgCount: 0, esaiCount: 0 };
     const qrBundle = await buildQrBundle(req);
+    const classes = db.prepare("SELECT DISTINCT class_name FROM students WHERE class_name IS NOT NULL AND class_name != '' ORDER BY class_name ASC").all().map(r => r.class_name);
 
     res.json({
       lanIp: getLocalLanIp(),
@@ -340,6 +356,7 @@ function createApp(db) {
       exams,
       students,
       staff,
+      classes,
       monitoring: scoreData.scores,
       pgCount: scoreData.pgCount,
       esaiCount: scoreData.esaiCount
@@ -525,6 +542,50 @@ function createApp(db) {
   app.delete('/api/operator/students/:id', requireStaffAuth(['operator']), (req, res) => {
     db.prepare('DELETE FROM students WHERE id = ?').run(Number(req.params.id));
     res.json({ ok: true });
+  });
+
+  // Fitur Cepat Pindah Kelas Siswa (Solusi perbedaan data Dapodik di lapangan)
+  app.post('/api/operator/student-change-class', requireStaffAuth(['operator', 'pengawas']), (req, res) => {
+    const { student_id, new_class_name, reset_active_exam } = req.body || {};
+    const studentId = Number(student_id);
+    const targetClass = String(new_class_name || '').trim();
+    if (!studentId || !targetClass) {
+      return res.status(400).json({ error: 'ID Siswa dan Kelas Baru wajib diisi.' });
+    }
+
+    const student = db.prepare('SELECT * FROM students WHERE id = ?').get(studentId);
+    if (!student) return res.status(404).json({ error: 'Siswa tidak ditemukan.' });
+
+    const oldClass = student.class_name;
+    db.prepare('UPDATE students SET class_name = ? WHERE id = ?').run(targetClass, studentId);
+
+    let resetDone = false;
+    if (reset_active_exam) {
+      const sessions = db.prepare('SELECT id FROM exam_sessions WHERE student_id = ?').all(studentId);
+      for (const s of sessions) {
+        db.prepare('DELETE FROM answers WHERE session_id = ?').run(s.id);
+      }
+      db.prepare('DELETE FROM exam_sessions WHERE student_id = ?').run(studentId);
+      resetDone = true;
+    }
+
+    const operatorName = req.staffUser ? req.staffUser.full_name : 'Operator Server';
+    const logNote = `Perpindahan kelas siswa ${student.full_name} (${student.nisn}) dari ${oldClass} ke ${targetClass} oleh ${operatorName}${resetDone ? ' (Ujian di-reset)' : ''}`;
+    try {
+      db.prepare(`
+        INSERT INTO room_reports (exam_id, room, pengawas_name, notes, absent_students, created_at)
+        VALUES (0, ?, ?, ?, '-', ?)
+      `).run(student.room || 'Semua Ruang', operatorName, logNote, new Date().toISOString());
+    } catch {}
+
+    res.json({
+      ok: true,
+      student_id: studentId,
+      old_class: oldClass,
+      new_class_name: targetClass,
+      reset_done: resetDone,
+      message: `Berhasil memindahkan kelas ${student.full_name} ke ${targetClass}.`
+    });
   });
 
   app.post('/api/operator/staff', requireStaffAuth(['operator']), (req, res) => {
@@ -975,8 +1036,13 @@ function createApp(db) {
       });
     }
 
+    const studentExam = getActiveExamForStudent(db, student.class_name);
+    if (!studentExam) {
+      return res.status(404).json({ error: `Belum ada jadwal ujian yang aktif untuk kelas ${student.class_name}.` });
+    }
+
     // 3. Cek apakah siswa sudah menyelesaikan ujian (FINISHED) -> blokir agar tidak bisa masuk lagi
-    const existingSession = db.prepare('SELECT id, status, finished_at FROM exam_sessions WHERE exam_id = ? AND student_id = ?').get(rawExam.id, student.id);
+    const existingSession = db.prepare('SELECT id, status, finished_at FROM exam_sessions WHERE exam_id = ? AND student_id = ?').get(studentExam.id, student.id);
     if (existingSession && existingSession.status === 'FINISHED') {
       return res.status(403).json({
         error: `Ujian atas nama ${student.full_name} sudah selesai dikumpulkan dan tidak dapat dibuka atau diubah kembali.`,
@@ -995,7 +1061,7 @@ function createApp(db) {
         room: student.room,
         seat_number: student.seat_number
       },
-      exam: rawExam
+      exam: studentExam
     });
   });
 
@@ -1016,10 +1082,9 @@ function createApp(db) {
       return res.status(401).json({ error: 'Verifikasi 4 digit terakhir NISN tidak sesuai.' });
     }
 
-    const rawExam = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
-    const activeExam = ensureFresh15MinToken(db, rawExam);
+    const activeExam = getActiveExamForStudent(db, student.class_name);
     if (!activeExam) {
-      return res.status(404).json({ error: 'Belum ada ujian yang aktif saat ini.' });
+      return res.status(404).json({ error: `Belum ada ujian yang aktif saat ini untuk kelas ${student.class_name}.` });
     }
 
     let session = db.prepare('SELECT * FROM exam_sessions WHERE exam_id = ? AND student_id = ?').get(activeExam.id, student.id);
@@ -1088,10 +1153,9 @@ function createApp(db) {
       return res.status(401).json({ error: 'ID Peserta atau Kata Sandi salah!' });
     }
 
-    const rawExam = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
-    const activeExam = ensureFresh15MinToken(db, rawExam);
+    const activeExam = getActiveExamForStudent(db, student.class_name);
     if (!activeExam) {
-      return res.status(404).json({ error: 'Belum ada jadwal ujian yang diaktifkan oleh Operator.' });
+      return res.status(404).json({ error: `Belum ada jadwal ujian yang aktif untuk kelas ${student.class_name}.` });
     }
 
     // Jika token dikirim pada saat login, validasi token (backward compatible dengan test)
@@ -1139,6 +1203,31 @@ function createApp(db) {
         session_name: activeExam.session_name,
         duration_minutes: activeExam.duration_minutes
       }
+    });
+  });
+
+  // Ambil token ujian aktif sesuai kelas / sesi siswa (untuk Pop-up Peraturan & Ambil Token)
+  app.get('/api/ujian/active-token', (req, res) => {
+    const { sessionId, class_name } = req.query || {};
+    let activeExam = null;
+    if (sessionId) {
+      const sess = db.prepare('SELECT exam_id FROM exam_sessions WHERE id = ?').get(Number(sessionId));
+      if (sess) {
+        const rawExam = db.prepare('SELECT * FROM exams WHERE id = ?').get(sess.exam_id);
+        if (rawExam) activeExam = ensureFresh15MinToken(db, rawExam);
+      }
+    }
+    if (!activeExam) {
+      activeExam = getActiveExamForStudent(db, class_name);
+    }
+    if (!activeExam) {
+      return res.status(404).json({ error: 'Belum ada jadwal ujian yang diaktifkan oleh sekolah.' });
+    }
+    res.json({
+      token: activeExam.token,
+      token_remaining_seconds: activeExam.token_remaining_seconds,
+      subject: activeExam.subject,
+      class_target: activeExam.class_target
     });
   });
 

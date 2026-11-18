@@ -462,6 +462,80 @@ test('ExamBPPP flow: student account activation via NISN + NPSN + Tanggal Lahir,
   assert.equal(okTokenRes.status, 'WORKING');
 });
 
+test('Multi-teacher class targeting, active token retrieval modal, and operator quick class transfer', async (t) => {
+  const db = initDb(':memory:');
+  const app = createApp(db);
+  const server = app.listen(0);
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  // 1. Buat 2 ujian Matematika aktif untuk 2 kelompok kelas berbeda:
+  // Guru A: XII IPA 1, XII IPA 2 (Token: TOKNA1)
+  // Guru B: XII IPA 3, XII IPA 4 (Token: TOKNB2)
+  db.prepare('UPDATE exams SET is_active = 0').run();
+  const nowIso = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, is_active)
+    VALUES ('Matematika Paket A (Guru 1)', 'Matematika', 'XII IPA 1, XII IPA 2', '2026-11-20', '08:00 WIT', 'Sesi 1', 90, 'TOKNA1', ?, 1)
+  `).run(nowIso);
+  const examAId = db.prepare('SELECT last_insert_rowid() as id').get().id;
+
+  db.prepare(`
+    INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, is_active)
+    VALUES ('Matematika Paket B (Guru 2)', 'Matematika', 'XII IPA 3, XII IPA 4', '2026-11-20', '08:00 WIT', 'Sesi 1', 90, 'TOKNB2', ?, 1)
+  `).run(nowIso);
+  const examBId = db.prepare('SELECT last_insert_rowid() as id').get().id;
+
+  // 2. Ambil token aktif via /api/ujian/active-token berdasarkan kelas siswa
+  const tokenARes = await fetch(`${base}/api/ujian/active-token?class_name=${encodeURIComponent('XII IPA 1')}`).then(r => r.json());
+  assert.equal(tokenARes.token, 'TOKNA1');
+  assert.equal(tokenARes.subject, 'Matematika');
+
+  const tokenBRes = await fetch(`${base}/api/ujian/active-token?class_name=${encodeURIComponent('XII IPA 3')}`).then(r => r.json());
+  assert.equal(tokenBRes.token, 'TOKNB2');
+
+  // 3. Siswa XII IPA 1 login -> harus mendapat ujian Guru A
+  const student = db.prepare("SELECT * FROM students WHERE class_name = 'XII IPA 1' LIMIT 1").get();
+  assert.ok(student);
+
+  const startRes = await fetch(`${base}/api/ujian/start-direct`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentId: student.id, nisnLast4: student.nisn.slice(-4) })
+  }).then(r => r.json());
+  assert.equal(startRes.exam.id, examAId);
+  assert.equal(startRes.exam.title, 'Matematika Paket A (Guru 1)');
+
+  // 4. Pengawas / Operator memindahkan siswa ini ke XII IPA 3 (karena siswa pindah kelas di lapangan tanpa update Dapodik)
+  const opAuth = await fetch(`${base}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'operator', password: 'admin123', role: 'operator' })
+  }).then(r => r.json());
+
+  const moveRes = await fetch(`${base}/api/operator/student-change-class`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${opAuth.staffToken}` },
+    body: JSON.stringify({ student_id: student.id, new_class_name: 'XII IPA 3', reset_active_exam: true })
+  }).then(r => r.json());
+  assert.equal(moveRes.ok, true);
+  assert.equal(moveRes.new_class_name, 'XII IPA 3');
+  assert.equal(moveRes.reset_done, true);
+
+  // 5. Cek di database siswa sekarang berkelas XII IPA 3 dan sesi ujian lama tereset
+  const updatedStudent = db.prepare('SELECT * FROM students WHERE id = ?').get(student.id);
+  assert.equal(updatedStudent.class_name, 'XII IPA 3');
+
+  // 6. Siswa login ulang -> sekarang langsung menerima ujian Guru B
+  const restartRes = await fetch(`${base}/api/ujian/start-direct`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentId: student.id, nisnLast4: student.nisn.slice(-4) })
+  }).then(r => r.json());
+  assert.equal(restartRes.exam.id, examBId);
+  assert.equal(restartRes.exam.title, 'Matematika Paket B (Guru 2)');
+});
+
 
 
 

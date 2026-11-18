@@ -236,6 +236,11 @@
           </tr>
         </table>
 
+        <!-- PERINGATAN CEK PINDAH KELAS -->
+        <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:9px;padding:11px 13px;font-size:12px;color:#92400e;margin-bottom:14px;line-height:1.55;">
+          <b>⚠️ Periksa Data Kelas Anda:</b> Pastikan Kelas di atas sesuai dengan ruang kelas belajar Anda saat ini. Jika Anda sudah <b>pindah kelas</b> dan data di atas masih kelas lama, <b>segera lapor ke Pengawas Ruangan</b> agar dipindahkan sebelum menekan Lanjutkan.
+        </div>
+
         <div class="exambppp-rules-box">
           <div style="font-weight:700;color:#0f2d2a;margin-bottom:4px;">Anda mengikuti pelaksanaan Ujian Tulis Berbasis Seluler</div>
           Selama pengerjaan <b>DILARANG</b> melakukan <b>KECURANGAN</b> seperti:<br>
@@ -297,7 +302,7 @@
     <div class="exambppp-container">
       <div class="exambppp-data-card">
         <div style="font-size:14px;font-weight:800;color:#0f2d2a;margin-bottom:12px;letter-spacing:0.04em;">PETUNJUK</div>
-        <div style="font-size:13px;color:#334155;line-height:1.7;margin-bottom:20px;">
+        <div style="font-size:13px;color:#334155;line-height:1.7;margin-bottom:16px;">
           1. Periksa dan bacalah soal-soal dengan teliti sebelum Anda menjawabnya.<br>
           2. Untuk soal Pilihan Ganda, pilih salah satu pilihan jawaban dengan menekan pilihan pada lingkaran yang sesuai.<br>
           3. Untuk soal Esai, tuliskan jawaban lengkap Anda pada Lembar Jawaban Kertas yang disediakan pengawas.<br>
@@ -305,6 +310,12 @@
           5. Sisa waktu pengerjaan ujian akan ditampilkan di bagian kanan atas layar Anda.<br>
           6. Selama ujian berlangsung, tetap berada di layar ujian dan dilarang berpindah ke aplikasi lain.
         </div>
+
+        <!-- TOMBOL BUKA POP-UP TATA TERTIB & AMBIL TOKEN -->
+        <button type="button" class="exambppp-btn-teal" style="background:#0f2d2a;margin-bottom:16px;" onclick="openModalRulesAndToken()">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <span>Baca Tata Tertib & Ambil Token Ujian</span>
+        </button>
 
         <label class="exambppp-agree-check" for="chkAgreement">
           <input type="checkbox" id="chkAgreement" onchange="toggleAgreeButton()">
@@ -325,6 +336,43 @@
           <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PERATURAN & AMBIL TOKEN (POP-UP CEKLIS DAPAT TOKEN) -->
+  <div id="modalRulesAndToken" class="exambppp-modal-overlay">
+    <div class="exambppp-modal-card" style="max-width:440px;text-align:left;">
+      <div class="exambppp-modal-title" style="text-align:center;font-size:17px;">Peraturan & Tata Tertib Ujian</div>
+      <p class="exambppp-modal-desc" style="text-align:center;margin-bottom:14px;">
+        Silakan baca dan setujui peraturan ujian di bawah untuk mendapatkan Token Ujian Anda:
+      </p>
+
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:13px 15px;font-size:12.5px;color:#334155;line-height:1.65;margin-bottom:14px;">
+        1. Dilarang membuka tab browser lain atau meminimalkan layar ujian.<br>
+        2. Dilarang menerima bantuan orang lain, membuka catatan, atau mencontek.<br>
+        3. Dilarang memfoto, menyalin, atau mendokumentasikan soal ujian.<br>
+        4. Jawaban Pilihan Ganda tersimpan otomatis di server sekolah.<br>
+        5. Jawaban Esai wajib ditulis pada Lembar Kertas yang disediakan pengawas.<br>
+        6. Setiap pelanggaran dicatat otomatis oleh sistem pengawasan ruang.
+      </div>
+
+      <label class="exambppp-agree-check" for="chkRulesAgreement" style="margin-bottom:0;cursor:pointer;">
+        <input type="checkbox" id="chkRulesAgreement" onchange="onRulesAgreementChecked(this.checked)">
+        <span style="font-size:12.5px;">Saya sudah membaca, memahami, dan menyetujui seluruh tata tertib ujian di atas.</span>
+      </label>
+
+      <!-- KOTAK TOKEN YANG MUNCUL SETELAH DICEKLIS -->
+      <div id="boxRevealedToken" style="display:none;background:#ecfdf5;border:1.5px solid #a7f3d0;border-radius:10px;padding:14px;margin-top:14px;text-align:center;">
+        <div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">TOKEN UJIAN AKTIF ANDA</div>
+        <div id="revealedTokenVal" style="font-size:26px;font-weight:900;letter-spacing:0.22em;color:#065f46;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin-bottom:10px;">------</div>
+        <button type="button" class="exambppp-btn-teal" style="background:#059669;padding:10px;font-size:13px;" onclick="applyRevealedToken()">
+          <span>Gunakan Token Ini & Mulai Ujian &rarr;</span>
+        </button>
+      </div>
+
+      <button type="button" class="btn btn-outline" style="width:100%;padding:9px;margin-top:12px;font-size:12px;" onclick="closeModalRulesAndToken()">
+        Batal / Tutup
+      </button>
     </div>
   </div>
 
@@ -729,6 +777,65 @@
       const hasChecked = chk && chk.checked;
       const hasToken = inpTok && inpTok.value.trim().length >= 4;
       if (btn) btn.disabled = !(hasChecked && hasToken);
+    }
+
+    function openModalRulesAndToken() {
+      const modal = document.getElementById('modalRulesAndToken');
+      if (modal) modal.style.display = 'flex';
+      const chk = document.getElementById('chkRulesAgreement');
+      if (chk) chk.checked = false;
+      const box = document.getElementById('boxRevealedToken');
+      if (box) box.style.display = 'none';
+      const tokVal = document.getElementById('revealedTokenVal');
+      if (tokVal) tokVal.textContent = '------';
+    }
+
+    function closeModalRulesAndToken() {
+      const modal = document.getElementById('modalRulesAndToken');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function onRulesAgreementChecked(isChecked) {
+      const box = document.getElementById('boxRevealedToken');
+      const tokVal = document.getElementById('revealedTokenVal');
+      if (!isChecked) {
+        if (box) box.style.display = 'none';
+        return;
+      }
+      if (tokVal) tokVal.textContent = 'MEMUAT...';
+      if (box) box.style.display = 'block';
+
+      try {
+        const cls = selectedStudent && selectedStudent.class_name ? encodeURIComponent(selectedStudent.class_name) : '';
+        const sId = sessionId ? encodeURIComponent(sessionId) : '';
+        const res = await fetch(`/api/ujian/active-token?sessionId=${sId}&class_name=${cls}`);
+        const data = await res.json();
+        if (res.ok && data.token) {
+          if (tokVal) tokVal.textContent = data.token;
+        } else {
+          if (tokVal) tokVal.textContent = 'GAGAL';
+          alert(data.error || 'Gagal mengambil token ujian aktif.');
+        }
+      } catch (err) {
+        if (tokVal) tokVal.textContent = 'ERROR';
+        alert('Gagal menghubungi server untuk mengambil token: ' + err.message);
+      }
+    }
+
+    function applyRevealedToken() {
+      const tokVal = document.getElementById('revealedTokenVal');
+      const token = tokVal ? tokVal.textContent.trim() : '';
+      if (!token || token === '------' || token === 'MEMUAT...' || token === 'GAGAL' || token === 'ERROR') {
+        alert('Token belum tersedia. Silakan centang persetujuan tata tertib.');
+        return;
+      }
+      const inpTok = document.getElementById('inpSubtestToken');
+      if (inpTok) inpTok.value = token;
+      const chk = document.getElementById('chkAgreement');
+      if (chk) chk.checked = true;
+      toggleAgreeButton();
+      closeModalRulesAndToken();
+      openModalConfirmStartTest();
     }
 
     function openModalConfirmStartTest() {

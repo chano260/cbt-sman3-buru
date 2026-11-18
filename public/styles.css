@@ -1484,3 +1484,28 @@ tr:last-child td {
 .q-font-sm .q-body-text { font-size: 13.5px !important; }
 .q-font-md .q-body-text { font-size: 15.5px !important; }
 .q-font-lg .q-body-text { font-size: 18px !important; }
+
+/* Overlay Peringatan Keluar Layar & Reverify Token */
+.locked-screen {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(6px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 200;
+  box-sizing: border-box;
+}
+
+.locked-modal-card {
+  background: #ffffff;
+  border-radius: 16px;
+  max-width: 440px;
+  width: 100%;
+  padding: 28px 24px;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+}

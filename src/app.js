@@ -945,8 +945,8 @@ function createApp(db) {
       return res.status(400).json({ error: 'NISN siswa wajib diisi.' });
     }
     const cleanNpsn = String(npsn || '').trim();
-    const defaultNpsn = '60101869';
-    if (cleanNpsn && cleanNpsn !== defaultNpsn && cleanNpsn.length < 8) {
+    const defaultNpsn = '60101015'; // NPSN Resmi SMA Negeri 3 Buru
+    if (cleanNpsn && cleanNpsn.length < 8) {
       return res.status(400).json({ error: 'NPSN Sekolah harus berupa 8 digit angka.' });
     }
 

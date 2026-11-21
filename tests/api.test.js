@@ -440,7 +440,7 @@ test('ExamBPPP flow: student account activation via NISN + NPSN + Tanggal Lahir,
   const badAct = await fetch(`${base}/api/ujian/activate-account`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nisn: student.nisn, npsn: '60101869', birth_date: '2008-12-31' })
+    body: JSON.stringify({ nisn: student.nisn, npsn: '60101015', birth_date: '2008-12-31' })
   });
   assert.equal(badAct.status, 401);
 
@@ -448,7 +448,7 @@ test('ExamBPPP flow: student account activation via NISN + NPSN + Tanggal Lahir,
   const okAct = await fetch(`${base}/api/ujian/activate-account`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nisn: student.nisn, npsn: '60101869', birth_date: '2008-03-22' })
+    body: JSON.stringify({ nisn: student.nisn, npsn: '60101015', birth_date: '2008-03-22' })
   }).then(r => r.json());
   assert.equal(okAct.ok, true);
   assert.equal(okAct.student.username, student.exam_number);

@@ -839,6 +839,25 @@ tr:last-child td {
   -webkit-user-select: none;
 }
 
+.exambppp-body input,
+.exambppp-body select,
+.exambppp-body textarea {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+.abm-error-alert {
+  background: #fef2f2;
+  border: 1.5px solid #f87171;
+  color: #991b1b;
+  padding: 11px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.08);
+}
+
 /* Halaman Login ExamBPPP (Hal 8 kiri) */
 .exambppp-login-wrap {
   min-height: 100vh;

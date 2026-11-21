@@ -1493,6 +1493,11 @@ function createApp(db) {
     });
   });
 
+  // Handler 404 berformat JSON untuk semua endpoint API yang tidak terdaftar
+  app.all('/api/*', (req, res) => {
+    res.status(404).json({ error: `Endpoint API ${req.method} ${req.path} tidak ditemukan pada server.` });
+  });
+
   // Fallback anti-404 untuk semua variasi path dari aplikasi Exambro Scan QR (/ujian, /ujian.html/, /operator.html/ujian.html, /login, dll.)
   app.use((req, res, next) => {
     if (req.method === 'GET' && !req.path.startsWith('/api/')) {

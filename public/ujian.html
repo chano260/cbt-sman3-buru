@@ -726,7 +726,16 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ nisn, npsn, birth_date })
         });
-        const data = await res.json();
+        let data = {};
+        try {
+          data = await res.json();
+        } catch {
+          data = {
+            error: res.status === 404
+              ? 'Layanan verifikasi belum aktif di server. Pastikan proses server Node.js sudah di-restart (pm2 restart all).'
+              : `Terjadi kendala pada server (Status HTTP ${res.status}). Silakan coba beberapa saat lagi.`
+          };
+        }
         if (!res.ok || !data.student) {
           errEl.textContent = data.error || 'Verifikasi gagal. Pastikan NISN dan tanggal lahir Anda sesuai data Dapodik.';
           errEl.style.display = 'block';

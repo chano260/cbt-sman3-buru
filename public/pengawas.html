@@ -42,8 +42,8 @@
     <div class="brand">
       <div class="brand-logo" style="background:linear-gradient(135deg,#ea580c,#f97316);">🛡️</div>
       <div class="brand-text">
-        <h1>PANEL PENGAWAS RUANGAN</h1>
-        <span id="pengawasSub">SMA Negeri 3 Buru • Pantau Ruang & Buka Kunci Exambro</span>
+        <h1 style="color:#ffffff;">PANEL PENGAWAS RUANGAN</h1>
+        <span id="pengawasSub" style="color:#fed7aa;">SMA Negeri 3 Buru • Pantau Ruang & Buka Kunci Exambro</span>
       </div>
     </div>
     <div class="topbar-right">
@@ -77,7 +77,7 @@
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
           <div style="background:#fff;padding:6px;border-radius:10px;border:1.5px solid #ea580c;text-align:center;">
             <img id="pwQrImg" src="" alt="QR Exambro" style="width:84px;height:84px;display:block;">
-            <div style="font-size:8.5px;font-weight:800;color:#9a3412;">SCAN EXAMBRO</div>
+            <div style="font-size:11px;font-weight:800;color:#9a3412;">SCAN EXAMBRO</div>
           </div>
           <div>
             <span style="font-size:11px;font-weight:800;color:#9a3412;text-transform:uppercase;">Token Ujian Aktif (Ganti Otomatis Tiap 15 Menit)</span>
@@ -306,7 +306,7 @@
                   ${w.type === 'ESAI' ? (w.essay_photo ? '📷 Difoto' : 'Belum Foto') : (w.chosen_option ? 'Jawab: ' + w.chosen_option : 'Kosong')}
                 </span>
               </div>
-              ${w.is_current ? '<div style="font-size:10.5px;color:#ea580c;font-weight:700;margin-top:3px;">👀 Sedang Dikerjakan</div>' : ''}
+              ${w.is_current ? '<div style="font-size:12px;color:#ea580c;font-weight:700;margin-top:3px;">👀 Sedang Dikerjakan</div>' : ''}
               ${w.essay_photo ? `<div style="margin-top:5px;"><a href="${w.essay_photo}" target="_blank" style="color:#ea580c;font-size:11px;font-weight:700;text-decoration:underline;">🔍 Lihat Foto Kertas</a></div>` : ''}
             </div>
           `).join('')}

@@ -18,7 +18,7 @@
     <div class="topbar-right">
       <span class="chip" id="opIpChip">IP: -</span>
       <span class="chip chip-token" id="opTokenChip">TOKEN: -</span>
-      <a href="/" class="btn btn-sm btn-outline" style="background:transparent;color:#fff;border-color:#475569;">← Menu Utama</a>
+      <a href="/" class="btn btn-sm btn-outline">← Menu Utama</a>
     </div>
   </div>
 
@@ -85,7 +85,7 @@
             <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
               <div style="background:#fff;padding:10px;border-radius:14px;border:2px solid #1e3a8a;box-shadow:0 4px 12px rgba(15,23,42,0.08);text-align:center;">
                 <img id="opQrImg" src="" alt="QR Code Exambro" style="width:128px;height:128px;display:block;">
-                <div style="font-size:10px;font-weight:800;color:#1e3a8a;margin-top:4px;">SCAN DI EXAMBRO</div>
+                <div style="font-size:11.5px;font-weight:800;color:#1e3a8a;margin-top:4px;">SCAN DI EXAMBRO</div>
               </div>
               <div style="max-width:480px;">
                 <span class="badge badge-working" style="margin-bottom:6px;">📱 Kompatibel Exambro Scan QR & VPS Online (500+ Siswa)</span>
@@ -811,7 +811,7 @@
           <td>${esc(s.birth_info || '-')}</td>
           <td>
             <b>${esc(s.class_name)}</b>
-            <div><button class="btn btn-sm btn-outline" style="font-size:10px;padding:1px 5px;margin-top:2px;" onclick="openChangeClassModal(${s.id}, '${escJs(safeName)}', '${escJs(s.class_name)}')">✏️ Pindah</button></div>
+            <div><button class="btn btn-sm btn-outline" style="font-size:12px;padding:4px 10px;margin-top:4px;" onclick="openChangeClassModal(${s.id}, '${escJs(safeName)}', '${escJs(s.class_name)}')">✏️ Pindah</button></div>
           </td>
           <td>${esc(s.room)}</td>
           <td><code>${s.password}</code></td>
@@ -909,7 +909,7 @@
             <td><b>${esc(m.full_name)}</b><br><span style="font-size:11px;color:var(--muted);">Meja ${esc(m.seat_number)}</span></td>
             <td>
               <b>${esc(m.class_name)}</b> • ${esc(m.room)}
-              <div><button class="btn btn-sm btn-outline" style="font-size:10px;padding:1px 5px;margin-top:2px;" onclick="openChangeClassModal(${m.student_id}, '${escJs(safeName)}', '${escJs(m.class_name)}')">✏️ Pindah</button></div>
+              <div><button class="btn btn-sm btn-outline" style="font-size:12px;padding:4px 10px;margin-top:4px;" onclick="openChangeClassModal(${m.student_id}, '${escJs(safeName)}', '${escJs(m.class_name)}')">✏️ Pindah</button></div>
             </td>
             <td>${badge}${subjBadge}</td>
             <td>
@@ -1099,7 +1099,7 @@
                   ${w.type === 'ESAI' ? (w.essay_photo ? '📷 Difoto' : 'Belum Foto') : (w.chosen_option ? 'Jawab: ' + w.chosen_option : 'Kosong')}
                 </span>
               </div>
-              ${w.is_current ? '<div style="font-size:10.5px;color:#2563eb;font-weight:700;margin-top:3px;">👀 Sedang Dilihat Siswa</div>' : ''}
+              ${w.is_current ? '<div style="font-size:12px;color:#2563eb;font-weight:700;margin-top:3px;">👀 Sedang Dilihat Siswa</div>' : ''}
               ${w.essay_photo ? `<div style="margin-top:5px;"><a href="${w.essay_photo}" target="_blank" style="color:var(--primary);font-size:11px;font-weight:700;text-decoration:underline;">🔍 Lihat Foto Kertas</a></div>` : ''}
             </div>
           `).join('')}

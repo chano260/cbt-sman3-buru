@@ -78,6 +78,24 @@ svg.icon {
   gap: 12px;
 }
 
+/* Di HP: header turun ke dua baris (judul di atas, token & tombol di bawah) */
+@media (max-width: 900px) {
+  .topbar {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 14px;
+  }
+  .topbar > * {
+    min-width: 0;
+  }
+  .topbar > :last-child {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+}
+
 .brand-logo {
   width: 38px;
   height: 38px;
@@ -141,9 +159,42 @@ svg.icon {
   min-height: calc(100vh - 63px);
 }
 
+/* Isi grid boleh menyusut: tanpa ini tabel lebar memaksa seluruh halaman melebar di HP */
+.app-shell > * {
+  min-width: 0;
+}
+
 @media (max-width: 900px) {
   .app-shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Menu samping menjadi satu baris tombol yang bisa digeser di HP */
+  .app-shell > .sidebar {
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 10px 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-shell > .sidebar .nav-btn {
+    width: auto;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .main-content {
+    padding: 16px;
+  }
+
+  /* Tabel lebar digulir sendiri, bukan halamannya */
+  .main-content table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -1533,4 +1584,48 @@ tr:last-child td {
   text-align: center;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
   box-sizing: border-box;
+}
+
+/* ------------------------------------------------------------------
+   Ukuran sentuh minimal untuk HP / layar sentuh (rekomendasi ~44px).
+   Hanya aktif di layar sentuh atau layar sempit, tampilan desktop tetap.
+   ------------------------------------------------------------------ */
+@media (pointer: coarse), (max-width: 900px) {
+  .btn,
+  .btn-sm,
+  .nav-btn,
+  .exambppp-nav-arrow-btn,
+  .exambppp-btn-teal,
+  .bp3-nav-item,
+  #tabBtnActivate,
+  #tabBtnLogin {
+    min-height: 44px;
+  }
+
+  .bp3-icon-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  select {
+    min-height: 44px;
+  }
+
+  .exambppp-zoom-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 14px;
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+
+  select.input,
+  input.input {
+    min-height: 44px;
+  }
 }

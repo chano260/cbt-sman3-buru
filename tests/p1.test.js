@@ -143,27 +143,19 @@ test('P1-5: pengawas hanya bisa melihat dan mengelola siswa di ruangnya sendiri'
   assert.equal((await ctx.post(`/api/pengawas/unlock/${s2.sessionId}`, {}, op)).status, 200);
 });
 
-test('P1-6: foto esai ditolak setelah waktu habis + 10 menit; tombol selesai tetap bisa', async (t) => {
+test('P1-6: tanda esai ditolak setelah waktu habis; tombol selesai tetap bisa', async (t) => {
   const ctx = setup(t);
   const exam = ctx.db.prepare('SELECT * FROM exams WHERE is_active = 1').get();
   const st = ctx.db.prepare('SELECT * FROM students LIMIT 1').get();
   const s = (await ctx.post('/api/ujian/login', { exam_number: st.exam_number, password: st.password, token: exam.token })).body;
   const h = { 'X-Session-Token': s.sessionToken };
   const esai = ctx.db.prepare("SELECT id FROM questions WHERE exam_id = ? AND type = 'ESAI' ORDER BY id").all(exam.id);
-  const upload = (qid) => {
-    const fd = new FormData();
-    fd.append('sessionId', String(s.sessionId));
-    fd.append('questionId', String(qid));
-    fd.append('photo', new Blob([Buffer.from([0xff, 0xd8, 0xff])], { type: 'image/jpeg' }), 'a.jpg');
-    return ctx.post('/api/ujian/upload-essay-photo', fd, h);
-  };
-  const setElapsedMin = (m) => ctx.db.prepare('UPDATE exam_sessions SET started_at = ? WHERE id = ?').run(new Date(Date.now() - m * 60000).toISOString(), s.sessionId);
+  const mark = (qid) => ctx.post('/api/ujian/essay-answered', { sessionId: s.sessionId, questionId: qid, answered: true }, h);
 
-  setElapsedMin(exam.duration_minutes + 5); // masih dalam masa tenggang
-  for (const q of esai) assert.equal((await upload(q.id)).status, 200);
+  for (const q of esai) assert.equal((await mark(q.id)).status, 200);
 
-  setElapsedMin(exam.duration_minutes + 11); // lewat masa tenggang
-  assert.equal((await upload(esai[0].id)).status, 400);
+  ctx.db.prepare('UPDATE exam_sessions SET started_at = ? WHERE id = ?').run(new Date(Date.now() - (exam.duration_minutes + 1) * 60000).toISOString(), s.sessionId);
+  assert.equal((await mark(esai[0].id)).status, 400);
 
   assert.equal((await ctx.post('/api/ujian/finish', { sessionId: s.sessionId }, h)).status, 200);
 });

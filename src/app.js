@@ -25,25 +25,10 @@ const upload = multer({
 const EXCEL_MAX_BYTES = 2 * 1024 * 1024;
 const excelUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: EXCEL_MAX_BYTES, files: 1 } });
 
-const ESSAY_PHOTO_MAX_BYTES = 8 * 1024 * 1024;
-
-// Cek isi file benar-benar gambar (bukan sekadar nama berakhiran .jpg)
-function looksLikeImage(buf) {
-  if (!buf || buf.length < 3) return false;
-  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true; // JPEG (signature 3 byte)
-  if (buf.length < 4) return false;
-  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return true; // PNG
-  if (buf.slice(0, 4).toString('ascii') === 'GIF8') return true; // GIF
-  if (buf.length >= 12 && buf.slice(0, 4).toString('ascii') === 'RIFF' && buf.slice(8, 12).toString('ascii') === 'WEBP') return true;
-  return false;
-}
-
-function removeUploadedFile(url) {
-  if (!url || !String(url).startsWith('/uploads/')) return;
-  const name = path.basename(String(url));
-  if (!name || name === '.gitkeep') return;
-  try { fs.unlinkSync(path.join(uploadsDir, name)); } catch {}
-}
+// Esai dikerjakan di lembar kertas. Siswa menandai tiap soal esai "sudah menjawab".
+// 'ESAI_PHOTO' tetap dihitung selesai untuk data lama dari masa fitur foto esai.
+const ESSAY_DONE = 'ESAI_DONE';
+const ESSAY_DONE_VALUES = [ESSAY_DONE, 'ESAI_PHOTO'];
 
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -112,7 +97,6 @@ function generateRandomToken() {
 }
 
 const TOKEN_GRACE_SECONDS = 120; // token lama masih diterima 2 menit setelah pergantian otomatis
-const ESSAY_UPLOAD_GRACE_SECONDS = 10 * 60; // foto esai boleh diunggah s.d. 10 menit setelah waktu habis
 
 // ---------- Pencocokan kelas & mapel (persis, bukan potongan kata) ----------
 function normText(s) {
@@ -331,6 +315,8 @@ function calculateExamScores(db, examId) {
         correct_pg: 0,
         wrong_pg: 0,
         total_pg: pgCount,
+        esai_answered: 0,
+        total_esai: esaiCount,
         recent_choices: [],
         score: 0
       };
@@ -340,8 +326,10 @@ function calculateExamScores(db, examId) {
 
     let correct = 0;
     let answeredPg = 0;
+    let esaiAnswered = 0;
     const recentChoices = [];
     for (const ans of ansRows) {
+      if (ESSAY_DONE_VALUES.includes(ans.chosen_option)) esaiAnswered++;
       if (keyMap.has(ans.question_id)) {
         answeredPg++;
         const chosen = (ans.chosen_option || '').toUpperCase();
@@ -378,6 +366,8 @@ function calculateExamScores(db, examId) {
       correct_pg: correct,
       wrong_pg: wrong,
       total_pg: pgCount,
+      esai_answered: esaiAnswered,
+      total_esai: esaiCount,
       recent_choices: recentChoices,
       score: rawScore
     };
@@ -1572,6 +1562,7 @@ function createApp(db) {
       'PG Benar': s.correct_pg,
       'PG Salah': s.wrong_pg,
       'Nilai Pilihan Ganda (0-100)': s.score,
+      'Esai Ditandai Dijawab': `${s.esai_answered || 0}/${s.total_esai || 0}`,
       'Nilai Esai (Kertas)': '',
       'Pelanggaran Exambro': s.violation_count
     }));
@@ -1667,18 +1658,19 @@ function createApp(db) {
 
     const student = db.prepare('SELECT * FROM students WHERE id = ?').get(session.student_id);
     const questions = db.prepare('SELECT id, number, type, question_text, option_a, option_b, option_c, option_d, option_e FROM questions WHERE exam_id = ? ORDER BY number ASC').all(session.exam_id);
-    const answers = db.prepare('SELECT question_id, chosen_option, essay_photo, updated_at FROM answers WHERE session_id = ?').all(sessionId);
+    const answers = db.prepare('SELECT question_id, chosen_option, updated_at FROM answers WHERE session_id = ?').all(sessionId);
     const ansMap = new Map(answers.map(a => [a.question_id, a]));
 
     const workDetail = questions.map(q => {
       const a = ansMap.get(q.id);
+      const isEssay = q.type === 'ESAI';
       return {
         question_id: q.id,
         number: q.number,
         type: q.type,
         question_snippet: q.question_text.slice(0, 95) + (q.question_text.length > 95 ? '...' : ''),
-        chosen_option: a ? a.chosen_option : null,
-        essay_photo: a ? a.essay_photo : null,
+        chosen_option: a && !isEssay ? a.chosen_option : null,
+        essay_answered: isEssay ? !!(a && ESSAY_DONE_VALUES.includes(a.chosen_option)) : undefined,
         updated_at: a ? a.updated_at : null,
         is_current: (session.current_question_number || 1) === q.number
       };
@@ -2151,14 +2143,12 @@ function createApp(db) {
       questions = seededShufflePgQuestions(questions, student.id * 17 + session.id);
     }
 
-    const savedAnswers = db.prepare('SELECT question_id, chosen_option, essay_photo FROM answers WHERE session_id = ?').all(sessionId);
+    const savedAnswers = db.prepare('SELECT question_id, chosen_option FROM answers WHERE session_id = ?').all(sessionId);
     const answersMap = {};
-    const essayPhotosMap = {};
+    const essayAnsweredMap = {};
     for (const a of savedAnswers) {
-      answersMap[a.question_id] = a.chosen_option;
-      if (a.essay_photo) {
-        essayPhotosMap[a.question_id] = a.essay_photo;
-      }
+      if (ESSAY_DONE_VALUES.includes(a.chosen_option)) essayAnsweredMap[a.question_id] = true;
+      else answersMap[a.question_id] = a.chosen_option;
     }
 
     const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(session.started_at).getTime()) / 1000));
@@ -2181,77 +2171,44 @@ function createApp(db) {
       exam,
       questions,
       answers: answersMap,
-      essayPhotos: essayPhotosMap
+      essayAnswered: essayAnsweredMap
     });
   });
 
-  // Upload Foto Lembar Jawaban Kertas untuk Soal Esai (Wajib sebelum Selesai Ujian)
-  app.post('/api/ujian/upload-essay-photo', upload.single('photo'), requireStudentSession, (req, res) => {
+  // Tandai soal esai "sudah menjawab" (jawaban ditulis di lembar kertas, diserahkan ke pengawas)
+  app.post('/api/ujian/essay-answered', requireStudentSession, (req, res) => {
     const session = req.examSession;
-    const sessionId = session.id;
-    const questionId = Number(req.body.questionId);
-    const currentQuestionNumber = req.body.currentQuestionNumber ? Number(req.body.currentQuestionNumber) : null;
-    if (!questionId) {
-      return res.status(400).json({ error: 'sessionId dan questionId wajib diisi.' });
-    }
-    if (req.file && !isAllowedMediaFile(req.file, 'image')) {
-      return res.status(400).json({ error: 'Foto lembar jawaban harus berformat JPG/PNG/WEBP.' });
-    }
-    if (session.status === 'LOCKED') return res.status(423).json({ error: 'Sesi ujian sedang terkunci.' });
+    const questionId = Number((req.body || {}).questionId);
+    const answered = (req.body || {}).answered !== false;
+    if (!questionId) return res.status(400).json({ error: 'questionId wajib diisi.' });
+    if (session.status === 'FINISHED') return res.status(400).json({ error: 'Ujian sudah selesai dikumpulkan.', status: 'FINISHED' });
+    if (session.status === 'LOCKED') return res.status(423).json({ error: 'Sesi ujian sedang terkunci.', status: 'LOCKED' });
     if (session.need_token_reverify) return res.status(428).json({ error: 'Masukkan Token Ujian terbaru dari Pengawas untuk melanjutkan.', status: 'NEED_TOKEN' });
 
-    const examDur = db.prepare('SELECT duration_minutes FROM exams WHERE id = ?').get(session.exam_id);
-    const elapsedSec = Math.floor((Date.now() - new Date(session.started_at).getTime()) / 1000);
-    if (elapsedSec > (examDur && examDur.duration_minutes ? examDur.duration_minutes : 90) * 60 + ESSAY_UPLOAD_GRACE_SECONDS) {
-      return res.status(400).json({ error: 'Batas waktu unggah foto lembar jawaban esai (10 menit setelah waktu ujian habis) sudah lewat. Serahkan lembar kertas kepada Pengawas Ruangan.' });
-    }
-    if (session.status === 'FINISHED') return res.status(400).json({ error: 'Ujian sudah selesai dikumpulkan.' });
-
-    const question = db.prepare('SELECT id, type, number FROM questions WHERE id = ? AND exam_id = ?').get(questionId, session.exam_id);
+    const question = db.prepare('SELECT id, type FROM questions WHERE id = ? AND exam_id = ?').get(questionId, session.exam_id);
     if (!question) return res.status(404).json({ error: 'Soal tidak ditemukan pada jadwal ujian ini.' });
-    if (question.type !== 'ESAI') return res.status(400).json({ error: 'Hanya soal esai yang dapat mengunggah foto lembar jawaban.' });
+    if (question.type !== 'ESAI') return res.status(400).json({ error: 'Hanya soal esai yang dapat ditandai sudah dijawab.' });
 
-    const notImage = () => res.status(400).json({ error: 'File yang diunggah bukan foto yang valid (gunakan JPG/PNG/WEBP).' });
-    const tooBig = () => res.status(413).json({ error: 'Ukuran foto terlalu besar (maksimal 8 MB). Foto ulang dengan resolusi lebih kecil.' });
-    const previous = db.prepare('SELECT essay_photo FROM answers WHERE session_id = ? AND question_id = ?').get(session.id, question.id);
-
-    let photoUrl = null;
-    if (req.file) {
-      if (req.file.size > ESSAY_PHOTO_MAX_BYTES) return tooBig();
-      if (!looksLikeImage(req.file.buffer)) return notImage();
-      photoUrl = saveUploadedMediaFile(req.file, `essay-s${sessionId}-q${question.number}`);
-    } else if (req.body.photoBase64) {
-      const base64Data = String(req.body.photoBase64).replace(/^data:image\/\w+;base64,/, '');
-      if (base64Data.length * 0.75 > ESSAY_PHOTO_MAX_BYTES) return tooBig();
-      const buf = Buffer.from(base64Data, 'base64');
-      if (!looksLikeImage(buf)) return notImage();
-      const filename = `essay-s${sessionId}-q${question.number}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}.jpg`;
-      fs.writeFileSync(path.join(uploadsDir, filename), buf);
-      photoUrl = `/uploads/${filename}`;
-    } else {
-      return res.status(400).json({ error: 'File foto lembar jawaban tidak ditemukan.' });
+    const exam = db.prepare('SELECT duration_minutes FROM exams WHERE id = ?').get(session.exam_id);
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(session.started_at).getTime()) / 1000));
+    if (exam && elapsedSeconds > (exam.duration_minutes || 90) * 60) {
+      return res.status(400).json({ error: 'Waktu ujian telah habis. Tekan Selesai untuk mengumpulkan ujian.', status: 'TIME_UP' });
     }
 
     const nowIso = new Date().toISOString();
-    db.prepare(`
-      INSERT INTO answers (session_id, question_id, chosen_option, essay_photo, updated_at)
-      VALUES (?, ?, 'ESAI_PHOTO', ?, ?)
-      ON CONFLICT(session_id, question_id) DO UPDATE SET
-        chosen_option = 'ESAI_PHOTO',
-        essay_photo = excluded.essay_photo,
-        updated_at = excluded.updated_at
-    `).run(session.id, question.id, photoUrl, nowIso);
-
-    // Foto ulang menggantikan foto lama agar disk server tidak penuh
-    if (previous && previous.essay_photo && previous.essay_photo !== photoUrl) removeUploadedFile(previous.essay_photo);
-
-    if (currentQuestionNumber) {
-      db.prepare('UPDATE exam_sessions SET current_question_number = ?, last_activity_at = ? WHERE id = ?').run(currentQuestionNumber, nowIso, session.id);
+    if (answered) {
+      db.prepare(`
+        INSERT INTO answers (session_id, question_id, chosen_option, essay_photo, updated_at)
+        VALUES (?, ?, ?, NULL, ?)
+        ON CONFLICT(session_id, question_id) DO UPDATE SET
+          chosen_option = excluded.chosen_option,
+          updated_at = excluded.updated_at
+      `).run(session.id, question.id, ESSAY_DONE, nowIso);
     } else {
-      db.prepare('UPDATE exam_sessions SET last_activity_at = ? WHERE id = ?').run(nowIso, session.id);
+      db.prepare('DELETE FROM answers WHERE session_id = ? AND question_id = ?').run(session.id, question.id);
     }
-
-    res.json({ ok: true, questionId: question.id, essayPhoto: photoUrl });
+    db.prepare('UPDATE exam_sessions SET last_activity_at = ? WHERE id = ?').run(nowIso, session.id);
+    res.json({ ok: true, questionId: question.id, answered });
   });
 
   app.post('/api/ujian/answer', requireStudentSession, (req, res) => {
@@ -2334,21 +2291,25 @@ function createApp(db) {
       return res.status(428).json({ error: 'Masukkan Token Ujian terbaru dari Pengawas untuk melanjutkan.', status: 'NEED_TOKEN' });
     }
 
-    // Periksa apakah ujian memiliki soal ESAI dan apakah semua lembar jawaban esai sudah difoto
+    // Semua soal esai harus sudah ditandai "sudah menjawab" (jawaban ditulis di lembar kertas)
     const esaiQuestions = db.prepare("SELECT id, number FROM questions WHERE exam_id = ? AND type = 'ESAI' ORDER BY number ASC").all(session.exam_id);
     if (esaiQuestions.length > 0) {
       const qIds = esaiQuestions.map(q => q.id);
       const placeholders = qIds.map(() => '?').join(',');
-      const uploadedAnswers = db.prepare(`
+      const doneAnswers = db.prepare(`
         SELECT question_id FROM answers
-        WHERE session_id = ? AND question_id IN (${placeholders}) AND essay_photo IS NOT NULL AND essay_photo != ''
-      `).all(session.id, ...qIds);
-      const uploadedSet = new Set(uploadedAnswers.map(a => a.question_id));
-      const missingEsai = esaiQuestions.filter(q => !uploadedSet.has(q.id));
-      if (missingEsai.length > 0) {
-        const missingNos = missingEsai.map(q => `No. ${q.number}`).join(', ');
+        WHERE session_id = ? AND question_id IN (${placeholders}) AND chosen_option IN (${ESSAY_DONE_VALUES.map(() => '?').join(',')})
+      `).all(session.id, ...qIds, ...ESSAY_DONE_VALUES);
+      const doneSet = new Set(doneAnswers.map(a => a.question_id));
+      // Nomor yang dilihat siswa: esai tampil setelah semua soal PG
+      const pgCount = db.prepare("SELECT COUNT(*) AS c FROM questions WHERE exam_id = ? AND type = 'PG'").get(session.exam_id).c;
+      const missingNos = esaiQuestions
+        .map((q, i) => ({ q, shown: pgCount + i + 1 }))
+        .filter(x => !doneSet.has(x.q.id))
+        .map(x => `No. ${x.shown}`);
+      if (missingNos.length > 0) {
         return res.status(400).json({
-          error: `Lembar jawaban untuk Soal Esai ${missingNos} belum difoto! Silakan foto lembar kertas jawaban Anda sebelum menyelesaikan ujian.`
+          error: `Soal Esai ${missingNos.join(', ')} belum ditandai sudah dijawab. Tulis jawabannya di lembar kertas, lalu tekan tombol "Saya sudah menjawab soal ini di kertas".`
         });
       }
     }

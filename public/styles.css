@@ -1805,92 +1805,60 @@ tr:last-child td {
 }
 
 /* ------------------------------------------------------------------
-   Kamera langsung untuk foto lembar jawaban esai (ujian.html)
+   Soal esai: dijawab di kertas, siswa menandai "sudah menjawab" (ujian.html)
    ------------------------------------------------------------------ */
-.live-cam-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 10001;
-  background: rgba(15, 23, 42, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
+.essay-paper-box {
+  background: #fffbeb;
+  border: 1.5px solid #fcd34d;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 14px;
 }
 
-.live-cam-card {
-  background: #ffffff;
-  width: 100%;
-  max-width: 520px;
-  max-height: calc(100vh - 24px);
-  overflow-y: auto;
-  border-radius: 14px;
-  padding: 14px;
-  box-sizing: border-box;
+.essay-paper-box.is-done {
+  background: #f0fdf4;
+  border-color: #86efac;
 }
 
-.live-cam-title {
-  font-size: 15px;
+.essay-paper-title {
   font-weight: 800;
-  color: #0f172a;
-  margin-bottom: 10px;
+  font-size: 13px;
+  color: #92400e;
+  margin-bottom: 6px;
 }
 
-.live-cam-stage {
-  position: relative;
-  background: #0f172a;
-  border-radius: 10px;
-  min-height: 220px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+.essay-paper-box.is-done .essay-paper-title {
+  color: #166534;
 }
 
-.live-cam-video,
-.live-cam-shot {
-  width: 100%;
-  max-height: 62vh;
-  object-fit: contain;
-  display: block;
-}
-
-.live-cam-video[hidden],
-.live-cam-shot[hidden],
-.live-cam-msg[hidden],
-.live-cam-actions[hidden] {
-  display: none;
-}
-
-.live-cam-msg {
-  color: #e2e8f0;
-  font-size: 14px;
-  font-weight: 600;
-  text-align: center;
-  padding: 24px 16px;
-  white-space: pre-line;
-  line-height: 1.6;
-}
-
-.live-cam-hint {
+.essay-paper-text {
   font-size: 12.5px;
-  color: #475569;
-  margin: 10px 0 12px;
+  color: #1e293b;
+  line-height: 1.6;
+  margin: 0 0 12px;
 }
 
-.live-cam-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.live-cam-actions .btn {
-  flex: 1;
+.essay-done-btn {
+  width: 100%;
   min-height: 48px;
-}
-
-.live-cam-primary {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 2px solid #059669;
   background: #059669;
   color: #ffffff;
-  border: none;
+  font-size: 14px;
   font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.essay-done-btn.is-done {
+  background: #ffffff;
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.essay-done-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }

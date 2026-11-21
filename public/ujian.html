@@ -632,7 +632,7 @@
     let examData = null;
     let questions = [];
     let answers = {};
-    let essayPhotos = {};
+    let essayAnswered = {};
     let currentIndex = 0;
     let remainingSeconds = 0;
     let timerInterval = null;
@@ -1072,7 +1072,7 @@
       examData = data;
       questions = data.questions || [];
       answers = data.answers || {};
-      essayPhotos = data.essayPhotos || {};
+      essayAnswered = data.essayAnswered || {};
       remainingSeconds = data.session.remaining_seconds || 5400;
 
       document.getElementById('hdrStudentName').textContent = `${data.student.full_name} (${data.student.class_name})`;
@@ -1124,14 +1124,14 @@
       grid.innerHTML = questions.map((q, idx) => {
         const isCurrent = idx === currentIndex;
         const isEssay = q.type === 'ESAI';
-        const isDone = isEssay ? Boolean(essayPhotos[q.id]) : Boolean(answers[q.id]);
+        const isDone = isEssay ? Boolean(essayAnswered[q.id]) : Boolean(answers[q.id]);
         const cls = [
           'exambppp-num-btn',
           isCurrent ? 'active' : '',
           isEssay ? 'essay' : '',
           isDone ? 'done' : ''
         ].join(' ');
-        return `<div class="${cls}" onclick="jumpToQuestion(${idx}); toggleDaftarSoal(false);">${displayNumber(q)}${isEssay ? (isDone ? ' ✓' : ' 📷') : ''}</div>`;
+        return `<div class="${cls}" onclick="jumpToQuestion(${idx}); toggleDaftarSoal(false);">${displayNumber(q)}${isEssay ? (isDone ? ' ✓' : ' ✎') : ''}</div>`;
       }).join('');
     }
 
@@ -1196,35 +1196,20 @@
       `;
 
       if (q.type === 'ESAI') {
-        const photoUrl = essayPhotos[q.id] || '';
+        const done = Boolean(essayAnswered[q.id]);
         card.innerHTML = `
           <span style="display:inline-block;background:#fffbeb;color:#b45309;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-bottom:12px;">Soal Esai • Nomor ${displayNumber(q)}</span>
           <div class="q-body-text" style="line-height:1.7;margin-bottom:18px;white-space:pre-line;">${esc(q.question_text)}</div>
           ${mediaHtml}
-          <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:16px;margin-top:14px;">
-            <div style="font-weight:800;font-size:13px;color:#166534;margin-bottom:6px;">
-              📝 Lembar Jawaban Kertas — Soal Esai No. ${displayNumber(q)}
-            </div>
-            <p style="font-size:12.5px;color:#1e293b;line-height:1.6;margin-bottom:12px;">
-              Tuliskan jawaban lengkap Anda pada lembar kertas yang dibagikan pengawas. Setelah selesai ditulis, <b>wajib difoto</b> menggunakan kamera HP di bawah ini agar ujian dapat diselesaikan:
+          <div class="essay-paper-box${done ? ' is-done' : ''}" id="essayBox_${q.id}">
+            <div class="essay-paper-title">📝 Lembar Jawaban Kertas — Soal Esai No. ${displayNumber(q)}</div>
+            <p class="essay-paper-text">
+              Tuliskan jawaban lengkap Anda pada <b>lembar kertas</b> yang dibagikan pengawas, lengkap dengan nama dan nomor peserta.
+              Setelah selesai menulis, tekan tombol di bawah. Lembar kertas diserahkan kepada pengawas ruangan.
             </p>
-
-            <input type="file" id="inpEssayPhoto_${q.id}" accept="image/*" capture="environment" style="display:none;" onchange="handleEssayPhotoChosen(event, ${q.id})">
-
-            <div id="essayPhotoBox_${q.id}" style="${photoUrl ? 'display:block;' : 'display:none;'}margin-bottom:12px;text-align:center;">
-              <a href="${esc(photoUrl)}" target="_blank" title="Klik untuk perbesar foto">
-                <img id="essayPhotoImg_${q.id}" src="${esc(photoUrl)}" style="max-width:100%;max-height:260px;border-radius:8px;border:2px solid #16a34a;box-shadow:0 4px 12px rgba(22,163,74,0.15);display:inline-block;object-fit:contain;">
-              </a>
-              <div style="font-size:12px;color:#15803d;font-weight:700;margin-top:6px;">✓ Foto lembar jawaban telah terunggah & tersimpan di server sekolah</div>
-            </div>
-
-            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-              <button type="button" class="exambppp-btn-teal" id="btnSnapPhoto_${q.id}" style="background:#059669;width:auto;padding:10px 18px;font-size:13px;margin:0;" onclick="openLiveCamera(${q.id})">
-                <svg class="icon" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                <span>${photoUrl ? '📷 Foto Ulang Lembar Jawaban' : '📷 Buka Kamera & Foto Lembar Jawaban'}</span>
-              </button>
-            </div>
-            <div id="essayUploadMsg_${q.id}" style="font-size:12px;font-weight:700;margin-top:8px;display:none;"></div>
+            <button type="button" class="essay-done-btn${done ? ' is-done' : ''}" id="btnEssayDone_${q.id}" onclick="toggleEssayAnswered(${q.id})" aria-pressed="${done ? 'true' : 'false'}">
+              ${done ? '✓ Sudah dijawab di kertas — ketuk untuk membatalkan' : 'Saya sudah menjawab soal ini di kertas'}
+            </button>
           </div>
         `;
       } else {
@@ -1297,109 +1282,32 @@
       }
     }
 
-    // Kompresi foto lembar jawaban kertas di sisi klien HP siswa (cepat, jernih & hemat kuota/server)
-    async function compressImage(file, maxWidth = 1280, quality = 0.72) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (e) => {
-          const img = new Image();
-          img.src = e.target.result;
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            let w = img.width;
-            let h = img.height;
-            if (w > maxWidth) {
-              h = Math.round((h * maxWidth) / w);
-              w = maxWidth;
-            }
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, w, h);
-            canvas.toBlob((blob) => {
-              if (blob) resolve(blob);
-              else reject(new Error('Gagal kompresi foto'));
-            }, 'image/jpeg', quality);
-          };
-          img.onerror = () => reject(new Error('Gagal memproses gambar'));
-        };
-        reader.onerror = () => reject(new Error('Gagal membaca file gambar'));
-      });
-    }
-
-    // Dipanggil oleh tombol foto biasa (<input type="file">)
-    async function handleEssayPhotoChosen(event, questionId) {
-      endPhotoCapture(2000);
-      const input = event.target;
-      if (!input.files || input.files.length === 0) return;
-      await uploadEssayPhoto(questionId, input.files[0]);
-    }
-
-    // Satu jalur unggah untuk foto dari kamera langsung maupun dari tombol foto biasa
-    async function uploadEssayPhoto(questionId, file) {
-      const qData = questions.find(x => x.id === questionId);
-      const questionNumber = qData ? qData.number : '';
-
-      const statusEl = document.getElementById(`essayUploadMsg_${questionId}`);
-      const btn = document.getElementById(`btnSnapPhoto_${questionId}`);
-      if (statusEl) {
-        statusEl.style.display = 'block';
-        statusEl.style.color = '#0284c7';
-        statusEl.textContent = '⏳ Mengompres & mengunggah foto ke server...';
-      }
+    // Tandai / batalkan tanda "sudah menjawab di kertas" untuk satu soal esai
+    async function toggleEssayAnswered(questionId) {
+      const next = !essayAnswered[questionId];
+      const btn = document.getElementById(`btnEssayDone_${questionId}`);
       if (btn) btn.disabled = true;
-
       try {
-        let uploadBlob = file;
-        try {
-          uploadBlob = await compressImage(file, 1280, 0.72);
-        } catch (compErr) {
-          console.warn('Compression fallback to original file:', compErr);
-        }
-
-        const formData = new FormData();
-        formData.append('sessionId', sessionId);
-        formData.append('questionId', questionId);
-        formData.append('currentQuestionNumber', questionNumber);
-        formData.append('photo', uploadBlob, `essay_s${sessionId}_q${questionNumber}.jpg`);
-
-        const res = await fetch('/api/ujian/upload-essay-photo', {
+        const res = await fetch('/api/ujian/essay-answered', {
           method: 'POST',
-          body: formData
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId, questionId, answered: next })
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(data.error || 'Gagal mengunggah foto lembar jawaban');
+          if (data.status === 'LOCKED') { showLockedScreen(data.error); return; }
+          if (data.status === 'NEED_TOKEN') { document.getElementById('reverifyTokenOverlay').style.display = 'flex'; return; }
+          cbtAlert(data.error || 'Gagal menyimpan tanda soal esai.', 'error');
+          return;
         }
-
-        essayPhotos[questionId] = data.essayPhoto;
-        answers[questionId] = 'ESAI_PHOTO';
-
-        if (statusEl) {
-          statusEl.style.color = '#15803d';
-          statusEl.textContent = '✓ Foto lembar jawaban berhasil diunggah!';
-        }
-
-        const box = document.getElementById(`essayPhotoBox_${questionId}`);
-        const img = document.getElementById(`essayPhotoImg_${questionId}`);
-        if (box && img) {
-          img.src = data.essayPhoto;
-          box.style.display = 'block';
-        }
-        if (btn) {
-          btn.disabled = false;
-          const span = btn.querySelector('span');
-          if (span) span.textContent = '📷 Foto Ulang Lembar Jawaban';
-        }
+        if (next) essayAnswered[questionId] = true; else delete essayAnswered[questionId];
+        renderCurrentQuestion();
         renderDrawerNumbers();
       } catch (err) {
-        if (statusEl) {
-          statusEl.style.color = '#b91c1c';
-          statusEl.textContent = '❌ Gagal: ' + err.message;
-        }
-        if (btn) btn.disabled = false;
-        cbtAlert('Gagal mengunggah foto: ' + err.message);
+        cbtAlert('Gagal terhubung ke server: ' + err.message, 'error');
+      } finally {
+        const b = document.getElementById(`btnEssayDone_${questionId}`);
+        if (b) b.disabled = false;
       }
     }
 
@@ -1409,18 +1317,18 @@
       const esaiQuestions = questions.filter(q => q.type === 'ESAI');
 
       const unansweredPg = pgQuestions.filter(q => !answers[q.id]);
-      const missingEsai = esaiQuestions.filter(q => !essayPhotos[q.id]);
+      const missingEsai = esaiQuestions.filter(q => !essayAnswered[q.id]);
 
       if (unansweredPg.length > 0 || missingEsai.length > 0) {
         let msg = '';
         if (unansweredPg.length > 0 && missingEsai.length > 0) {
           const missingNos = missingEsai.map(q => `No. ${displayNumber(q)}`).join(', ');
-          msg = `Ada ${unansweredPg.length} soal Pilihan Ganda yang belum dijawab, dan foto lembar jawaban untuk Soal Esai ${missingNos} belum diunggah! Lengkapi seluruh jawaban dan foto lembar esai sebelum menyelesaikan subtes.`;
+          msg = `Ada ${unansweredPg.length} soal Pilihan Ganda yang belum dijawab, dan Soal Esai ${missingNos} belum ditandai sudah dijawab. Lengkapi seluruh jawaban sebelum menyelesaikan subtes.`;
         } else if (unansweredPg.length > 0) {
           msg = `Silahkan lengkapi jawaban Anda terlebih dahulu sebelum menyelesaikan subtes. Terdapat ${unansweredPg.length} soal Pilihan Ganda yang masih belum terjawab.`;
         } else {
           const missingNos = missingEsai.map(q => `No. ${displayNumber(q)}`).join(', ');
-          msg = `⚠️ Foto lembar jawaban kertas untuk Soal Esai ${missingNos} belum diunggah! Anda wajib memfoto lembar jawaban kertas Anda terlebih dahulu sebelum dapat menyelesaikan ujian.`;
+          msg = `⚠️ Soal Esai ${missingNos} belum ditandai sudah dijawab. Tulis jawabannya di lembar kertas, lalu tekan tombol "Saya sudah menjawab soal ini di kertas" pada soal tersebut.`;
         }
         document.getElementById('incompleteNoticeText').textContent = msg;
         document.getElementById('modalIncompleteNotice').style.display = 'flex';
@@ -1524,164 +1432,19 @@
       } catch {}
     }
 
-    // ---- Foto lembar jawaban esai ----
-    // Membuka kamera membuat halaman ujian kehilangan fokus. Itu aksi resmi, bukan pelanggaran,
-    // jadi deteksi keluar-aplikasi dijeda SEMENTARA (maksimal 3 menit) selama siswa memotret.
-    const PHOTO_CAPTURE_MAX_MS = 3 * 60 * 1000;
-    let photoCaptureUntil = 0;
-
-    function isPhotoCaptureActive() {
-      return Date.now() < photoCaptureUntil;
-    }
-
-    function endPhotoCapture(graceMs) {
-      // Beri jeda singkat agar event fokus/visibilitas saat kembali dari kamera tidak terhitung
-      photoCaptureUntil = graceMs ? Date.now() + graceMs : 0;
-    }
-
-    function startPhotoCapture(questionId) {
-      photoCaptureUntil = Date.now() + PHOTO_CAPTURE_MAX_MS;
-      const inp = document.getElementById(`inpEssayPhoto_${questionId}`);
-      if (inp) inp.click();
-    }
-
-    // ---- Kamera langsung di dalam halaman (getUserMedia) ----
-    // Dipakai lebih dulu karena tidak bergantung pada dukungan "pilih file" di aplikasi ujian
-    // (misalnya SMANTRI CBT). Bila aplikasi menolak kamera, siswa ditawari tombol foto biasa.
-    let liveCameraUnavailable = false;
-
-    function liveCameraErrorText(err) {
-      const name = err && err.name;
-      if (name === 'NotAllowedError' || name === 'SecurityError') return 'Aplikasi ujian ini tidak mengizinkan kamera langsung di halaman.';
-      if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'Kamera tidak ditemukan di perangkat ini.';
-      if (name === 'NotReadableError') return 'Kamera sedang dipakai aplikasi lain. Tutup aplikasi lain lalu coba lagi.';
-      return 'Kamera langsung tidak dapat dibuka' + (err && err.message ? ` (${err.message})` : '') + '.';
-    }
-
-    async function openLiveCamera(questionId) {
-      // Sudah pernah gagal di aplikasi ini: langsung pakai tombol foto biasa
-      if (liveCameraUnavailable) { startPhotoCapture(questionId); return; }
-
-      photoCaptureUntil = Date.now() + PHOTO_CAPTURE_MAX_MS;
-      const q = questions.find(x => x.id === questionId);
-      const no = q ? displayNumber(q) : '';
-      let stream = null;
-
-      const overlay = document.createElement('div');
-      overlay.className = 'live-cam-overlay';
-      overlay.innerHTML = `
-        <div class="live-cam-card" role="dialog" aria-modal="true" aria-label="Foto lembar jawaban esai">
-          <div class="live-cam-title">📷 Foto Lembar Jawaban — Soal Esai No. ${no}</div>
-          <div class="live-cam-stage">
-            <video class="live-cam-video" playsinline muted autoplay></video>
-            <img class="live-cam-shot" alt="Hasil foto" hidden>
-            <div class="live-cam-msg">⏳ Membuka kamera...</div>
-          </div>
-          <div class="live-cam-hint">Letakkan lembar jawaban di tempat terang, seluruh tulisan masuk bingkai.</div>
-          <div class="live-cam-actions" data-step="live" hidden>
-            <button type="button" class="btn btn-outline" data-act="cancel">Batal</button>
-            <button type="button" class="btn live-cam-primary" data-act="snap">📸 Ambil Foto</button>
-          </div>
-          <div class="live-cam-actions" data-step="review" hidden>
-            <button type="button" class="btn btn-outline" data-act="retake">↺ Ulangi</button>
-            <button type="button" class="btn live-cam-primary" data-act="use">✓ Gunakan Foto</button>
-          </div>
-          <div class="live-cam-actions" data-step="fallback" hidden>
-            <button type="button" class="btn btn-outline" data-act="cancel">Batal</button>
-            <button type="button" class="btn live-cam-primary" data-act="fallback">📁 Pakai Tombol Foto Biasa</button>
-          </div>
-        </div>`;
-      document.body.appendChild(overlay);
-
-      const video = overlay.querySelector('.live-cam-video');
-      const shot = overlay.querySelector('.live-cam-shot');
-      const msg = overlay.querySelector('.live-cam-msg');
-      const canvas = document.createElement('canvas');
-      const showStep = (step) => overlay.querySelectorAll('[data-step]').forEach(el => { el.hidden = el.dataset.step !== step; });
-
-      function stopCamera() {
-        if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-      }
-      function close(keepCapture) {
-        stopCamera();
-        overlay.remove();
-        if (!keepCapture) endPhotoCapture(1500);
-      }
-      function showFallback(reason) {
-        stopCamera();
-        liveCameraUnavailable = true;
-        video.hidden = true;
-        msg.hidden = false;
-        msg.textContent = `${reason}\nGunakan tombol foto biasa untuk memotret lembar jawaban.`;
-        showStep('fallback');
-      }
-
-      overlay.addEventListener('click', async (ev) => {
-        const act = ev.target.closest('[data-act]') && ev.target.closest('[data-act]').dataset.act;
-        if (!act) return;
-        if (act === 'cancel') close(false);
-        if (act === 'fallback') { close(true); startPhotoCapture(questionId); }
-        if (act === 'snap') {
-          const w = video.videoWidth, h = video.videoHeight;
-          if (!w || !h) return;
-          const scale = Math.min(1, 1600 / Math.max(w, h));
-          canvas.width = Math.round(w * scale);
-          canvas.height = Math.round(h * scale);
-          canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-          shot.src = canvas.toDataURL('image/jpeg', 0.85);
-          shot.hidden = false;
-          video.hidden = true;
-          showStep('review');
-        }
-        if (act === 'retake') { shot.hidden = true; video.hidden = false; showStep('live'); }
-        if (act === 'use') {
-          const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
-          close(false);
-          if (!blob) { cbtAlert('Foto gagal diproses. Silakan coba lagi.', 'error'); return; }
-          const file = new File([blob], `esai_no${no}.jpg`, { type: 'image/jpeg' });
-          await uploadEssayPhoto(questionId, file);
-        }
-      });
-
-      if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showFallback(window.isSecureContext ? 'Aplikasi ujian ini tidak menyediakan kamera langsung.' : 'Kamera langsung hanya bisa dipakai lewat alamat https.');
-        return;
-      }
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-          audio: false
-        });
-        if (!overlay.isConnected) { stopCamera(); return; }
-        video.srcObject = stream;
-        await video.play().catch(() => {});
-        msg.hidden = true;
-        showStep('live');
-      } catch (err) {
-        if (overlay.isConnected) showFallback(liveCameraErrorText(err));
-      }
-    }
-
-    // Kembali dari kamera (foto diambil atau dibatalkan): akhiri jeda setelah 2 detik
-    window.addEventListener('focus', () => {
-      if (isPhotoCaptureActive()) endPhotoCapture(2000);
-    });
-
     // Laporan pelanggaran dari aplikasi Android Exambro (tombol Home, layar belah, dll.)
     window.onExambroViolationDetected = function (reason) {
-      if (!examActive || isPhotoCaptureActive()) return;
+      if (!examActive) return;
       reportExamViolation(reason || 'Terdeteksi keluar dari aplikasi Exambro');
     };
 
     function handleVisibilityChange() {
-      if (isPhotoCaptureActive()) return;
       if (document.hidden && examActive) {
         reportExamViolation('Pindah tab atau meminimalkan aplikasi');
       }
     }
 
     function handleWindowBlur() {
-      if (isPhotoCaptureActive()) return;
       if (examActive) {
         reportExamViolation('Keluar dari layar aplikasi ujian');
       }

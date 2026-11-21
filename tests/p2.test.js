@@ -6,7 +6,6 @@ const XLSX = require('xlsx');
 const { initDb } = require('../src/db');
 const { createApp, calculateExamScores } = require('../src/app');
 
-const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
 
 function setup(t) {
   const db = initDb(':memory:');
@@ -38,16 +37,6 @@ function setup(t) {
   return ctx;
 }
 
-const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
-
-function essayForm(sessionId, questionId, buf, name = 'foto.jpg', type = 'image/jpeg') {
-  const fd = new FormData();
-  fd.append('sessionId', String(sessionId));
-  fd.append('questionId', String(questionId));
-  fd.append('photo', new Blob([buf], { type }), name);
-  return fd;
-}
-
 test('P2-1: rekap nilai tidak menjalankan query per siswa (siap 500+ siswa)', (t) => {
   const db = initDb(':memory:');
   const exam = db.prepare('SELECT * FROM exams WHERE is_active = 1').get();
@@ -76,36 +65,6 @@ test('P2-2: rekap nilai hanya memuat siswa kelas target (atau yang sudah punya s
   const data = calculateExamScores(db, exam.id);
   assert.ok(data.scores.length > 0);
   assert.ok(data.scores.every(s => s.class_name === 'XII IPA 1'));
-});
-
-test('P2-3: foto esai yang diunggah ulang menggantikan file lama (tidak menumpuk di disk)', async (t) => {
-  const ctx = setup(t);
-  const { exam, s, h } = await ctx.student();
-  const q = ctx.db.prepare("SELECT id FROM questions WHERE exam_id = ? AND type = 'ESAI' LIMIT 1").get(exam.id);
-  const first = await ctx.post('/api/ujian/upload-essay-photo', essayForm(s.sessionId, q.id, JPEG), h);
-  assert.equal(first.status, 200);
-  const firstPath = path.join(uploadsDir, path.basename(first.body.essayPhoto));
-  assert.ok(fs.existsSync(firstPath));
-  const second = await ctx.post('/api/ujian/upload-essay-photo', essayForm(s.sessionId, q.id, JPEG), h);
-  assert.equal(second.status, 200);
-  assert.ok(!fs.existsSync(firstPath), 'file foto lama harus dihapus');
-  t.after(() => { try { fs.unlinkSync(path.join(uploadsDir, path.basename(second.body.essayPhoto))); } catch {} });
-});
-
-test('P2-4: foto esai harus benar-benar gambar dan ukurannya dibatasi', async (t) => {
-  const ctx = setup(t);
-  const { exam, s, h } = await ctx.student();
-  const q = ctx.db.prepare("SELECT id FROM questions WHERE exam_id = ? AND type = 'ESAI' LIMIT 1").get(exam.id);
-  const fake = await ctx.post('/api/ujian/upload-essay-photo', essayForm(s.sessionId, q.id, Buffer.from('<html><script>alert(1)</script>'), 'x.jpg'), h);
-  assert.equal(fake.status, 400);
-
-  const big = 'data:image/jpeg;base64,' + Buffer.concat([JPEG, Buffer.alloc(9 * 1024 * 1024)]).toString('base64');
-  const fd = new FormData();
-  fd.append('sessionId', String(s.sessionId));
-  fd.append('questionId', String(q.id));
-  fd.append('photoBase64', big);
-  const r = await fetch(`${ctx.base}/api/ujian/upload-essay-photo`, { method: 'POST', headers: h, body: fd });
-  assert.ok(r.status === 400 || r.status === 413, `status ${r.status}`);
 });
 
 function xlsxBuffer(rows, extraCells) {

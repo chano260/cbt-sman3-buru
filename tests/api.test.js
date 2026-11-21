@@ -635,6 +635,107 @@ test('Mandatory essay answer paper photo upload before finishing exam, and teach
   assert.equal(finishRes.status, 'FINISHED');
 });
 
+test('Teacher can create Bank Soal in guru panel, and Operator can select from drop box and activate schedule without typing twice', async (t) => {
+  const db = initDb(':memory:');
+  const app = createApp(db);
+  const server = app.listen(0);
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  // 1. Login Guru
+  const guruAuth = await fetch(`${base}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'guru', password: 'guru123', role: 'guru' })
+  }).then(r => r.json());
+  assert.ok(guruAuth.staffToken);
+
+  // 2. Guru membuat Bank Soal baru dari Panel Guru
+  const createBkRes = await fetch(`${base}/api/guru/exams`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${guruAuth.staffToken}`
+    },
+    body: JSON.stringify({
+      subject: 'Kimia Dasar',
+      title: 'Penilaian Akhir Semester (PAS)',
+      class_target: 'XII IPA 1, XII IPA 2',
+      duration_minutes: 90
+    })
+  }).then(r => r.json());
+  assert.equal(createBkRes.ok, true);
+  const newExamId = createBkRes.id;
+
+  // 3. Guru menginput 1 butir soal ke Bank Soal tersebut
+  const addQRes = await fetch(`${base}/api/guru/exams/${newExamId}/questions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${guruAuth.staffToken}`
+    },
+    body: JSON.stringify({
+      number: 1,
+      type: 'PG',
+      question_text: 'Rumus kimia air adalah...',
+      option_a: 'H2O',
+      option_b: 'CO2',
+      option_c: 'NaCl',
+      option_d: 'O2',
+      answer_key: 'A'
+    })
+  }).then(r => r.json());
+  assert.ok(addQRes.id);
+
+  // 4. Operator membuka overview dan melihat Bank Soal Guru (termasuk status 1 soal siap & nama guru)
+  const opAuth = await fetch(`${base}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'operator', password: 'admin123', role: 'operator' })
+  }).then(r => r.json());
+
+  const opOverview = await fetch(`${base}/api/operator/overview`, {
+    headers: { 'Authorization': `Bearer ${opAuth.staffToken}` }
+  }).then(r => r.json());
+  const foundExam = opOverview.exams.find(e => e.id === newExamId);
+  assert.ok(foundExam);
+  assert.equal(foundExam.subject, 'Kimia Dasar');
+  assert.equal(foundExam.total_questions, 1);
+  assert.equal(foundExam.pg_count, 1);
+  assert.equal(foundExam.teacher_name, 'Ibu Dra. Siti Aminah, S.Pd.');
+
+  // 5. Operator mengintip butir soal buatan guru
+  const previewQ = await fetch(`${base}/api/guru/exams/${newExamId}/questions`, {
+    headers: { 'Authorization': `Bearer ${opAuth.staffToken}` }
+  }).then(r => r.json());
+  assert.equal(previewQ.questions.length, 1);
+  assert.equal(previewQ.questions[0].answer_key, 'A');
+
+  // 6. Operator memilih bank soal tersebut dari Drop Box dan mengaktifkan jadwalnya tanpa ketik ulang
+  const schedRes = await fetch(`${base}/api/operator/exams`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${opAuth.staffToken}`
+    },
+    body: JSON.stringify({
+      exam_id: newExamId,
+      subject: 'Kimia Dasar',
+      title: 'Penilaian Akhir Semester (PAS)',
+      class_target: 'XII IPA 1, XII IPA 2',
+      exam_date: '2026-11-21',
+      session_name: 'Sesi 1 (08:00 WIT)',
+      duration_minutes: 90
+    })
+  }).then(r => r.json());
+  assert.equal(schedRes.id, newExamId);
+
+  // 7. Jadwal sekarang sudah aktif di server
+  const afterActive = db.prepare('SELECT * FROM exams WHERE id = ?').get(newExamId);
+  assert.equal(afterActive.is_active, 1);
+  assert.equal(afterActive.session_name, 'Sesi 1 (08:00 WIT)');
+});
+
 
 
 

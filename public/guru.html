@@ -54,11 +54,16 @@
     <main class="main-content">
       <!-- PILIH MATA PELAJARAN / JADWAL UJIAN -->
       <div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;">
-        <div>
-          <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;">Mata Pelajaran & Paket Ujian</span>
-          <div style="margin-top:5px;">
-            <select id="examSelector" class="input" style="min-width:290px;font-weight:600;background:#fff;" onchange="onExamChange()"></select>
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+          <div>
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;">Mata Pelajaran & Paket Ujian</span>
+            <div style="margin-top:5px;">
+              <select id="examSelector" class="input" style="min-width:310px;font-weight:600;background:#fff;" onchange="onExamChange()"></select>
+            </div>
           </div>
+          <button class="btn btn-primary" onclick="openCreateBankSoalModal()">
+            + Buat Bank Soal Baru
+          </button>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <a href="/api/guru/template-word" class="btn btn-outline">
@@ -206,12 +211,81 @@
     </div>
   </div>
 
+  <!-- MODAL BUAT BANK SOAL BARU DARI GURU -->
+  <div id="modalCreateBankSoal" style="position:fixed;inset:0;background:rgba(15,23,42,0.78);z-index:125;display:none;align-items:center;justify-content:center;padding:16px;">
+    <div class="card" style="max-width:480px;width:100%;margin:0;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">📚 Buat Bank Soal / Mata Pelajaran Baru</div>
+          <p style="font-size:12px;color:var(--muted);margin-top:2px;">Bank soal ini akan langsung muncul di Panel Operator untuk dijadwalkan.</p>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="closeCreateBankSoalModal()">✕ Tutup</button>
+      </div>
+      <div style="padding:16px;">
+        <div class="form-group" style="margin-bottom:12px;">
+          <label style="font-size:12px;font-weight:700;">Mata Pelajaran *</label>
+          <input id="newBkSubject" class="input" placeholder="Misal: Matematika / Kimia / Bahasa Inggris">
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label style="font-size:12px;font-weight:700;">Nama Paket Ujian *</label>
+          <input id="newBkTitle" class="input" value="Penilaian Akhir Semester (PAS)" placeholder="Misal: PAS Ganjil / Ulangan Harian">
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label style="font-size:12px;font-weight:700;">Target Kelas</label>
+          <input id="newBkClass" class="input" value="Semua Kelas" placeholder="Misal: X 1, X 2 atau Semua Kelas">
+        </div>
+        <div class="form-group" style="margin-bottom:18px;">
+          <label style="font-size:12px;font-weight:700;">Durasi Pengerjaan (Menit)</label>
+          <input id="newBkDuration" type="number" class="input" value="90">
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn btn-outline" type="button" onclick="closeCreateBankSoalModal()">Batal</button>
+          <button class="btn btn-primary" type="button" onclick="submitCreateBankSoal()">Simpan & Mulai Buat Soal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     let currentExamId = null;
     let staffToken = sessionStorage.getItem('cbt_guru_token') || '';
 
     function authHeaders(extra = {}) {
       return { ...extra, 'Authorization': `Bearer ${staffToken}` };
+    }
+
+    function openCreateBankSoalModal() {
+      document.getElementById('modalCreateBankSoal').style.display = 'flex';
+      document.getElementById('newBkSubject').focus();
+    }
+
+    function closeCreateBankSoalModal() {
+      document.getElementById('modalCreateBankSoal').style.display = 'none';
+    }
+
+    async function submitCreateBankSoal() {
+      const subject = (document.getElementById('newBkSubject').value || '').trim();
+      const title = (document.getElementById('newBkTitle').value || '').trim();
+      const class_target = (document.getElementById('newBkClass').value || '').trim();
+      const duration_minutes = Number(document.getElementById('newBkDuration').value) || 90;
+      if (!subject) {
+        alert('Mata pelajaran wajib diisi.');
+        return;
+      }
+      const res = await fetch('/api/guru/exams', {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ subject, title, class_target, duration_minutes })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        closeCreateBankSoalModal();
+        currentExamId = data.id;
+        await loadExams();
+        alert(`✓ Bank Soal "${subject}" berhasil dibuat! Silakan upload naskah Word (.docx) atau input soal di bawah.`);
+      } else {
+        alert(data.error || 'Gagal membuat Bank Soal');
+      }
     }
 
     async function doGuruLogin() {
@@ -260,7 +334,7 @@
       const data = await res.json();
       const sel = document.getElementById('examSelector');
       sel.innerHTML = data.exams.map(e => `
-        <option value="${e.id}">${e.subject} — ${e.title} (${e.class_target}) [${e.pgCount} PG, ${e.esaiCount} Esai]</option>
+        <option value="${e.id}">${e.subject} — ${e.title} (${e.class_target || 'Semua Kelas'}) [${e.pgCount || 0} PG, ${e.esaiCount || 0} Esai]${e.teacher_name ? ' • Guru: ' + e.teacher_name : ''}</option>
       `).join('');
       if (data.exams.length > 0) {
         currentExamId = currentExamId || data.exams[0].id;

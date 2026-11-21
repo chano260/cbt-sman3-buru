@@ -342,10 +342,13 @@ function createApp(db) {
   app.get('/api/operator/overview', requireStaffAuth(['operator']), async (req, res) => {
     const exams = db.prepare(`
       SELECT e.*,
+        u.full_name AS teacher_name,
+        u.username AS teacher_username,
         (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id AND q.type = 'PG') AS pg_count,
         (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id AND q.type = 'ESAI') AS esai_count,
         (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id) AS total_questions
       FROM exams e
+      LEFT JOIN users u ON e.teacher_id = u.id
       ORDER BY e.id DESC
     `).all();
     const rawActive = exams.find(e => e.is_active === 1) || exams[0];
@@ -355,6 +358,7 @@ function createApp(db) {
     const scoreData = activeExam ? calculateExamScores(db, activeExam.id) : { scores: [], pgCount: 0, esaiCount: 0 };
     const qrBundle = await buildQrBundle(req);
     const classes = db.prepare("SELECT DISTINCT class_name FROM students WHERE class_name IS NOT NULL AND class_name != '' ORDER BY class_name ASC").all().map(r => r.class_name);
+    const teachers = db.prepare("SELECT id, username, full_name, subject FROM users WHERE role = 'guru' ORDER BY full_name ASC").all();
 
     res.json({
       lanIp: getLocalLanIp(),
@@ -364,6 +368,7 @@ function createApp(db) {
       students,
       staff,
       classes,
+      teachers,
       monitoring: scoreData.scores,
       pgCount: scoreData.pgCount,
       esaiCount: scoreData.esaiCount
@@ -409,10 +414,46 @@ function createApp(db) {
   });
 
   app.post('/api/operator/exams', requireStaffAuth(['operator']), (req, res) => {
-    const { title, subject, class_target, exam_date, start_time, session_name, duration_minutes, shuffle_questions } = req.body || {};
-    if (!title || !subject) return res.status(400).json({ error: 'Nama ujian dan mata pelajaran wajib diisi' });
-    const token = generateRandomToken();
+    const { exam_id, title, subject, class_target, exam_date, start_time, session_name, duration_minutes, shuffle_questions } = req.body || {};
+    if (!subject) return res.status(400).json({ error: 'Mata pelajaran wajib diisi' });
     const nowIso = new Date().toISOString();
+
+    if (exam_id) {
+      const existing = db.prepare('SELECT * FROM exams WHERE id = ?').get(Number(exam_id));
+      if (existing) {
+        const token = generateRandomToken();
+        db.prepare('UPDATE exams SET is_active = 0').run();
+        db.prepare(`
+          UPDATE exams
+          SET title = COALESCE(NULLIF(?, ''), title),
+              subject = COALESCE(NULLIF(?, ''), subject),
+              class_target = COALESCE(NULLIF(?, ''), class_target),
+              exam_date = COALESCE(NULLIF(?, ''), exam_date),
+              start_time = COALESCE(NULLIF(?, ''), start_time),
+              session_name = COALESCE(NULLIF(?, ''), session_name),
+              duration_minutes = COALESCE(?, duration_minutes),
+              token = ?,
+              token_updated_at = ?,
+              is_active = 1
+          WHERE id = ?
+        `).run(
+          title,
+          subject,
+          class_target || existing.class_target,
+          exam_date || existing.exam_date,
+          start_time || existing.start_time,
+          session_name || existing.session_name,
+          Number(duration_minutes) || existing.duration_minutes || 90,
+          token,
+          nowIso,
+          existing.id
+        );
+        return res.json({ id: existing.id, token, updated: true });
+      }
+    }
+
+    if (!title) return res.status(400).json({ error: 'Nama ujian wajib diisi' });
+    const token = generateRandomToken();
     db.prepare('UPDATE exams SET is_active = 0').run();
     const info = db.prepare(`
       INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, shuffle_questions, is_active, teacher_id)
@@ -420,8 +461,8 @@ function createApp(db) {
     `).run(
       title,
       subject,
-      class_target || 'XII IPA 1',
-      exam_date || '2026-11-02',
+      class_target || 'Semua Kelas',
+      exam_date || new Date().toISOString().slice(0, 10),
       start_time || '08:00 WIT',
       session_name || 'Sesi 1',
       Number(duration_minutes) || 90,
@@ -643,13 +684,49 @@ function createApp(db) {
 
   // ==================== PANEL GURU MAPEL ====================
   app.get('/api/guru/exams', requireStaffAuth(['guru', 'operator']), (req, res) => {
-    const exams = db.prepare('SELECT * FROM exams ORDER BY id DESC').all();
-    const enriched = exams.map(ex => {
-      const pgCount = db.prepare("SELECT COUNT(*) as c FROM questions WHERE exam_id = ? AND type = 'PG'").get(ex.id).c;
-      const esaiCount = db.prepare("SELECT COUNT(*) as c FROM questions WHERE exam_id = ? AND type = 'ESAI'").get(ex.id).c;
-      return { ...ex, pgCount, esaiCount };
-    });
+    const exams = db.prepare(`
+      SELECT e.*,
+        u.full_name AS teacher_name,
+        (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id AND q.type = 'PG') AS pg_count,
+        (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id AND q.type = 'ESAI') AS esai_count,
+        (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id) AS total_questions
+      FROM exams e
+      LEFT JOIN users u ON e.teacher_id = u.id
+      ORDER BY e.id DESC
+    `).all();
+    const enriched = exams.map(ex => ({
+      ...ex,
+      pgCount: ex.pg_count,
+      esaiCount: ex.esai_count,
+      totalCount: ex.total_questions
+    }));
     res.json({ exams: enriched });
+  });
+
+  app.post('/api/guru/exams', requireStaffAuth(['guru', 'operator']), (req, res) => {
+    const { title, subject, class_target, duration_minutes, shuffle_questions } = req.body || {};
+    if (!subject) return res.status(400).json({ error: 'Mata pelajaran wajib diisi' });
+    const finalTitle = title || `Ujian ${subject}`;
+    const token = generateRandomToken();
+    const nowIso = new Date().toISOString();
+    const teacherId = req.staffUser ? req.staffUser.id : null;
+    const info = db.prepare(`
+      INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, shuffle_questions, is_active, teacher_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+    `).run(
+      finalTitle,
+      subject,
+      class_target || 'Semua Kelas',
+      new Date().toISOString().slice(0, 10),
+      '08:00 WIT',
+      'Sesi 1',
+      Number(duration_minutes) || 90,
+      token,
+      nowIso,
+      shuffle_questions !== undefined ? (shuffle_questions ? 1 : 0) : 1,
+      teacherId
+    );
+    res.json({ ok: true, id: Number(info.lastInsertRowid), title: finalTitle, subject, token });
   });
 
   app.get('/api/guru/exams/:id/questions', requireStaffAuth(['guru', 'operator']), (req, res) => {

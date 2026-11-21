@@ -289,13 +289,22 @@
             <div class="card-title">Buat Jadwal Ujian Baru</div>
           </div>
           <div class="form-grid">
+            <div class="form-group" style="grid-column: span 2;">
+              <label>Pilih Mata Pelajaran / Bank Soal Guru (Drop Box)</label>
+              <select id="exSubjectSelect" class="input" style="font-weight:700;background:#ffffff;border:1.5px solid var(--primary);" onchange="handleSubjectDropdownChange(this.value)">
+                <option value="">-- Pilih Mata Pelajaran / Bank Soal dari Panel Guru --</option>
+              </select>
+              <div id="subjectStatusBanner" style="display:none;margin-top:8px;padding:9px 13px;border-radius:6px;font-size:12.5px;font-weight:600;line-height:1.5;"></div>
+              <input type="hidden" id="selectedBankSoalId">
+            </div>
+
+            <div class="form-group">
+              <label>Mata Pelajaran (Terisi Otomatis / Manual)</label>
+              <input id="exSubject" class="input" placeholder="Misal: Biologi / Sejarah">
+            </div>
             <div class="form-group">
               <label>Nama Kegiatan Ujian</label>
               <input id="exTitle" class="input" value="Penilaian Akhir Semester (PAS)">
-            </div>
-            <div class="form-group">
-              <label>Mata Pelajaran</label>
-              <input id="exSubject" class="input" placeholder="Misal: Biologi / Sejarah">
             </div>
             <div class="form-group" style="grid-column: span 2;">
               <label>Target Kelas Peserta (Pilih dari Data Siswa Terdaftar)</label>
@@ -335,7 +344,7 @@
             <table>
               <thead>
                 <tr>
-                  <th>Mata Pelajaran</th>
+                  <th>Mata Pelajaran & Guru</th>
                   <th>Nama Ujian</th>
                   <th>Target Kelas</th>
                   <th>Bank Soal</th>
@@ -504,6 +513,23 @@
     </div>
   </div>
 
+  <!-- MODAL INTIP BUTIR SOAL GURU UNTUK OPERATOR -->
+  <div id="modalPreviewQuestions" style="position:fixed;inset:0;background:rgba(15,23,42,0.78);z-index:135;display:none;align-items:center;justify-content:center;padding:16px;">
+    <div class="card" style="max-width:760px;width:100%;max-height:88vh;overflow-y:auto;margin:0;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">👁️ Intip Butir Soal Buatan Guru</div>
+          <p style="font-size:12px;color:var(--muted);" id="prevQExamSubTitle">Melihat naskah soal & kunci jawaban yang sudah dimasukkan oleh guru</p>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="closePreviewQuestionsModal()">✕ Tutup</button>
+      </div>
+      <div style="padding:16px;">
+        <div id="prevQHeaderInfo" style="background:#f8fafc;padding:12px 14px;border-radius:8px;margin-bottom:14px;border:1px solid #e2e8f0;font-size:13px;line-height:1.6;"></div>
+        <div id="prevQListContainer" style="display:flex;flex-direction:column;gap:12px;"></div>
+      </div>
+    </div>
+  </div>
+
   <script>
     let currentOverview = null;
     let currentPrintData = null;
@@ -625,7 +651,8 @@
       `;
       }).join('');
 
-      // Render pilihan target kelas & chips di form Buat Jadwal Ujian
+      // Render pilihan target kelas & quick chips di form Buat Jadwal Ujian
+      renderSubjectOptions(data.exams || [], data.teachers || []);
       renderClassOptions(data.classes || []);
 
       // Render tabel jadwal ujian
@@ -641,14 +668,20 @@
 
         return `
         <tr>
-          <td><b>${e.subject}</b></td>
+          <td>
+            <b>${e.subject}</b>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">
+              Guru: <span style="color:#0f172a;font-weight:600;">${e.teacher_name || 'Guru Mapel'}</span>
+            </div>
+          </td>
           <td>${e.title}</td>
           <td><span class="badge" style="background:#f8fafc;border:1px solid #cbd5e1;color:#334155;">${e.class_target || 'Semua Kelas'}</span></td>
           <td>
             ${qBadge}
-            <div style="margin-top:4px;">
+            <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">
+              ${totalQ > 0 ? `<button class="btn btn-sm btn-outline" style="font-size:11px;padding:2px 7px;" onclick="openPreviewQuestionsModal(${e.id})">👁️ Intip Soal</button>` : ''}
               <button class="btn btn-sm btn-outline" style="font-size:11px;padding:2px 7px;" onclick="openUploadWordModal(${e.id}, '${safeSubject}', '${safeTarget}')">
-                📤 Upload Word (.docx)
+                📤 Upload Word
               </button>
             </div>
           </td>
@@ -915,7 +948,9 @@
     }
 
     async function createExam() {
+      const selectedExamId = document.getElementById('selectedBankSoalId')?.value;
       const payload = {
+        exam_id: selectedExamId ? Number(selectedExamId) : null,
         title: document.getElementById('exTitle').value,
         subject: document.getElementById('exSubject').value,
         class_target: document.getElementById('exClass').value,
@@ -928,7 +963,15 @@
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       });
-      if (res.ok) loadOverview();
+      if (res.ok) {
+        document.getElementById('selectedBankSoalId').value = '';
+        const banner = document.getElementById('subjectStatusBanner');
+        if (banner) banner.style.display = 'none';
+        loadOverview();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Gagal membuat/mengaktifkan jadwal ujian');
+      }
     }
 
     async function activateExam(id) {
@@ -938,6 +981,165 @@
 
     let currentClassesList = [];
     let uploadTargetExamId = null;
+
+    function renderSubjectOptions(exams, teachers) {
+      const sel = document.getElementById('exSubjectSelect');
+      if (!sel) return;
+      const prevVal = sel.value;
+
+      let html = '<option value="">-- Pilih Mata Pelajaran / Bank Soal dari Panel Guru --</option>';
+
+      if (exams && exams.length) {
+        html += '<optgroup label="📦 Bank Soal Guru Tersedia">';
+        exams.forEach(e => {
+          const totalQ = Number(e.total_questions || 0);
+          const teacher = e.teacher_name ? `Guru: ${e.teacher_name}` : 'Guru Mapel';
+          const status = totalQ > 0 ? `✅ ${totalQ} Soal SIAP (${e.pg_count} PG, ${e.esai_count} Esai)` : '⚠️ 0 Soal (Kosong)';
+          html += `<option value="exam:${e.id}">${e.subject} — ${e.title} [${teacher}] • ${status}</option>`;
+        });
+        html += '</optgroup>';
+      }
+
+      if (teachers && teachers.length) {
+        const uniqueSubjs = [...new Set(teachers.map(t => t.subject).filter(Boolean))];
+        if (uniqueSubjs.length) {
+          html += '<optgroup label="📚 Mata Pelajaran Pengampu Guru">';
+          uniqueSubjs.forEach(s => {
+            const tNames = teachers.filter(t => t.subject === s).map(t => t.full_name).join(', ');
+            html += `<option value="subj:${s}">Mata Pelajaran: ${s} (${tNames})</option>`;
+          });
+          html += '</optgroup>';
+        }
+      }
+
+      html += '<option value="CUSTOM">+ Ketik Mata Pelajaran Baru Manual</option>';
+      sel.innerHTML = html;
+      if (prevVal) sel.value = prevVal;
+    }
+
+    function handleSubjectDropdownChange(val) {
+      const hiddenId = document.getElementById('selectedBankSoalId');
+      const subjInp = document.getElementById('exSubject');
+      const titleInp = document.getElementById('exTitle');
+      const classInp = document.getElementById('exClass');
+      const durInp = document.getElementById('exDuration');
+      const banner = document.getElementById('subjectStatusBanner');
+
+      if (!val || val === 'CUSTOM') {
+        hiddenId.value = '';
+        if (banner) banner.style.display = 'none';
+        subjInp.value = '';
+        subjInp.focus();
+        return;
+      }
+
+      if (val.startsWith('subj:')) {
+        const subjName = val.slice(5);
+        hiddenId.value = '';
+        subjInp.value = subjName;
+        titleInp.value = `Ujian ${subjName}`;
+        if (banner) {
+          banner.style.display = 'block';
+          banner.style.background = '#eff6ff';
+          banner.style.border = '1px solid #bfdbfe';
+          banner.style.color = '#1e40af';
+          banner.innerHTML = `ℹ️ Jadwal baru untuk mata pelajaran <b>${subjName}</b>. Guru mapel dapat mengunggah soal di Panel Guru atau Anda dapat mengunggah file Word di bawah.`;
+        }
+        return;
+      }
+
+      if (val.startsWith('exam:')) {
+        const examId = Number(val.slice(5));
+        const exam = currentOverview?.exams?.find(e => e.id === examId);
+        if (exam) {
+          hiddenId.value = exam.id;
+          subjInp.value = exam.subject || '';
+          titleInp.value = exam.title || '';
+          classInp.value = exam.class_target || 'Semua Kelas';
+          durInp.value = exam.duration_minutes || 90;
+          renderClassOptions(currentClassesList);
+
+          const totalQ = Number(exam.total_questions || 0);
+          const teacher = exam.teacher_name || 'Guru Mapel';
+          if (banner) {
+            banner.style.display = 'block';
+            if (totalQ > 0) {
+              banner.style.background = '#ecfdf5';
+              banner.style.border = '1px solid #a7f3d0';
+              banner.style.color = '#065f46';
+              banner.innerHTML = `✅ <b>Soal Sudah Dibuat & Siap:</b> ${totalQ} Butir Soal (${exam.pg_count} Pilihan Ganda & ${exam.esai_count} Esai) oleh Bpk/Ibu <b>${teacher}</b>. Klik tombol di bawah untuk mengaktifkan sesi ujian ini.`;
+            } else {
+              banner.style.background = '#fef2f2';
+              banner.style.border = '1px solid #fecaca';
+              banner.style.color = '#991b1b';
+              banner.innerHTML = `⚠️ <b>Perhatian:</b> Paket soal ini dibuat oleh <b>${teacher}</b> namun masih <b>0 Soal</b> (Guru belum mengunggah soal).`;
+            }
+          }
+        }
+      }
+    }
+
+    async function openPreviewQuestionsModal(examId) {
+      const modal = document.getElementById('modalPreviewQuestions');
+      const headerInfo = document.getElementById('prevQHeaderInfo');
+      const listContainer = document.getElementById('prevQListContainer');
+      modal.style.display = 'flex';
+      headerInfo.innerHTML = 'Memuat butir soal dari server...';
+      listContainer.innerHTML = '';
+
+      try {
+        const res = await fetch(`/api/guru/exams/${examId}/questions`, { headers: authHeaders() });
+        const data = await res.json();
+        const exam = data.exam || {};
+        const questions = data.questions || [];
+
+        const pgCount = questions.filter(q => q.type === 'PG').length;
+        const esaiCount = questions.filter(q => q.type === 'ESAI').length;
+
+        headerInfo.innerHTML = `
+          <div>Mata Pelajaran: <b style="font-size:15px;color:var(--dark);">${exam.subject || '-'}</b> (${exam.title || '-'})</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">Target Kelas: <b>${exam.class_target || 'Semua Kelas'}</b> • Durasi: <b>${exam.duration_minutes || 90} Menit</b></div>
+          <div style="margin-top:6px;display:flex;gap:8px;align-items:center;">
+            <span class="badge badge-finished">${questions.length} Total Soal</span>
+            <span class="badge" style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;">${pgCount} PG</span>
+            <span class="badge" style="background:#fefce8;color:#854d0e;border:1px solid #fef08a;">${esaiCount} Esai</span>
+          </div>
+        `;
+
+        if (!questions.length) {
+          listContainer.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;">Belum ada butir soal yang diunggah oleh guru pada paket ujian ini.</div>';
+          return;
+        }
+
+        listContainer.innerHTML = questions.map(q => {
+          const isPg = q.type === 'PG';
+          return `
+            <div class="card" style="margin:0;padding:12px;background:#ffffff;border:1px solid #e2e8f0;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-weight:700;font-size:13px;color:var(--dark);">No. ${q.number} <span class="badge ${isPg ? 'badge-finished' : 'badge-working'}" style="font-size:10px;padding:1px 6px;">${q.type}</span></span>
+                ${isPg && q.answer_key ? `<span class="badge" style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;font-weight:700;">Kunci: ${q.answer_key}</span>` : ''}
+              </div>
+              <div style="font-size:13px;color:#1e293b;line-height:1.5;margin-bottom:8px;">${q.question_text || ''}</div>
+              ${isPg ? `
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px;">
+                  <div style="${q.answer_key === 'A' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">A. ${q.option_a || '-'}</div>
+                  <div style="${q.answer_key === 'B' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">B. ${q.option_b || '-'}</div>
+                  <div style="${q.answer_key === 'C' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">C. ${q.option_c || '-'}</div>
+                  <div style="${q.answer_key === 'D' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">D. ${q.option_d || '-'}</div>
+                  ${q.option_e ? `<div style="${q.answer_key === 'E' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">E. ${q.option_e}</div>` : ''}
+                </div>
+              ` : '<div style="font-size:11.5px;color:var(--muted);font-style:italic;">(Lembar Jawaban Kertas Difoto oleh Siswa)</div>'}
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        headerInfo.innerHTML = '<span style="color:var(--red);">Gagal memuat butir soal dari server.</span>';
+      }
+    }
+
+    function closePreviewQuestionsModal() {
+      document.getElementById('modalPreviewQuestions').style.display = 'none';
+    }
 
     function renderClassOptions(classes) {
       currentClassesList = classes || [];

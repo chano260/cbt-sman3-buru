@@ -711,6 +711,8 @@
         document.getElementById('loginOverlay').style.display = 'flex';
         return;
       }
+      // Token tersimpan masih berlaku: tutup kotak login (sebelumnya hanya tombol Masuk yang menutupnya)
+      if (res.ok) document.getElementById('loginOverlay').style.display = 'none';
       const data = await res.json();
       currentOverview = data;
 

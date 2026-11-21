@@ -1131,8 +1131,15 @@
           isEssay ? 'essay' : '',
           isDone ? 'done' : ''
         ].join(' ');
-        return `<div class="${cls}" onclick="jumpToQuestion(${idx}); toggleDaftarSoal(false);">${q.number}${isEssay ? (isDone ? ' ✓' : ' 📷') : ''}</div>`;
+        return `<div class="${cls}" onclick="jumpToQuestion(${idx}); toggleDaftarSoal(false);">${displayNumber(q)}${isEssay ? (isDone ? ' ✓' : ' 📷') : ''}</div>`;
       }).join('');
+    }
+
+    // Nomor soal yang dilihat siswa mengikuti urutan tampil (1, 2, 3, ...), karena urutan soal PG
+    // diacak per siswa. Nomor asli (q.number) tetap dipakai untuk data & pantauan pengawas.
+    function displayNumber(q) {
+      const i = questions.indexOf(q);
+      return i >= 0 ? i + 1 : q.number;
     }
 
     function renderCurrentQuestion() {
@@ -1165,7 +1172,7 @@
         return;
       }
       const q = questions[currentIndex];
-      document.getElementById('subbarQuestionNumber').textContent = `Soal Nomor ${q.number}`;
+      document.getElementById('subbarQuestionNumber').textContent = `Soal Nomor ${displayNumber(q)}`;
       document.getElementById('qBottomIndicator').textContent = `${currentIndex + 1} / ${questions.length}`;
 
       if (sessionId && examActive) {
@@ -1191,18 +1198,18 @@
       if (q.type === 'ESAI') {
         const photoUrl = essayPhotos[q.id] || '';
         card.innerHTML = `
-          <span style="display:inline-block;background:#fffbeb;color:#b45309;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-bottom:12px;">Soal Esai • Nomor ${q.number}</span>
+          <span style="display:inline-block;background:#fffbeb;color:#b45309;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-bottom:12px;">Soal Esai • Nomor ${displayNumber(q)}</span>
           <div class="q-body-text" style="line-height:1.7;margin-bottom:18px;white-space:pre-line;">${esc(q.question_text)}</div>
           ${mediaHtml}
           <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:16px;margin-top:14px;">
             <div style="font-weight:800;font-size:13px;color:#166534;margin-bottom:6px;">
-              📝 Lembar Jawaban Kertas — Soal Esai No. ${q.number}
+              📝 Lembar Jawaban Kertas — Soal Esai No. ${displayNumber(q)}
             </div>
             <p style="font-size:12.5px;color:#1e293b;line-height:1.6;margin-bottom:12px;">
               Tuliskan jawaban lengkap Anda pada lembar kertas yang dibagikan pengawas. Setelah selesai ditulis, <b>wajib difoto</b> menggunakan kamera HP di bawah ini agar ujian dapat diselesaikan:
             </p>
 
-            <input type="file" id="inpEssayPhoto_${q.id}" accept="image/*" capture="environment" style="display:none;" onchange="handleEssayPhotoChosen(event, ${q.id}, ${q.number})">
+            <input type="file" id="inpEssayPhoto_${q.id}" accept="image/*" capture="environment" style="display:none;" onchange="handleEssayPhotoChosen(event, ${q.id})">
 
             <div id="essayPhotoBox_${q.id}" style="${photoUrl ? 'display:block;' : 'display:none;'}margin-bottom:12px;text-align:center;">
               <a href="${esc(photoUrl)}" target="_blank" title="Klik untuk perbesar foto">
@@ -1212,7 +1219,7 @@
             </div>
 
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-              <button type="button" class="exambppp-btn-teal" id="btnSnapPhoto_${q.id}" style="background:#059669;width:auto;padding:10px 18px;font-size:13px;margin:0;" onclick="document.getElementById('inpEssayPhoto_${q.id}').click()">
+              <button type="button" class="exambppp-btn-teal" id="btnSnapPhoto_${q.id}" style="background:#059669;width:auto;padding:10px 18px;font-size:13px;margin:0;" onclick="openLiveCamera(${q.id})">
                 <svg class="icon" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                 <span>${photoUrl ? '📷 Foto Ulang Lembar Jawaban' : '📷 Buka Kamera & Foto Lembar Jawaban'}</span>
               </button>
@@ -1321,10 +1328,18 @@
       });
     }
 
-    async function handleEssayPhotoChosen(event, questionId, questionNumber) {
+    // Dipanggil oleh tombol foto biasa (<input type="file">)
+    async function handleEssayPhotoChosen(event, questionId) {
+      endPhotoCapture(2000);
       const input = event.target;
       if (!input.files || input.files.length === 0) return;
-      const file = input.files[0];
+      await uploadEssayPhoto(questionId, input.files[0]);
+    }
+
+    // Satu jalur unggah untuk foto dari kamera langsung maupun dari tombol foto biasa
+    async function uploadEssayPhoto(questionId, file) {
+      const qData = questions.find(x => x.id === questionId);
+      const questionNumber = qData ? qData.number : '';
 
       const statusEl = document.getElementById(`essayUploadMsg_${questionId}`);
       const btn = document.getElementById(`btnSnapPhoto_${questionId}`);
@@ -1399,12 +1414,12 @@
       if (unansweredPg.length > 0 || missingEsai.length > 0) {
         let msg = '';
         if (unansweredPg.length > 0 && missingEsai.length > 0) {
-          const missingNos = missingEsai.map(q => `No. ${q.number}`).join(', ');
+          const missingNos = missingEsai.map(q => `No. ${displayNumber(q)}`).join(', ');
           msg = `Ada ${unansweredPg.length} soal Pilihan Ganda yang belum dijawab, dan foto lembar jawaban untuk Soal Esai ${missingNos} belum diunggah! Lengkapi seluruh jawaban dan foto lembar esai sebelum menyelesaikan subtes.`;
         } else if (unansweredPg.length > 0) {
           msg = `Silahkan lengkapi jawaban Anda terlebih dahulu sebelum menyelesaikan subtes. Terdapat ${unansweredPg.length} soal Pilihan Ganda yang masih belum terjawab.`;
         } else {
-          const missingNos = missingEsai.map(q => `No. ${q.number}`).join(', ');
+          const missingNos = missingEsai.map(q => `No. ${displayNumber(q)}`).join(', ');
           msg = `⚠️ Foto lembar jawaban kertas untuk Soal Esai ${missingNos} belum diunggah! Anda wajib memfoto lembar jawaban kertas Anda terlebih dahulu sebelum dapat menyelesaikan ujian.`;
         }
         document.getElementById('incompleteNoticeText').textContent = msg;
@@ -1509,13 +1524,164 @@
       } catch {}
     }
 
+    // ---- Foto lembar jawaban esai ----
+    // Membuka kamera membuat halaman ujian kehilangan fokus. Itu aksi resmi, bukan pelanggaran,
+    // jadi deteksi keluar-aplikasi dijeda SEMENTARA (maksimal 3 menit) selama siswa memotret.
+    const PHOTO_CAPTURE_MAX_MS = 3 * 60 * 1000;
+    let photoCaptureUntil = 0;
+
+    function isPhotoCaptureActive() {
+      return Date.now() < photoCaptureUntil;
+    }
+
+    function endPhotoCapture(graceMs) {
+      // Beri jeda singkat agar event fokus/visibilitas saat kembali dari kamera tidak terhitung
+      photoCaptureUntil = graceMs ? Date.now() + graceMs : 0;
+    }
+
+    function startPhotoCapture(questionId) {
+      photoCaptureUntil = Date.now() + PHOTO_CAPTURE_MAX_MS;
+      const inp = document.getElementById(`inpEssayPhoto_${questionId}`);
+      if (inp) inp.click();
+    }
+
+    // ---- Kamera langsung di dalam halaman (getUserMedia) ----
+    // Dipakai lebih dulu karena tidak bergantung pada dukungan "pilih file" di aplikasi ujian
+    // (misalnya SMANTRI CBT). Bila aplikasi menolak kamera, siswa ditawari tombol foto biasa.
+    let liveCameraUnavailable = false;
+
+    function liveCameraErrorText(err) {
+      const name = err && err.name;
+      if (name === 'NotAllowedError' || name === 'SecurityError') return 'Aplikasi ujian ini tidak mengizinkan kamera langsung di halaman.';
+      if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'Kamera tidak ditemukan di perangkat ini.';
+      if (name === 'NotReadableError') return 'Kamera sedang dipakai aplikasi lain. Tutup aplikasi lain lalu coba lagi.';
+      return 'Kamera langsung tidak dapat dibuka' + (err && err.message ? ` (${err.message})` : '') + '.';
+    }
+
+    async function openLiveCamera(questionId) {
+      // Sudah pernah gagal di aplikasi ini: langsung pakai tombol foto biasa
+      if (liveCameraUnavailable) { startPhotoCapture(questionId); return; }
+
+      photoCaptureUntil = Date.now() + PHOTO_CAPTURE_MAX_MS;
+      const q = questions.find(x => x.id === questionId);
+      const no = q ? displayNumber(q) : '';
+      let stream = null;
+
+      const overlay = document.createElement('div');
+      overlay.className = 'live-cam-overlay';
+      overlay.innerHTML = `
+        <div class="live-cam-card" role="dialog" aria-modal="true" aria-label="Foto lembar jawaban esai">
+          <div class="live-cam-title">📷 Foto Lembar Jawaban — Soal Esai No. ${no}</div>
+          <div class="live-cam-stage">
+            <video class="live-cam-video" playsinline muted autoplay></video>
+            <img class="live-cam-shot" alt="Hasil foto" hidden>
+            <div class="live-cam-msg">⏳ Membuka kamera...</div>
+          </div>
+          <div class="live-cam-hint">Letakkan lembar jawaban di tempat terang, seluruh tulisan masuk bingkai.</div>
+          <div class="live-cam-actions" data-step="live" hidden>
+            <button type="button" class="btn btn-outline" data-act="cancel">Batal</button>
+            <button type="button" class="btn live-cam-primary" data-act="snap">📸 Ambil Foto</button>
+          </div>
+          <div class="live-cam-actions" data-step="review" hidden>
+            <button type="button" class="btn btn-outline" data-act="retake">↺ Ulangi</button>
+            <button type="button" class="btn live-cam-primary" data-act="use">✓ Gunakan Foto</button>
+          </div>
+          <div class="live-cam-actions" data-step="fallback" hidden>
+            <button type="button" class="btn btn-outline" data-act="cancel">Batal</button>
+            <button type="button" class="btn live-cam-primary" data-act="fallback">📁 Pakai Tombol Foto Biasa</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+
+      const video = overlay.querySelector('.live-cam-video');
+      const shot = overlay.querySelector('.live-cam-shot');
+      const msg = overlay.querySelector('.live-cam-msg');
+      const canvas = document.createElement('canvas');
+      const showStep = (step) => overlay.querySelectorAll('[data-step]').forEach(el => { el.hidden = el.dataset.step !== step; });
+
+      function stopCamera() {
+        if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      }
+      function close(keepCapture) {
+        stopCamera();
+        overlay.remove();
+        if (!keepCapture) endPhotoCapture(1500);
+      }
+      function showFallback(reason) {
+        stopCamera();
+        liveCameraUnavailable = true;
+        video.hidden = true;
+        msg.hidden = false;
+        msg.textContent = `${reason}\nGunakan tombol foto biasa untuk memotret lembar jawaban.`;
+        showStep('fallback');
+      }
+
+      overlay.addEventListener('click', async (ev) => {
+        const act = ev.target.closest('[data-act]') && ev.target.closest('[data-act]').dataset.act;
+        if (!act) return;
+        if (act === 'cancel') close(false);
+        if (act === 'fallback') { close(true); startPhotoCapture(questionId); }
+        if (act === 'snap') {
+          const w = video.videoWidth, h = video.videoHeight;
+          if (!w || !h) return;
+          const scale = Math.min(1, 1600 / Math.max(w, h));
+          canvas.width = Math.round(w * scale);
+          canvas.height = Math.round(h * scale);
+          canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+          shot.src = canvas.toDataURL('image/jpeg', 0.85);
+          shot.hidden = false;
+          video.hidden = true;
+          showStep('review');
+        }
+        if (act === 'retake') { shot.hidden = true; video.hidden = false; showStep('live'); }
+        if (act === 'use') {
+          const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+          close(false);
+          if (!blob) { cbtAlert('Foto gagal diproses. Silakan coba lagi.', 'error'); return; }
+          const file = new File([blob], `esai_no${no}.jpg`, { type: 'image/jpeg' });
+          await uploadEssayPhoto(questionId, file);
+        }
+      });
+
+      if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showFallback(window.isSecureContext ? 'Aplikasi ujian ini tidak menyediakan kamera langsung.' : 'Kamera langsung hanya bisa dipakai lewat alamat https.');
+        return;
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          audio: false
+        });
+        if (!overlay.isConnected) { stopCamera(); return; }
+        video.srcObject = stream;
+        await video.play().catch(() => {});
+        msg.hidden = true;
+        showStep('live');
+      } catch (err) {
+        if (overlay.isConnected) showFallback(liveCameraErrorText(err));
+      }
+    }
+
+    // Kembali dari kamera (foto diambil atau dibatalkan): akhiri jeda setelah 2 detik
+    window.addEventListener('focus', () => {
+      if (isPhotoCaptureActive()) endPhotoCapture(2000);
+    });
+
+    // Laporan pelanggaran dari aplikasi Android Exambro (tombol Home, layar belah, dll.)
+    window.onExambroViolationDetected = function (reason) {
+      if (!examActive || isPhotoCaptureActive()) return;
+      reportExamViolation(reason || 'Terdeteksi keluar dari aplikasi Exambro');
+    };
+
     function handleVisibilityChange() {
+      if (isPhotoCaptureActive()) return;
       if (document.hidden && examActive) {
         reportExamViolation('Pindah tab atau meminimalkan aplikasi');
       }
     }
 
     function handleWindowBlur() {
+      if (isPhotoCaptureActive()) return;
       if (examActive) {
         reportExamViolation('Keluar dari layar aplikasi ujian');
       }

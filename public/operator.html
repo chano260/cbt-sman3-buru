@@ -534,6 +534,46 @@
     </div>
   </div>
 
+  <!-- MODAL EDIT AKUN STAF (GURU / PENGAWAS) -->
+  <div id="modalEditStaff" style="position:fixed;inset:0;background:rgba(15,23,42,0.7);z-index:150;display:none;align-items:center;justify-content:center;padding:16px;">
+    <div class="card" style="max-width:440px;width:100%;margin:0;padding:24px;border-radius:14px;box-shadow:var(--shadow-lg);">
+      <div class="card-header" style="margin-bottom:14px;">
+        <div class="card-title">✏️ Edit Akun Guru / Pengawas</div>
+        <button class="btn btn-sm btn-outline" onclick="closeEditStaffModal()">✕</button>
+      </div>
+      <input type="hidden" id="editStfId">
+      <div class="form-group" style="margin-bottom:10px;">
+        <label>Peran (Role)</label>
+        <select id="editStfRole">
+          <option value="guru">Guru Mata Pelajaran</option>
+          <option value="pengawas">Pengawas Ruangan</option>
+          <option value="operator">Operator Server</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:10px;">
+        <label>Nama Lengkap</label>
+        <input id="editStfName" class="input">
+      </div>
+      <div class="form-group" style="margin-bottom:10px;">
+        <label>Username</label>
+        <input id="editStfUser" class="input">
+      </div>
+      <div class="form-group" style="margin-bottom:10px;">
+        <label>Password Baru (Kosongkan jika tidak ingin diubah)</label>
+        <input id="editStfPass" class="input" placeholder="Ketik password baru jika ingin diganti">
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label>Mata Pelajaran / Ruang Tugas</label>
+        <input id="editStfMeta" class="input" placeholder="Misal: Matematika atau Kimia, Fisika">
+        <small style="color:var(--muted);font-size:11px;display:block;margin-top:2px;">Pisahkan koma jika 1 guru mengampu 2 mapel (contoh: <code>Matematika, Fisika</code>).</small>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn btn-outline" type="button" onclick="closeEditStaffModal()">Batal</button>
+        <button class="btn btn-primary" type="button" onclick="submitEditStaff()">Simpan Perubahan</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let currentOverview = null;
     let currentPrintData = null;
@@ -710,7 +750,8 @@
           <td><code>${u.username}</code></td>
           <td>${u.subject || u.room || '-'}</td>
           <td>
-            ${u.role !== 'operator' ? `<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;padding:2px 8px;font-size:11px;" onclick="deleteStaffAccount(${u.id}, '${(u.full_name || '').replace(/'/g, "\\'")}')">Hapus</button>` : '<span style="font-size:11px;color:var(--muted);">Utama</span>'}
+            <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;margin-right:4px;" onclick="openEditStaffModal(${u.id}, '${(u.full_name || '').replace(/'/g, "\\'")}', '${(u.username || '').replace(/'/g, "\\'")}', '${u.role}', '${(u.subject || u.room || '').replace(/'/g, "\\'")}')">✏️ Edit</button>
+            ${u.role !== 'operator' ? `<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;padding:2px 8px;font-size:11px;" onclick="deleteStaffAccount(${u.id}, '${(u.full_name || '').replace(/'/g, "\\'")}')">Hapus</button>` : ''}
           </td>
         </tr>
       `).join('');
@@ -1302,6 +1343,51 @@
       } else {
         const err = await res.json();
         alert(err.error || 'Gagal menghapus akun staf');
+      }
+    }
+
+    function openEditStaffModal(id, name, user, role, meta) {
+      document.getElementById('editStfId').value = id;
+      document.getElementById('editStfName').value = name;
+      document.getElementById('editStfUser').value = user;
+      document.getElementById('editStfPass').value = '';
+      document.getElementById('editStfRole').value = role;
+      document.getElementById('editStfMeta').value = meta;
+      document.getElementById('modalEditStaff').style.display = 'flex';
+    }
+
+    function closeEditStaffModal() {
+      document.getElementById('modalEditStaff').style.display = 'none';
+    }
+
+    async function submitEditStaff() {
+      const id = document.getElementById('editStfId').value;
+      const role = document.getElementById('editStfRole').value;
+      const meta = document.getElementById('editStfMeta').value;
+      const pass = document.getElementById('editStfPass').value;
+
+      const payload = {
+        role,
+        full_name: document.getElementById('editStfName').value,
+        username: document.getElementById('editStfUser').value,
+        subject: role === 'guru' ? meta : null,
+        room: role === 'pengawas' ? meta : null
+      };
+      if (pass && pass.trim()) {
+        payload.password = pass.trim();
+      }
+
+      const res = await fetch(`/api/operator/staff/${id}`, {
+        method: 'PUT',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        closeEditStaffModal();
+        loadOverview();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Gagal menyimpan perubahan');
       }
     }
 

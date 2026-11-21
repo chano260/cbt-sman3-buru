@@ -285,26 +285,46 @@ function createApp(db) {
     };
   }
 
+  function subjectMatches(teacherSubjectStr, examSubjectStr) {
+    if (!teacherSubjectStr || !examSubjectStr) return false;
+    const teacherSubjs = teacherSubjectStr
+      .split(/[,;&/]+/)
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean);
+    const examSubj = String(examSubjectStr || '').trim().toLowerCase();
+
+    return teacherSubjs.some(ts => {
+      if (ts === examSubj) return true;
+      if (examSubj.includes(ts) || ts.includes(examSubj)) return true;
+      return false;
+    });
+  }
+
   function teacherCanAccessExam(staffUser, examOrObj) {
     if (!examOrObj || !staffUser) return false;
     if (staffUser.role === 'operator') return true;
     if (staffUser.role !== 'guru') return false;
 
+    // 1. Akun guru WAJIB mengampu mata pelajaran ini!
+    if (staffUser.subject && !subjectMatches(staffUser.subject, examOrObj.subject)) {
+      return false;
+    }
+
+    // 2. Jika mapel cocok:
     const teacherId = Number(staffUser.id);
     if (examOrObj.teacher_id !== null && examOrObj.teacher_id !== undefined) {
-      return Number(examOrObj.teacher_id) === teacherId;
+      if (Number(examOrObj.teacher_id) === teacherId) return true;
+
+      // Cek apakah guru yang tersimpan di teacher_id mapelnya tidak cocok dengan exam (sisa bug lama)
+      const assigned = db.prepare('SELECT id, subject FROM users WHERE id = ?').get(examOrObj.teacher_id);
+      if (!assigned || (assigned.subject && !subjectMatches(assigned.subject, examOrObj.subject))) {
+        return true;
+      }
+
+      return false;
     }
 
-    if (staffUser.subject) {
-      const teacherSubjects = staffUser.subject
-        .split(/[,;&/]+/)
-        .map(s => s.trim().toLowerCase())
-        .filter(Boolean);
-      const examSubj = (examOrObj.subject || '').trim().toLowerCase();
-      return teacherSubjects.some(ts => ts === examSubj || examSubj.includes(ts) || ts.includes(examSubj));
-    }
-
-    return false;
+    return true;
   }
 
   function requireStaffAuth(allowedRoles) {
@@ -701,6 +721,37 @@ function createApp(db) {
     res.json({ ok: true, deleted: staffId });
   });
 
+  app.put('/api/operator/staff/:id', requireStaffAuth(['operator']), (req, res) => {
+    const staffId = Number(req.params.id);
+    const { full_name, username, password, role, subject, room } = req.body || {};
+    const existing = db.prepare('SELECT * FROM users WHERE id = ?').get(staffId);
+    if (!existing) return res.status(404).json({ error: 'Akun staf tidak ditemukan' });
+
+    try {
+      db.prepare(`
+        UPDATE users
+        SET full_name = COALESCE(NULLIF(?, ''), full_name),
+            username = COALESCE(NULLIF(?, ''), username),
+            password = COALESCE(NULLIF(?, ''), password),
+            role = COALESCE(NULLIF(?, ''), role),
+            subject = ?,
+            room = ?
+        WHERE id = ?
+      `).run(
+        full_name,
+        username,
+        password,
+        role,
+        role === 'guru' ? (subject || null) : null,
+        role === 'pengawas' ? (room || null) : null,
+        staffId
+      );
+      res.json({ ok: true, id: staffId });
+    } catch {
+      res.status(400).json({ error: 'Username sudah digunakan oleh akun lain' });
+    }
+  });
+
   app.get('/api/operator/print-data', requireStaffAuth(['operator']), async (req, res) => {
     const { room, class_name } = req.query;
     let sql = 'SELECT * FROM students WHERE 1=1';
@@ -734,37 +785,47 @@ function createApp(db) {
   // ==================== PANEL GURU MAPEL ====================
   app.get('/api/guru/exams', requireStaffAuth(['guru', 'operator']), (req, res) => {
     const isOperator = req.staffUser && req.staffUser.role === 'operator';
-    let query = `
+    const allExams = db.prepare(`
       SELECT e.*,
         u.full_name AS teacher_name,
+        u.subject AS teacher_subject,
         (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id AND q.type = 'PG') AS pg_count,
         (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id AND q.type = 'ESAI') AS esai_count,
         (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id) AS total_questions
       FROM exams e
       LEFT JOIN users u ON e.teacher_id = u.id
-    `;
-    const params = [];
+      ORDER BY e.id DESC
+    `).all();
 
+    let filteredExams = allExams;
     if (!isOperator) {
-      const teacherId = req.staffUser.id;
-      const subjects = (req.staffUser.subject || '')
-        .split(/[,;&/]+/)
-        .map(s => s.trim())
-        .filter(Boolean);
+      const staffUser = req.staffUser;
+      filteredExams = allExams.filter(exam => {
+        // 1. Mata pelajaran ujian WAJIB cocok dengan mapel yang diampu oleh akun guru ini!
+        if (staffUser.subject) {
+          const matchSubj = subjectMatches(staffUser.subject, exam.subject);
+          if (!matchSubj) return false;
+        }
 
-      if (subjects.length > 0) {
-        const placeholders = subjects.map(() => '?').join(',');
-        query += ` WHERE e.teacher_id = ? OR (e.teacher_id IS NULL AND e.subject IN (${placeholders}))`;
-        params.push(teacherId, ...subjects);
-      } else {
-        query += ` WHERE e.teacher_id = ?`;
-        params.push(teacherId);
-      }
+        // 2. Jika mapel cocok:
+        if (exam.teacher_id !== null && exam.teacher_id !== undefined) {
+          // Jika teacher_id adalah akun ini -> TAMPILKAN
+          if (Number(exam.teacher_id) === Number(staffUser.id)) return true;
+
+          // Jika teacher_id diisi guru lain, tapi guru lain tersebut mapelnya BUKAN mapel ujian ini (sisa bug lama) -> TAMPILKAN
+          if (exam.teacher_subject && !subjectMatches(exam.teacher_subject, exam.subject)) {
+            return true;
+          }
+
+          // Jika teacher_id adalah guru lain yang memang mengampu mapel yang sama -> Sembunyikan milik guru lain
+          return false;
+        }
+
+        return true;
+      });
     }
 
-    query += ` ORDER BY e.id DESC`;
-    const exams = db.prepare(query).all(...params);
-    const enriched = exams.map(ex => ({
+    const enriched = filteredExams.map(ex => ({
       ...ex,
       pgCount: ex.pg_count,
       esaiCount: ex.esai_count,

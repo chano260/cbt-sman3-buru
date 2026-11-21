@@ -739,6 +739,30 @@ function createApp(db) {
     res.json({ message: `Berhasil menyalin ${count} butir soal ke ${targetExam.subject}`, copiedCount: count });
   });
 
+  app.delete('/api/operator/exams/:id', requireStaffAuth(['operator']), (req, res) => {
+    const examId = Number(req.params.id);
+    const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);
+    if (!exam) return res.status(404).json({ error: 'Jadwal ujian tidak ditemukan' });
+
+    const tx = db.transaction(() => {
+      db.prepare('DELETE FROM answers WHERE session_id IN (SELECT id FROM exam_sessions WHERE exam_id = ?)').run(examId);
+      db.prepare('DELETE FROM exam_sessions WHERE exam_id = ?').run(examId);
+      db.prepare('DELETE FROM questions WHERE exam_id = ?').run(examId);
+      db.prepare('DELETE FROM room_reports WHERE exam_id = ?').run(examId);
+      db.prepare('DELETE FROM exams WHERE id = ?').run(examId);
+
+      if (exam.is_active === 1) {
+        const nextActive = db.prepare('SELECT id FROM exams ORDER BY id DESC LIMIT 1').get();
+        if (nextActive) {
+          db.prepare('UPDATE exams SET is_active = 1 WHERE id = ?').run(nextActive.id);
+        }
+      }
+    });
+    tx();
+    invalidateQuestionsCache(examId);
+    res.json({ ok: true, deleted: examId, subject: exam.subject });
+  });
+
   app.post('/api/operator/students', requireStaffAuth(['operator']), (req, res) => {
     const { exam_number, nisn, full_name, class_name, room, seat_number, password, birth_info } = req.body || {};
     if (!exam_number || !full_name) {
@@ -1075,6 +1099,33 @@ function createApp(db) {
       teacherId
     );
     res.json({ ok: true, id: Number(info.lastInsertRowid), title: finalTitle, subject, token });
+  });
+
+  app.delete('/api/guru/exams/:id', requireStaffAuth(['guru', 'operator']), (req, res) => {
+    const examId = Number(req.params.id);
+    const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);
+    if (!exam) return res.status(404).json({ error: 'Paket ujian tidak ditemukan' });
+    if (!teacherCanAccessExam(req.staffUser, exam)) {
+      return res.status(403).json({ error: 'Akses ditolak: Anda tidak memiliki akses untuk menghapus paket ujian ini.' });
+    }
+
+    const tx = db.transaction(() => {
+      db.prepare('DELETE FROM answers WHERE session_id IN (SELECT id FROM exam_sessions WHERE exam_id = ?)').run(examId);
+      db.prepare('DELETE FROM exam_sessions WHERE exam_id = ?').run(examId);
+      db.prepare('DELETE FROM questions WHERE exam_id = ?').run(examId);
+      db.prepare('DELETE FROM room_reports WHERE exam_id = ?').run(examId);
+      db.prepare('DELETE FROM exams WHERE id = ?').run(examId);
+
+      if (exam.is_active === 1) {
+        const nextActive = db.prepare('SELECT id FROM exams ORDER BY id DESC LIMIT 1').get();
+        if (nextActive) {
+          db.prepare('UPDATE exams SET is_active = 1 WHERE id = ?').run(nextActive.id);
+        }
+      }
+    });
+    tx();
+    invalidateQuestionsCache(examId);
+    res.json({ ok: true, deleted: examId, subject: exam.subject });
   });
 
   app.get('/api/guru/exams/:id/questions', requireStaffAuth(['guru', 'operator']), (req, res) => {

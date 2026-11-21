@@ -65,6 +65,9 @@
           <button class="btn btn-primary" onclick="openCreateBankSoalModal()">
             + Buat Bank Soal Baru
           </button>
+          <button class="btn btn-outline" style="color:var(--red);border-color:#fca5a5;" onclick="deleteCurrentBankSoal()" title="Hapus paket bank soal yang sedang dipilih">
+            🗑️ Hapus Paket Ini
+          </button>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <a href="/api/guru/template-word" class="btn btn-outline">
@@ -433,6 +436,32 @@
       currentExamId = Number(document.getElementById('examSelector').value);
       loadQuestions();
       loadScores();
+    }
+
+    async function deleteCurrentBankSoal() {
+      if (!currentExamId) {
+        alert('Pilih paket bank soal yang ingin dihapus terlebih dahulu.');
+        return;
+      }
+      const sel = document.getElementById('examSelector');
+      const selectedText = sel?.options[sel.selectedIndex]?.text || 'paket ini';
+      if (!confirm(`Yakin ingin MENGHAPUS paket: ${selectedText}?\n\nPaket yang dihapus tidak dapat dikembalikan.`)) return;
+
+      try {
+        const res = await fetch(`/api/guru/exams/${currentExamId}`, {
+          method: 'DELETE',
+          headers: authHeaders()
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || 'Gagal menghapus bank soal');
+          return;
+        }
+        currentExamId = null;
+        await loadExams();
+      } catch (err) {
+        alert('Terjadi kesalahan: ' + err.message);
+      }
     }
 
     async function loadQuestions() {

@@ -987,6 +987,18 @@ test('Operator can copy questions between exam packages, auto-copies questions w
   const unloggedStudent = overviewAll.monitoring.find(m => m.exam_number === '26-03-002');
   assert.ok(unloggedStudent);
   assert.equal(unloggedStudent.status, 'NOT_STARTED');
+
+  // 6. Operator menghapus examC agar tidak menumpuk
+  const delOp = await fetch(`${base}/api/operator/exams/${examCId}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${opAuth.staffToken}` }
+  }).then(r => r.json());
+  assert.equal(delOp.ok, true);
+  assert.equal(delOp.deleted, examCId);
+
+  // Pastikan examC sudah tidak ada di database
+  const checkC = db.prepare('SELECT id FROM exams WHERE id = ?').get(examCId);
+  assert.equal(checkC, undefined);
 });
 
 

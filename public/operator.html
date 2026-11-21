@@ -805,6 +805,7 @@
           <td>
             <div style="display:flex;gap:4px;flex-wrap:wrap;">
               ${!e.is_active ? `<button class="btn btn-sm ${totalQ > 0 ? 'btn-primary' : 'btn-outline'}" onclick="activateExam(${e.id}, ${totalQ})">${totalQ > 0 ? '⚡ Aktifkan' : 'Aktifkan (0 Soal)'}</button>` : ''}
+              <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;font-size:11px;padding:3px 8px;" onclick="deleteExam(${e.id}, '${safeSubject}', ${totalQ})">🗑️ Hapus</button>
               <a href="/guru.html" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px;padding:3px 8px;" title="Kelola butir soal di Panel Guru">Panel Guru ↗</a>
             </div>
           </td>
@@ -1142,6 +1143,28 @@
         alert(data.message || 'Soal berhasil disalin!');
         closeCopyQuestionsModal();
         loadOverview();
+      } catch (err) {
+        alert('Terjadi kesalahan: ' + err.message);
+      }
+    }
+
+    async function deleteExam(id, subject, totalQ) {
+      const msg = totalQ > 0
+        ? `⚠️ PERINGATAN: Paket ujian "${subject}" memiliki ${totalQ} butir soal.\n\nYakin ingin MENGHAPUS jadwal ujian ini beserta seluruh butir soalnya agar tidak menumpuk?`
+        : `Yakin ingin menghapus paket jadwal "${subject}" ini dari daftar?`;
+      if (!confirm(msg)) return;
+
+      try {
+        const res = await fetch(`/api/operator/exams/${id}`, {
+          method: 'DELETE',
+          headers: authHeaders()
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || 'Gagal menghapus jadwal ujian');
+          return;
+        }
+        await loadOverview();
       } catch (err) {
         alert('Terjadi kesalahan: ' + err.message);
       }

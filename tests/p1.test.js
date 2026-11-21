@@ -217,6 +217,25 @@ test('P1-9: token lama masih diterima 2 menit setelah pergantian otomatis', asyn
   assert.equal((await ctx.post('/api/ujian/verify-resume-token', { sessionId: s.sessionId, token: oldToken }, h)).status, 403);
 });
 
+test('P1-11: overview operator mengirim semua ujian aktif paralel beserta token & jumlah soal', async (t) => {
+  const ctx = setup(t);
+  const op = await ctx.staff('operator', 'admin123');
+  const fis = await ctx.post('/api/operator/exams', { title: 'PAS Fisika', subject: 'Fisika', class_target: 'XII IPA 2' }, op);
+  const ov = await ctx.get('/api/operator/overview', op);
+  assert.equal(ov.status, 200);
+  assert.ok(Array.isArray(ov.body.activeExams), 'activeExams harus ada');
+  assert.equal(ov.body.activeExams.length, 2);
+  for (const e of ov.body.activeExams) {
+    assert.ok(e.token, `token ujian ${e.subject}`);
+    assert.equal(typeof e.total_questions, 'number');
+  }
+  const fisRow = ov.body.activeExams.find(e => e.id === fis.body.id);
+  assert.equal(fisRow.class_target, 'XII IPA 2');
+  assert.equal(fisRow.total_questions, 0);
+  // activeExam (lama) tetap ada untuk kompatibilitas
+  assert.ok(ov.body.activeExam && ov.body.activeExam.token);
+});
+
 test('P1-10: panel pengawas menampilkan semua ujian aktif untuk siswa di ruangnya', async (t) => {
   const ctx = setup(t);
   const op = await ctx.staff('operator', 'admin123');

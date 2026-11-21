@@ -732,17 +732,26 @@
         const rem = data.activeExam.token_remaining_seconds || 900;
         const mm = String(Math.floor(rem / 60)).padStart(2, '0');
         const ss = String(rem % 60).padStart(2, '0');
-        document.getElementById('opTokenChip').textContent = `TOKEN: ${data.activeExam.token} (${mm}:${ss})`;
-        document.getElementById('statToken').textContent = data.activeExam.token;
+        // Ujian paralel per kelas: tampilkan token & info SEMUA ujian aktif
+        const actives = (data.activeExams && data.activeExams.length) ? data.activeExams : [data.activeExam];
+        const multi = actives.length > 1;
+        document.getElementById('opTokenChip').textContent = multi
+          ? `TOKEN: ${actives.map(e => `${e.token} (${e.subject})`).join(' • ')}`
+          : `TOKEN: ${data.activeExam.token} (${mm}:${ss})`;
+        document.getElementById('statToken').textContent = actives.map(e => e.token).join(' / ');
         document.getElementById('statTokenTimer').textContent = `⏱ Otomatis ganti token baru dalam ${mm}:${ss}`;
-        document.getElementById('statExamTitle').textContent = `${data.activeExam.subject} (${data.activeExam.class_target}) • ${data.pgCount} PG & ${data.esaiCount} Esai`;
+        document.getElementById('statExamTitle').textContent = actives.map(e => {
+          const pg = e.pg_count != null ? e.pg_count : data.pgCount;
+          const es = e.esai_count != null ? e.esai_count : data.esaiCount;
+          return `${e.subject} (${e.class_target || 'Semua Kelas'}) • ${pg} PG & ${es} Esai`;
+        }).join('  |  ');
 
         const warnBox = document.getElementById('activeExamZeroWarning');
         if (warnBox) {
-          const totalQ = Number(data.activeExam.total_questions || (data.pgCount + data.esaiCount) || 0);
-          if (totalQ === 0) {
+          const empty = actives.filter(e => Number(e.total_questions != null ? e.total_questions : (data.pgCount + data.esaiCount)) === 0);
+          if (empty.length > 0) {
             warnBox.style.display = 'block';
-            document.getElementById('warnExamSubject').textContent = `${data.activeExam.subject} (${data.activeExam.title})`;
+            document.getElementById('warnExamSubject').textContent = empty.map(e => `${e.subject} (${e.title})`).join(', ');
           } else {
             warnBox.style.display = 'none';
           }
@@ -1017,9 +1026,28 @@
       loadOverview();
     }
 
+    // Ekspor nilai: ikuti ujian yang dipilih di filter pantauan. Jika filter "Semua Ujian" dan ada
+    // lebih dari satu ujian aktif (paralel per kelas), operator diminta memilih ujiannya dulu.
     function exportActiveExamExcel() {
-      if (!currentOverview || !currentOverview.activeExam) return;
-      window.location.href = `/api/guru/exams/${currentOverview.activeExam.id}/export-excel?staffToken=${encodeURIComponent(staffToken)}`;
+      if (!currentOverview) return;
+      const sel = document.getElementById('monExamFilter');
+      let examId = sel && sel.value && sel.value !== 'ALL' ? sel.value : null;
+      if (!examId) {
+        const actives = (currentOverview.activeExams && currentOverview.activeExams.length)
+          ? currentOverview.activeExams
+          : (currentOverview.activeExam ? [currentOverview.activeExam] : []);
+        if (actives.length === 0) {
+          alert('Belum ada ujian aktif untuk diekspor. Pilih ujian pada filter "Pantauan" terlebih dahulu.');
+          return;
+        }
+        if (actives.length > 1) {
+          alert(`Ada ${actives.length} ujian aktif bersamaan (${actives.map(e => e.subject).join(', ')}).\nPilih ujian yang ingin diekspor pada filter pantauan di atas tabel, lalu klik Export lagi.`);
+          if (sel) sel.focus();
+          return;
+        }
+        examId = actives[0].id;
+      }
+      window.location.href = `/api/guru/exams/${encodeURIComponent(examId)}/export-excel?staffToken=${encodeURIComponent(staffToken)}`;
     }
 
     function downloadStudentExcelTemplate() {

@@ -652,6 +652,23 @@ function createApp(db) {
     `).all();
     const rawActive = exams.find(e => e.is_active === 1) || exams[0];
     const activeExam = ensureFresh15MinToken(db, rawActive);
+    // Ujian paralel per kelas: kirim SEMUA ujian aktif beserta tokennya (activeExam tetap untuk kompatibilitas)
+    const activeExams = exams.filter(e => e.is_active === 1).map(e => {
+      const fresh = activeExam && e.id === activeExam.id ? activeExam : ensureFresh15MinToken(db, e);
+      return {
+        id: fresh.id,
+        title: fresh.title,
+        subject: fresh.subject,
+        class_target: fresh.class_target,
+        session_name: fresh.session_name,
+        token: fresh.token,
+        token_remaining_seconds: fresh.token_remaining_seconds,
+        teacher_name: fresh.teacher_name,
+        pg_count: fresh.pg_count,
+        esai_count: fresh.esai_count,
+        total_questions: fresh.total_questions
+      };
+    });
     const students = db.prepare('SELECT * FROM students ORDER BY room ASC, seat_number ASC, full_name ASC').all();
     const staff = db.prepare('SELECT id, username, full_name, role, subject, room FROM users ORDER BY role ASC, id ASC').all();
 
@@ -795,6 +812,7 @@ function createApp(db) {
       lanIp: getLocalLanIp(),
       ...qrBundle,
       activeExam,
+      activeExams,
       exams,
       students,
       staff,

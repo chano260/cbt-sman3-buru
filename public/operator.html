@@ -390,6 +390,9 @@
             <div class="form-group">
               <label>Mata Pelajaran / Ruang Tugas</label>
               <input id="stfMeta" class="input" placeholder="Misal: Biologi atau Ruang 01">
+              <small style="color:var(--muted);font-size:11px;margin-top:3px;display:block;">
+                Untuk guru: Tulis mapel yang diampu (misal: <code>Matematika</code>). Jika mengampu 2 mapel, pisahkan koma (misal: <code>Matematika, Fisika</code>).
+              </small>
             </div>
           </div>
           <button class="btn btn-primary" onclick="addStaff()">+ Simpan Akun Staf</button>
@@ -407,6 +410,7 @@
                   <th>Nama Lengkap</th>
                   <th>Username</th>
                   <th>Mapel / Ruang Tugas</th>
+                  <th>Aksi</th>
                 </tr>
               </thead>
               <tbody id="staffTableBody"></tbody>
@@ -705,6 +709,9 @@
           <td><b>${u.full_name}</b></td>
           <td><code>${u.username}</code></td>
           <td>${u.subject || u.room || '-'}</td>
+          <td>
+            ${u.role !== 'operator' ? `<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;padding:2px 8px;font-size:11px;" onclick="deleteStaffAccount(${u.id}, '${(u.full_name || '').replace(/'/g, "\\'")}')">Hapus</button>` : '<span style="font-size:11px;color:var(--muted);">Utama</span>'}
+          </td>
         </tr>
       `).join('');
     }
@@ -1276,7 +1283,26 @@
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       });
-      if (res.ok) loadOverview();
+      if (res.ok) {
+        document.getElementById('stfName').value = '';
+        document.getElementById('stfUser').value = '';
+        document.getElementById('stfMeta').value = '';
+        loadOverview();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Gagal menyimpan akun');
+      }
+    }
+
+    async function deleteStaffAccount(id, name) {
+      if (!confirm(`Hapus akun staf "${name}"?`)) return;
+      const res = await fetch(`/api/operator/staff/${id}`, { method: 'DELETE', headers: authHeaders() });
+      if (res.ok) {
+        loadOverview();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Gagal menghapus akun staf');
+      }
     }
 
     // ==================== PUSAT CETAK 4 DOKUMEN ADMINISTRASI ====================

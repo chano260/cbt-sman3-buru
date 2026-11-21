@@ -15,8 +15,9 @@
         <span>SMA Negeri 3 Buru • Manajemen Bank Soal & Rekap Nilai</span>
       </div>
     </div>
-    <div class="topbar-right">
+    <div class="topbar-right" style="display:flex;gap:8px;align-items:center;">
       <span class="chip" id="guruNameChip">Guru Mapel</span>
+      <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;" onclick="doGuruLogout()">Ganti Akun</button>
       <a href="/" class="btn btn-sm btn-outline">Menu Utama</a>
     </div>
   </div>
@@ -224,7 +225,9 @@
       <div style="padding:16px;">
         <div class="form-group" style="margin-bottom:12px;">
           <label style="font-size:12px;font-weight:700;">Mata Pelajaran *</label>
-          <input id="newBkSubject" class="input" placeholder="Misal: Matematika / Kimia / Bahasa Inggris">
+          <div id="newBkSubjectContainer">
+            <input id="newBkSubject" class="input" placeholder="Misal: Matematika / Kimia / Bahasa Inggris">
+          </div>
         </div>
         <div class="form-group" style="margin-bottom:12px;">
           <label style="font-size:12px;font-weight:700;">Nama Paket Ujian *</label>
@@ -249,14 +252,50 @@
   <script>
     let currentExamId = null;
     let staffToken = sessionStorage.getItem('cbt_guru_token') || '';
+    let currentTeacherProfile = null;
 
     function authHeaders(extra = {}) {
       return { ...extra, 'Authorization': `Bearer ${staffToken}` };
     }
 
     function openCreateBankSoalModal() {
+      const container = document.getElementById('newBkSubjectContainer');
+      const subjects = (currentTeacherProfile && currentTeacherProfile.subjects && currentTeacherProfile.subjects.length > 0)
+        ? currentTeacherProfile.subjects
+        : [];
+
+      if (subjects.length > 1) {
+        // Jika guru mengampu 2 mapel atau lebih: sediakan dropdown mapel pengampu
+        container.innerHTML = `
+          <select id="newBkSubject" class="input" style="font-weight:600;background:#fff;" onchange="onBkSubjectSelectChange(this)">
+            ${subjects.map(s => `<option value="${s}">Mapel Pengampu: ${s}</option>`).join('')}
+            <option value="__CUSTOM__">+ Ketik Mata Pelajaran Lain...</option>
+          </select>
+          <input id="newBkSubjectCustom" class="input" placeholder="Ketik nama mata pelajaran..." style="display:none;margin-top:6px;">
+        `;
+      } else if (subjects.length === 1) {
+        // Jika guru mengampu 1 mapel: kunci mapel tersebut agar praktis & tidak salah ketik
+        container.innerHTML = `
+          <input id="newBkSubject" class="input" value="${subjects[0]}" readonly style="background:#f1f5f9;font-weight:600;color:#0f172a;">
+          <small style="color:var(--muted);font-size:11.5px;margin-top:3px;display:block;">Mapel pengampu akun Anda: <b>${subjects[0]}</b></small>
+        `;
+      } else {
+        container.innerHTML = `
+          <input id="newBkSubject" class="input" placeholder="Misal: Matematika / Kimia / Fisika">
+        `;
+      }
+
       document.getElementById('modalCreateBankSoal').style.display = 'flex';
-      document.getElementById('newBkSubject').focus();
+      const el = document.getElementById('newBkTitle');
+      if (el) el.focus();
+    }
+
+    function onBkSubjectSelectChange(sel) {
+      const cust = document.getElementById('newBkSubjectCustom');
+      if (cust) {
+        cust.style.display = sel.value === '__CUSTOM__' ? 'block' : 'none';
+        if (sel.value === '__CUSTOM__') cust.focus();
+      }
     }
 
     function closeCreateBankSoalModal() {
@@ -264,7 +303,18 @@
     }
 
     async function submitCreateBankSoal() {
-      const subject = (document.getElementById('newBkSubject').value || '').trim();
+      let subject = '';
+      const sel = document.getElementById('newBkSubject');
+      if (sel && sel.tagName === 'SELECT') {
+        if (sel.value === '__CUSTOM__') {
+          subject = (document.getElementById('newBkSubjectCustom').value || '').trim();
+        } else {
+          subject = sel.value;
+        }
+      } else if (sel) {
+        subject = sel.value.trim();
+      }
+
       const title = (document.getElementById('newBkTitle').value || '').trim();
       const class_target = (document.getElementById('newBkClass').value || '').trim();
       const duration_minutes = Number(document.getElementById('newBkDuration').value) || 90;
@@ -305,9 +355,17 @@
       }
       staffToken = data.staffToken;
       sessionStorage.setItem('cbt_guru_token', staffToken);
-      document.getElementById('guruNameChip').textContent = data.user.full_name;
       document.getElementById('loginOverlay').style.display = 'none';
       loadExams();
+    }
+
+    function doGuruLogout() {
+      sessionStorage.removeItem('cbt_guru_token');
+      staffToken = '';
+      currentExamId = null;
+      currentTeacherProfile = null;
+      document.getElementById('guruNameChip').textContent = 'Guru Mapel';
+      document.getElementById('loginOverlay').style.display = 'flex';
     }
 
     function switchGuruTab(tabId, btn) {
@@ -332,16 +390,43 @@
         return;
       }
       const data = await res.json();
-      const sel = document.getElementById('examSelector');
-      sel.innerHTML = data.exams.map(e => `
-        <option value="${e.id}">${e.subject} — ${e.title} (${e.class_target || 'Semua Kelas'}) [${e.pgCount || 0} PG, ${e.esaiCount || 0} Esai]${e.teacher_name ? ' • Guru: ' + e.teacher_name : ''}</option>
-      `).join('');
-      if (data.exams.length > 0) {
-        currentExamId = currentExamId || data.exams[0].id;
-        sel.value = currentExamId;
-        loadQuestions();
-        loadScores();
+      currentTeacherProfile = data.teacher || null;
+      if (currentTeacherProfile) {
+        const subjs = currentTeacherProfile.subjects && currentTeacherProfile.subjects.length > 0
+          ? currentTeacherProfile.subjects.join(', ')
+          : (currentTeacherProfile.subject || 'Semua Mapel');
+        document.getElementById('guruNameChip').innerHTML = `👤 <b>${currentTeacherProfile.full_name}</b> <span style="font-size:11px;opacity:0.88;background:rgba(255,255,255,0.22);padding:2px 7px;border-radius:4px;margin-left:5px;">Mapel: ${subjs}</span>`;
       }
+
+      const sel = document.getElementById('examSelector');
+      if (!data.exams || data.exams.length === 0) {
+        sel.innerHTML = '<option value="">-- Belum ada Bank Soal. Klik "+ Buat Bank Soal Baru" --</option>';
+        currentExamId = null;
+        document.getElementById('questionsListContainer').innerHTML = `
+          <div style="text-align:center;padding:36px 16px;background:#f8fafc;border-radius:12px;border:1.5px dashed #cbd5e1;">
+            <div style="font-size:32px;margin-bottom:8px;">📦</div>
+            <div style="font-weight:700;font-size:15px;color:#1e293b;margin-bottom:4px;">Belum Ada Bank Soal untuk Akun Anda</div>
+            <p style="font-size:13px;color:var(--muted);max-width:440px;margin:0 auto 16px auto;">
+              Akun Anda belum memiliki paket soal. Silakan klik tombol <b>"+ Buat Bank Soal Baru"</b> di atas untuk membuat paket soal baru.
+            </p>
+            <button class="btn btn-primary" onclick="openCreateBankSoalModal()">+ Buat Bank Soal Baru</button>
+          </div>
+        `;
+        document.getElementById('totalQBadge').textContent = '0 Soal';
+        document.getElementById('guruScoresBody').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted);">Belum ada paket ujian yang dipilih.</td></tr>';
+        return;
+      }
+
+      sel.innerHTML = data.exams.map(e => `
+        <option value="${e.id}">[${e.subject}] ${e.title} (${e.class_target || 'Semua Kelas'}) — ${e.totalCount || 0} Soal (${e.pgCount || 0} PG, ${e.esaiCount || 0} Esai)</option>
+      `).join('');
+
+      if (!currentExamId || !data.exams.some(e => e.id === currentExamId)) {
+        currentExamId = data.exams[0].id;
+      }
+      sel.value = currentExamId;
+      loadQuestions();
+      loadScores();
     }
 
     function onExamChange() {
@@ -455,6 +540,10 @@
     }
 
     async function uploadWordFile() {
+      if (!currentExamId) {
+        alert('Silakan buat atau pilih Bank Soal terlebih dahulu menggunakan tombol "+ Buat Bank Soal Baru".');
+        return;
+      }
       const fileInput = document.getElementById('wordFileInput');
       if (!fileInput.files || !fileInput.files[0]) {
         alert('Silakan pilih file Microsoft Word (.docx) terlebih dahulu.');
@@ -484,6 +573,10 @@
     }
 
     async function addManualQuestion() {
+      if (!currentExamId) {
+        alert('Silakan buat atau pilih Bank Soal terlebih dahulu menggunakan tombol "+ Buat Bank Soal Baru".');
+        return;
+      }
       const fd = new FormData();
       fd.append('number', document.getElementById('qNum').value);
       fd.append('type', document.getElementById('qType').value);

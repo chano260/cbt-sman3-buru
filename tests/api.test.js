@@ -736,6 +736,180 @@ test('Teacher can create Bank Soal in guru panel, and Operator can select from d
   assert.equal(afterActive.session_name, 'Sesi 1 (08:00 WIT)');
 });
 
+test('Teacher account subject isolation: teachers only see/edit their own subjects, multi-subject teachers manage both, cross-access is 403 Forbidden', async (t) => {
+  const db = initDb(':memory:');
+  const app = createApp(db);
+  const server = app.listen(0);
+  t.after(() => server.close());
+  const port = server.address().port;
+  const base = `http://127.0.0.1:${port}`;
+
+  // 1. Operator login dan membuat dua akun guru:
+  // - Guru Matematika (1 mapel: 'Matematika')
+  // - Guru Multi (2 mapel: 'Fisika, Biologi')
+  const opAuth = await fetch(`${base}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'operator', password: 'admin123', role: 'operator' })
+  }).then(r => r.json());
+
+  const addMathTeacher = await fetch(`${base}/api/operator/staff`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${opAuth.staffToken}` },
+    body: JSON.stringify({
+      username: 'guru_mtk',
+      password: 'mtk123',
+      full_name: 'Bpk. Hendra, S.Pd.',
+      role: 'guru',
+      subject: 'Matematika'
+    })
+  }).then(r => r.json());
+  assert.ok(addMathTeacher.id);
+
+  const addMultiTeacher = await fetch(`${base}/api/operator/staff`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${opAuth.staffToken}` },
+    body: JSON.stringify({
+      username: 'guru_multi',
+      password: 'multi123',
+      full_name: 'Ibu Nurhayati, M.Pd.',
+      role: 'guru',
+      subject: 'Fisika, Biologi'
+    })
+  }).then(r => r.json());
+  assert.ok(addMultiTeacher.id);
+
+  // 2. Guru Matematika login
+  const mathAuth = await fetch(`${base}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'guru_mtk', password: 'mtk123', role: 'guru' })
+  }).then(r => r.json());
+  assert.equal(mathAuth.user.subject, 'Matematika');
+
+  // Cek list exam guru matematika: masih kosong (tidak melihat exam Kimia default milik guru lain)
+  const mathExams1 = await fetch(`${base}/api/guru/exams`, {
+    headers: { 'Authorization': `Bearer ${mathAuth.staffToken}` }
+  }).then(r => r.json());
+  assert.equal(mathExams1.exams.length, 0);
+  assert.deepEqual(mathExams1.teacher.subjects, ['Matematika']);
+
+  // Guru Matematika buat Bank Soal Matematika
+  const mathCreate = await fetch(`${base}/api/guru/exams`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${mathAuth.staffToken}` },
+    body: JSON.stringify({ subject: 'Matematika', title: 'PAS Matematika Peminatan', class_target: 'XII IPA' })
+  }).then(r => r.json());
+  assert.ok(mathCreate.id);
+
+  // Tambah 1 soal pada paket Matematika
+  const fdMath = new FormData();
+  fdMath.append('number', '1');
+  fdMath.append('type', 'PG');
+  fdMath.append('question_text', 'Hasil dari 2x + 5 = 15 adalah...');
+  fdMath.append('option_a', '5');
+  fdMath.append('option_b', '10');
+  fdMath.append('answer_key', 'A');
+
+  const addQMath = await fetch(`${base}/api/guru/exams/${mathCreate.id}/questions`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${mathAuth.staffToken}` },
+    body: fdMath
+  }).then(r => r.json());
+  assert.ok(addQMath.id);
+
+  // 3. Guru Kimia (default 'guru') login: TIDAK boleh melihat exam Matematika
+  const kimAuth = await fetch(`${base}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'guru', password: 'guru123', role: 'guru' })
+  }).then(r => r.json());
+
+  const kimExams = await fetch(`${base}/api/guru/exams`, {
+    headers: { 'Authorization': `Bearer ${kimAuth.staffToken}` }
+  }).then(r => r.json());
+  assert.ok(kimExams.exams.some(e => e.subject.includes('Kimia')));
+  assert.ok(!kimExams.exams.some(e => e.id === mathCreate.id)); // Tidak ada ujian Matematika!
+
+  // Guru Kimia mencoba mengakses/mengintip butir soal Matematika -> 403 Forbidden!
+  const crossAccessQ = await fetch(`${base}/api/guru/exams/${mathCreate.id}/questions`, {
+    headers: { 'Authorization': `Bearer ${kimAuth.staffToken}` }
+  });
+  assert.equal(crossAccessQ.status, 403);
+
+  // Guru Kimia mencoba menambah soal ke paket Matematika -> 403 Forbidden!
+  const fdCross = new FormData();
+  fdCross.append('number', '2');
+  fdCross.append('type', 'PG');
+  fdCross.append('question_text', 'Hacking question');
+  fdCross.append('answer_key', 'B');
+
+  const crossAddQ = await fetch(`${base}/api/guru/exams/${mathCreate.id}/questions`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${kimAuth.staffToken}` },
+    body: fdCross
+  });
+  assert.equal(crossAddQ.status, 403);
+
+  // Guru Kimia mencoba menghapus soal Matematika -> 403 Forbidden!
+  const crossDelQ = await fetch(`${base}/api/guru/questions/${addQMath.id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${kimAuth.staffToken}` }
+  });
+  assert.equal(crossDelQ.status, 403);
+
+  // 4. Guru Multi-Mapel ('Fisika, Biologi') login
+  const multiAuth = await fetch(`${base}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'guru_multi', password: 'multi123', role: 'guru' })
+  }).then(r => r.json());
+
+  const multiProfile = await fetch(`${base}/api/guru/exams`, {
+    headers: { 'Authorization': `Bearer ${multiAuth.staffToken}` }
+  }).then(r => r.json());
+  assert.deepEqual(multiProfile.teacher.subjects, ['Fisika', 'Biologi']);
+
+  // Buat paket Fisika
+  const fisikaBk = await fetch(`${base}/api/guru/exams`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${multiAuth.staffToken}` },
+    body: JSON.stringify({ subject: 'Fisika', title: 'PAS Fisika Inti' })
+  }).then(r => r.json());
+
+  // Buat paket Biologi
+  const bioBk = await fetch(`${base}/api/guru/exams`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${multiAuth.staffToken}` },
+    body: JSON.stringify({ subject: 'Biologi', title: 'PAS Genetika' })
+  }).then(r => r.json());
+
+  // Guru multi melihat kedua paket miliknya (Fisika & Biologi)
+  const multiExamsAfter = await fetch(`${base}/api/guru/exams`, {
+    headers: { 'Authorization': `Bearer ${multiAuth.staffToken}` }
+  }).then(r => r.json());
+  assert.equal(multiExamsAfter.exams.length, 2);
+  assert.ok(multiExamsAfter.exams.some(e => e.id === fisikaBk.id));
+  assert.ok(multiExamsAfter.exams.some(e => e.id === bioBk.id));
+
+  // 5. Operator login: dapat melihat seluruh paket dari semua guru
+  const opOverview = await fetch(`${base}/api/operator/overview`, {
+    headers: { 'Authorization': `Bearer ${opAuth.staffToken}` }
+  }).then(r => r.json());
+  assert.ok(opOverview.exams.some(e => e.id === mathCreate.id));
+  assert.ok(opOverview.exams.some(e => e.id === fisikaBk.id));
+  assert.ok(opOverview.exams.some(e => e.id === bioBk.id));
+
+  // 6. Operator menghapus akun staf guru_multi
+  const delStaff = await fetch(`${base}/api/operator/staff/${addMultiTeacher.id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${opAuth.staffToken}` }
+  }).then(r => r.json());
+  assert.equal(delStaff.ok, true);
+  assert.equal(delStaff.deleted, addMultiTeacher.id);
+});
+
+
 
 
 

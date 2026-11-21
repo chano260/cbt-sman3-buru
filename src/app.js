@@ -285,6 +285,28 @@ function createApp(db) {
     };
   }
 
+  function teacherCanAccessExam(staffUser, examOrObj) {
+    if (!examOrObj || !staffUser) return false;
+    if (staffUser.role === 'operator') return true;
+    if (staffUser.role !== 'guru') return false;
+
+    const teacherId = Number(staffUser.id);
+    if (examOrObj.teacher_id !== null && examOrObj.teacher_id !== undefined) {
+      return Number(examOrObj.teacher_id) === teacherId;
+    }
+
+    if (staffUser.subject) {
+      const teacherSubjects = staffUser.subject
+        .split(/[,;&/]+/)
+        .map(s => s.trim().toLowerCase())
+        .filter(Boolean);
+      const examSubj = (examOrObj.subject || '').trim().toLowerCase();
+      return teacherSubjects.some(ts => ts === examSubj || examSubj.includes(ts) || ts.includes(examSubj));
+    }
+
+    return false;
+  }
+
   function requireStaffAuth(allowedRoles) {
     return (req, res, next) => {
       const authHeader = req.headers.authorization || '';
@@ -455,9 +477,24 @@ function createApp(db) {
     if (!title) return res.status(400).json({ error: 'Nama ujian wajib diisi' });
     const token = generateRandomToken();
     db.prepare('UPDATE exams SET is_active = 0').run();
+
+    let targetTeacherId = null;
+    if (req.body && req.body.teacher_id) {
+      targetTeacherId = Number(req.body.teacher_id);
+    } else {
+      const teachers = db.prepare("SELECT id, subject FROM users WHERE role = 'guru'").all();
+      const cleanSubj = String(subject || '').trim().toLowerCase();
+      const match = teachers.find(t => {
+        if (!t.subject) return false;
+        const subjs = t.subject.split(/[,;&/]+/).map(s => s.trim().toLowerCase());
+        return subjs.some(s => s === cleanSubj || cleanSubj.includes(s) || s.includes(cleanSubj));
+      });
+      if (match) targetTeacherId = match.id;
+    }
+
     const info = db.prepare(`
       INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, shuffle_questions, is_active, teacher_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 2)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
     `).run(
       title,
       subject,
@@ -468,7 +505,8 @@ function createApp(db) {
       Number(duration_minutes) || 90,
       token,
       nowIso,
-      shuffle_questions !== undefined ? (shuffle_questions ? 1 : 0) : 1
+      shuffle_questions !== undefined ? (shuffle_questions ? 1 : 0) : 1,
+      targetTeacherId
     );
     res.json({ id: Number(info.lastInsertRowid), token });
   });
@@ -652,6 +690,17 @@ function createApp(db) {
     }
   });
 
+  app.delete('/api/operator/staff/:id', requireStaffAuth(['operator']), (req, res) => {
+    const staffId = Number(req.params.id);
+    const target = db.prepare('SELECT * FROM users WHERE id = ?').get(staffId);
+    if (!target) return res.status(404).json({ error: 'Akun staf tidak ditemukan' });
+    if (target.id === req.staffUser.id) {
+      return res.status(400).json({ error: 'Tidak dapat menghapus akun operator yang sedang aktif digunakan' });
+    }
+    db.prepare('DELETE FROM users WHERE id = ?').run(staffId);
+    res.json({ ok: true, deleted: staffId });
+  });
+
   app.get('/api/operator/print-data', requireStaffAuth(['operator']), async (req, res) => {
     const { room, class_name } = req.query;
     let sql = 'SELECT * FROM students WHERE 1=1';
@@ -684,7 +733,8 @@ function createApp(db) {
 
   // ==================== PANEL GURU MAPEL ====================
   app.get('/api/guru/exams', requireStaffAuth(['guru', 'operator']), (req, res) => {
-    const exams = db.prepare(`
+    const isOperator = req.staffUser && req.staffUser.role === 'operator';
+    let query = `
       SELECT e.*,
         u.full_name AS teacher_name,
         (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id AND q.type = 'PG') AS pg_count,
@@ -692,15 +742,51 @@ function createApp(db) {
         (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id) AS total_questions
       FROM exams e
       LEFT JOIN users u ON e.teacher_id = u.id
-      ORDER BY e.id DESC
-    `).all();
+    `;
+    const params = [];
+
+    if (!isOperator) {
+      const teacherId = req.staffUser.id;
+      const subjects = (req.staffUser.subject || '')
+        .split(/[,;&/]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      if (subjects.length > 0) {
+        const placeholders = subjects.map(() => '?').join(',');
+        query += ` WHERE e.teacher_id = ? OR (e.teacher_id IS NULL AND e.subject IN (${placeholders}))`;
+        params.push(teacherId, ...subjects);
+      } else {
+        query += ` WHERE e.teacher_id = ?`;
+        params.push(teacherId);
+      }
+    }
+
+    query += ` ORDER BY e.id DESC`;
+    const exams = db.prepare(query).all(...params);
     const enriched = exams.map(ex => ({
       ...ex,
       pgCount: ex.pg_count,
       esaiCount: ex.esai_count,
       totalCount: ex.total_questions
     }));
-    res.json({ exams: enriched });
+
+    const userSubjects = (req.staffUser.subject || '')
+      .split(/[,;&/]+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    res.json({
+      exams: enriched,
+      teacher: {
+        id: req.staffUser.id,
+        full_name: req.staffUser.full_name,
+        username: req.staffUser.username,
+        role: req.staffUser.role,
+        subject: req.staffUser.subject,
+        subjects: userSubjects
+      }
+    });
   });
 
   app.post('/api/guru/exams', requireStaffAuth(['guru', 'operator']), (req, res) => {
@@ -732,6 +818,10 @@ function createApp(db) {
   app.get('/api/guru/exams/:id/questions', requireStaffAuth(['guru', 'operator']), (req, res) => {
     const examId = Number(req.params.id);
     const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);
+    if (!exam) return res.status(404).json({ error: 'Ujian tidak ditemukan' });
+    if (!teacherCanAccessExam(req.staffUser, exam)) {
+      return res.status(403).json({ error: 'Akses ditolak: Anda tidak memiliki akses ke paket ujian ini.' });
+    }
     const questions = db.prepare('SELECT * FROM questions WHERE exam_id = ? ORDER BY number ASC, id ASC').all(examId);
     res.json({ exam, questions });
   });
@@ -743,6 +833,11 @@ function createApp(db) {
 
   app.post('/api/guru/exams/:id/questions', requireStaffAuth(['guru', 'operator']), mediaFieldsUpload, (req, res) => {
     const examId = Number(req.params.id);
+    const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);
+    if (!exam) return res.status(404).json({ error: 'Ujian tidak ditemukan' });
+    if (!teacherCanAccessExam(req.staffUser, exam)) {
+      return res.status(403).json({ error: 'Akses ditolak: Anda tidak memiliki akses ke paket ujian ini.' });
+    }
     const { number, type, question_text, option_a, option_b, option_c, option_d, option_e, answer_key, image_data, audio_data } = req.body || {};
     if (!question_text) return res.status(400).json({ error: 'Teks soal wajib diisi' });
     const qType = type === 'ESAI' ? 'ESAI' : 'PG';
@@ -776,8 +871,11 @@ function createApp(db) {
   // Upload atau Ganti Gambar & Audio Listening (.mp3/.wav) pada Soal Tertentu
   app.post('/api/guru/questions/:questionId/media', requireStaffAuth(['guru', 'operator']), mediaFieldsUpload, (req, res) => {
     const questionId = Number(req.params.questionId);
-    const existing = db.prepare('SELECT * FROM questions WHERE id = ?').get(questionId);
+    const existing = db.prepare('SELECT q.*, e.teacher_id, e.subject FROM questions q JOIN exams e ON q.exam_id = e.id WHERE q.id = ?').get(questionId);
     if (!existing) return res.status(404).json({ error: 'Soal tidak ditemukan' });
+    if (!teacherCanAccessExam(req.staffUser, existing)) {
+      return res.status(403).json({ error: 'Akses ditolak: Anda tidak memiliki akses ke butir soal ini.' });
+    }
 
     const imgFile = req.files && req.files.image ? req.files.image[0] : null;
     const audFile = req.files && req.files.audio ? req.files.audio[0] : null;
@@ -796,8 +894,14 @@ function createApp(db) {
   });
 
   app.delete('/api/guru/questions/:questionId', requireStaffAuth(['guru', 'operator']), (req, res) => {
-    db.prepare('DELETE FROM questions WHERE id = ?').run(Number(req.params.questionId));
-    invalidateQuestionsCache();
+    const questionId = Number(req.params.questionId);
+    const existing = db.prepare('SELECT q.*, e.teacher_id, e.subject FROM questions q JOIN exams e ON q.exam_id = e.id WHERE q.id = ?').get(questionId);
+    if (!existing) return res.status(404).json({ error: 'Soal tidak ditemukan' });
+    if (!teacherCanAccessExam(req.staffUser, existing)) {
+      return res.status(403).json({ error: 'Akses ditolak: Anda tidak memiliki akses ke butir soal ini.' });
+    }
+    db.prepare('DELETE FROM questions WHERE id = ?').run(questionId);
+    invalidateQuestionsCache(existing.exam_id);
     res.json({ ok: true });
   });
 
@@ -811,6 +915,12 @@ function createApp(db) {
   app.post('/api/guru/exams/:id/import-word', requireStaffAuth(['guru', 'operator']), upload.single('file'), async (req, res) => {
     try {
       const examId = Number(req.params.id);
+      const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);
+      if (!exam) return res.status(404).json({ error: 'Ujian tidak ditemukan' });
+      if (!teacherCanAccessExam(req.staffUser, exam)) {
+        return res.status(403).json({ error: 'Akses ditolak: Anda tidak memiliki akses ke paket ujian ini.' });
+      }
+
       const replaceExisting = req.body && String(req.body.replace) === 'true';
       let parsed = [];
 
@@ -864,12 +974,22 @@ function createApp(db) {
 
   app.get('/api/guru/exams/:id/scores', requireStaffAuth(['guru', 'operator']), (req, res) => {
     const examId = Number(req.params.id);
+    const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);
+    if (!exam) return res.status(404).json({ error: 'Ujian tidak ditemukan' });
+    if (!teacherCanAccessExam(req.staffUser, exam)) {
+      return res.status(403).json({ error: 'Akses ditolak: Anda tidak memiliki akses ke nilai paket ujian ini.' });
+    }
     const data = calculateExamScores(db, examId);
     res.json(data);
   });
 
   app.get('/api/guru/exams/:id/export-excel', requireStaffAuth(['guru', 'operator']), (req, res) => {
     const examId = Number(req.params.id);
+    const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);
+    if (!exam) return res.status(404).send('Ujian tidak ditemukan');
+    if (!teacherCanAccessExam(req.staffUser, exam)) {
+      return res.status(403).send('Akses ditolak: Anda tidak memiliki akses ke nilai ujian ini.');
+    }
     const data = calculateExamScores(db, examId);
     if (!data.exam) return res.status(404).send('Ujian tidak ditemukan');
 
@@ -937,6 +1057,13 @@ function createApp(db) {
     const sessionId = Number(req.params.sessionId);
     const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(sessionId);
     if (!session) return res.status(404).json({ error: 'Sesi siswa tidak ditemukan' });
+
+    if (req.staffUser && req.staffUser.role === 'guru') {
+      const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(session.exam_id);
+      if (!teacherCanAccessExam(req.staffUser, exam)) {
+        return res.status(403).json({ error: 'Akses ditolak: Anda tidak memiliki akses ke lembar kerja ini.' });
+      }
+    }
 
     const student = db.prepare('SELECT * FROM students WHERE id = ?').get(session.student_id);
     const questions = db.prepare('SELECT id, number, type, question_text, option_a, option_b, option_c, option_d, option_e FROM questions WHERE exam_id = ? ORDER BY number ASC').all(session.exam_id);

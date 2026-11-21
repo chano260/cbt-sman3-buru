@@ -10,3 +10,8 @@ node_modules/
 
 public/uploads/*
 !public/uploads/.gitkeep
+
+# Output build APK & kunci tanda tangan (jangan di-commit)
+android-exambro/build-out/
+*.jks
+*.keystore

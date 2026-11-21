@@ -18,8 +18,50 @@ fs.mkdirSync(uploadsDir, { recursive: true });
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 } // Maks 25 MB per file audio/gambar
+  limits: { fileSize: 25 * 1024 * 1024, fieldSize: 12 * 1024 * 1024 } // Maks 25 MB per file audio/gambar
 });
+
+// Impor Excel dibatasi ketat (mitigasi kerentanan xlsx 0.18.5 saat membaca file berbahaya)
+const EXCEL_MAX_BYTES = 2 * 1024 * 1024;
+const excelUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: EXCEL_MAX_BYTES, files: 1 } });
+
+const ESSAY_PHOTO_MAX_BYTES = 8 * 1024 * 1024;
+
+// Cek isi file benar-benar gambar (bukan sekadar nama berakhiran .jpg)
+function looksLikeImage(buf) {
+  if (!buf || buf.length < 3) return false;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true; // JPEG (signature 3 byte)
+  if (buf.length < 4) return false;
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return true; // PNG
+  if (buf.slice(0, 4).toString('ascii') === 'GIF8') return true; // GIF
+  if (buf.length >= 12 && buf.slice(0, 4).toString('ascii') === 'RIFF' && buf.slice(8, 12).toString('ascii') === 'WEBP') return true;
+  return false;
+}
+
+function removeUploadedFile(url) {
+  if (!url || !String(url).startsWith('/uploads/')) return;
+  const name = path.basename(String(url));
+  if (!name || name === '.gitkeep') return;
+  try { fs.unlinkSync(path.join(uploadsDir, name)); } catch {}
+}
+
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+// Ubah sheet menjadi baris objek tanpa prototype (kunci seperti __proto__ diabaikan)
+function safeSheetRows(ws) {
+  const matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+  if (!matrix.length) return [];
+  const headers = matrix[0].map(h => String(h || '').trim());
+  return matrix.slice(1).map(cells => {
+    const obj = Object.create(null);
+    headers.forEach((h, i) => {
+      if (!h || UNSAFE_KEYS.has(h)) return;
+      const v = cells[i];
+      if (v !== '' && v !== undefined && v !== null) obj[h] = v;
+    });
+    return obj;
+  }).filter(r => Object.keys(r).length > 0);
+}
 
 // SVG sengaja tidak diizinkan: file SVG dapat memuat skrip (stored XSS) karena disajikan dari domain yang sama
 const ALLOWED_MEDIA_EXT = {
@@ -243,9 +285,26 @@ function calculateExamScores(db, examId) {
   const pgCount = pgQuestions.length;
   const keyMap = new Map(pgQuestions.map(q => [q.id, (q.answer_key || '').toUpperCase()]));
 
-  const students = db.prepare('SELECT * FROM students ORDER BY room ASC, seat_number ASC, full_name ASC').all();
   const sessions = db.prepare('SELECT * FROM exam_sessions WHERE exam_id = ?').all(examId);
   const sessionMap = new Map(sessions.map(s => [s.student_id, s]));
+  // Hanya siswa kelas target ujian, ditambah siswa yang sudah punya sesi (misal setelah pindah kelas)
+  const students = db.prepare('SELECT * FROM students ORDER BY room ASC, seat_number ASC, full_name ASC').all()
+    .filter(st => sessionMap.has(st.id) || classInTarget(st.class_name, exam.class_target));
+
+  // Satu query untuk semua jawaban ujian ini (bukan satu query per siswa)
+  const answersBySession = new Map();
+  const allAnswers = db.prepare(`
+    SELECT a.session_id, a.question_id, a.chosen_option, a.updated_at, q.number
+    FROM answers a
+    JOIN questions q ON q.id = a.question_id
+    JOIN exam_sessions s ON s.id = a.session_id
+    WHERE s.exam_id = ?
+    ORDER BY q.number ASC
+  `).all(examId);
+  for (const a of allAnswers) {
+    if (!answersBySession.has(a.session_id)) answersBySession.set(a.session_id, []);
+    answersBySession.get(a.session_id).push(a);
+  }
 
   const scores = students.map(student => {
     const sess = sessionMap.get(student.id);
@@ -277,13 +336,7 @@ function calculateExamScores(db, examId) {
       };
     }
 
-    const ansRows = db.prepare(`
-      SELECT a.question_id, a.chosen_option, a.updated_at, q.number
-      FROM answers a
-      JOIN questions q ON q.id = a.question_id
-      WHERE a.session_id = ?
-      ORDER BY q.number ASC
-    `).all(sess.id);
+    const ansRows = answersBySession.get(sess.id) || [];
 
     let correct = 0;
     let answeredPg = 0;
@@ -631,6 +684,24 @@ function createApp(db) {
         }
       }
 
+      // Satu query untuk jawaban semua sesi terbaru (bukan satu query per siswa)
+      const overviewAnswers = new Map();
+      const latestIds = [...latestSessionByStudent.values()].map(s => s.id);
+      for (let i = 0; i < latestIds.length; i += 400) {
+        const chunk = latestIds.slice(i, i + 400);
+        const rows = db.prepare(`
+          SELECT a.session_id, a.question_id, a.chosen_option, a.updated_at, q.number
+          FROM answers a
+          JOIN questions q ON q.id = a.question_id
+          WHERE a.session_id IN (${chunk.map(() => '?').join(',')})
+          ORDER BY q.number ASC
+        `).all(...chunk);
+        for (const a of rows) {
+          if (!overviewAnswers.has(a.session_id)) overviewAnswers.set(a.session_id, []);
+          overviewAnswers.get(a.session_id).push(a);
+        }
+      }
+
       const examIdsInSessions = [...new Set(allSessions.map(s => s.exam_id))];
       const examDataCache = new Map();
       for (const exId of examIdsInSessions) {
@@ -672,13 +743,7 @@ function createApp(db) {
         }
 
         const cache = examDataCache.get(sess.exam_id) || { pgCount: 0, keyMap: new Map() };
-        const ansRows = db.prepare(`
-          SELECT a.question_id, a.chosen_option, a.updated_at, q.number
-          FROM answers a
-          JOIN questions q ON q.id = a.question_id
-          WHERE a.session_id = ?
-          ORDER BY q.number ASC
-        `).all(sess.id);
+        const ansRows = overviewAnswers.get(sess.id) || [];
 
         let correct = 0;
         let answeredPg = 0;
@@ -769,6 +834,9 @@ function createApp(db) {
   app.post('/api/operator/token', requireStaffAuth(['operator']), (req, res) => {
     const { examId, customToken } = req.body || {};
     const newToken = customToken ? String(customToken).toUpperCase().trim() : generateRandomToken();
+    if (!/^[A-Z0-9]{4,8}$/.test(newToken)) {
+      return res.status(400).json({ error: 'Token custom harus 4-8 karakter huruf/angka tanpa spasi.' });
+    }
     const targetExam = examId
       ? db.prepare('SELECT id FROM exams WHERE id = ?').get(examId)
       : db.prepare('SELECT id FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
@@ -967,14 +1035,21 @@ function createApp(db) {
   });
 
   // Import Data Peserta Sekaligus dari Excel (.xlsx)
-  app.post('/api/operator/students/import-excel', requireStaffAuth(['operator']), upload.single('file'), (req, res) => {
+  app.post('/api/operator/students/import-excel', requireStaffAuth(['operator']), excelUpload.single('file'), (req, res) => {
     try {
       if (!req.file || !req.file.buffer) {
         return res.status(400).json({ error: 'File Excel (.xlsx) tidak ditemukan' });
       }
-      const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const ext = path.extname(String(req.file.originalname || '')).toLowerCase();
+      if (ext !== '.xlsx' && ext !== '.xls') {
+        return res.status(400).json({ error: 'Format file harus Excel (.xlsx atau .xls).' });
+      }
+      // Hasil rumus tetap terbaca dari nilai tersimpan di file; teks rumus, HTML, gaya & makro tidak diproses
+      const wb = XLSX.read(req.file.buffer, {
+        type: 'buffer', cellFormula: false, cellHTML: false, cellStyles: false, bookVBA: false, sheets: 0
+      });
       const sheetName = wb.SheetNames[0];
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
+      const rows = safeSheetRows(wb.Sheets[sheetName]);
       if (!rows || rows.length === 0) {
         return res.status(400).json({ error: 'File Excel kosong' });
       }
@@ -2002,7 +2077,7 @@ function createApp(db) {
 
     if (!tokenMatches(activeExam, token)) {
       return res.status(403).json({
-        error: 'Token Ujian tidak sesuai atau sudah berganti! Silakan periksa token 6-digit terbaru di papan pengumuman atau tanyakan ke pengawas.'
+        error: 'Token Ujian tidak sesuai atau sudah berganti! Silakan periksa token terbaru di papan pengumuman atau tanyakan ke pengawas.'
       });
     }
 
@@ -2118,13 +2193,21 @@ function createApp(db) {
     if (!question) return res.status(404).json({ error: 'Soal tidak ditemukan pada jadwal ujian ini.' });
     if (question.type !== 'ESAI') return res.status(400).json({ error: 'Hanya soal esai yang dapat mengunggah foto lembar jawaban.' });
 
+    const notImage = () => res.status(400).json({ error: 'File yang diunggah bukan foto yang valid (gunakan JPG/PNG/WEBP).' });
+    const tooBig = () => res.status(413).json({ error: 'Ukuran foto terlalu besar (maksimal 8 MB). Foto ulang dengan resolusi lebih kecil.' });
+    const previous = db.prepare('SELECT essay_photo FROM answers WHERE session_id = ? AND question_id = ?').get(session.id, question.id);
+
     let photoUrl = null;
     if (req.file) {
+      if (req.file.size > ESSAY_PHOTO_MAX_BYTES) return tooBig();
+      if (!looksLikeImage(req.file.buffer)) return notImage();
       photoUrl = saveUploadedMediaFile(req.file, `essay-s${sessionId}-q${question.number}`);
     } else if (req.body.photoBase64) {
-      const base64Data = req.body.photoBase64.replace(/^data:image\/\w+;base64,/, '');
+      const base64Data = String(req.body.photoBase64).replace(/^data:image\/\w+;base64,/, '');
+      if (base64Data.length * 0.75 > ESSAY_PHOTO_MAX_BYTES) return tooBig();
       const buf = Buffer.from(base64Data, 'base64');
-      const filename = `essay-s${sessionId}-q${question.number}-${Date.now()}.jpg`;
+      if (!looksLikeImage(buf)) return notImage();
+      const filename = `essay-s${sessionId}-q${question.number}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}.jpg`;
       fs.writeFileSync(path.join(uploadsDir, filename), buf);
       photoUrl = `/uploads/${filename}`;
     } else {
@@ -2140,6 +2223,9 @@ function createApp(db) {
         essay_photo = excluded.essay_photo,
         updated_at = excluded.updated_at
     `).run(session.id, question.id, photoUrl, nowIso);
+
+    // Foto ulang menggantikan foto lama agar disk server tidak penuh
+    if (previous && previous.essay_photo && previous.essay_photo !== photoUrl) removeUploadedFile(previous.essay_photo);
 
     if (currentQuestionNumber) {
       db.prepare('UPDATE exam_sessions SET current_question_number = ?, last_activity_at = ? WHERE id = ?').run(currentQuestionNumber, nowIso, session.id);
@@ -2257,6 +2343,18 @@ function createApp(db) {
       finished_at: finishedAt,
       message: 'Alhamdulillah, seluruh jawaban Pilihan Ganda & Foto Lembar Jawaban Esai Anda telah berhasil disimpan di Server CBT SMA Negeri 3 Buru. Pastikan lembar kertas fisik juga telah diserahkan kepada Pengawas Ruangan.'
     });
+  });
+
+  // Error upload (file terlalu besar, dsb.) dikembalikan sebagai JSON yang jelas, bukan halaman error 500
+  app.use((err, req, res, next) => {
+    if (err instanceof multer.MulterError) {
+      const status = err.code === 'LIMIT_FILE_SIZE' || err.code === 'LIMIT_FIELD_VALUE' ? 413 : 400;
+      return res.status(status).json({ error: status === 413 ? 'Ukuran file terlalu besar.' : `Upload gagal: ${err.message}` });
+    }
+    if (err && err.type === 'entity.too.large') {
+      return res.status(413).json({ error: 'Data yang dikirim terlalu besar.' });
+    }
+    next(err);
   });
 
   // Handler 404 berformat JSON untuk semua endpoint API yang tidak terdaftar

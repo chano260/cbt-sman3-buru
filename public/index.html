@@ -164,7 +164,7 @@
 
     function renderTokenDigits(tokenStr) {
       const container = document.getElementById('tokenDigitBoxes');
-      const safeToken = String(tokenStr || '------').padEnd(6, '-').slice(0, 6);
+      const safeToken = String(tokenStr || '-----').toUpperCase().slice(0, 8).padEnd(5, '-');
       container.innerHTML = safeToken.split('').map(ch => `<div class="bp3-token-digit">${ch}</div>`).join('');
     }
 

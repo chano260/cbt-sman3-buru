@@ -1768,19 +1768,13 @@ function createApp(db) {
   });
 
   // Melanjutkan ujian secara mandiri jika siswa terganggu / pindah tab (tanpa butuh pengawas)
-  // Hanya untuk melanjutkan sesi yang tidak terkunci. Sesi LOCKED wajib dibuka pengawas,
-  // dan sesi yang butuh verifikasi token wajib memasukkan token ujian terbaru.
+  // Fitur sekolah: siswa boleh melanjutkan sendiri setelah gangguan / pindah tab (tanpa pengawas).
+  // Hanya pemilik sesi (token sesi valid) yang bisa; jumlah pelanggaran tetap tercatat untuk pengawas.
   app.post('/api/ujian/self-resume', requireStudentSession, (req, res) => {
     const session = req.examSession;
     if (session.status === 'FINISHED') return res.json({ status: 'FINISHED' });
-    if (session.status === 'LOCKED') {
-      return res.status(423).json({ error: 'Layar ujian terkunci. Hubungi Pengawas Ruangan untuk membuka kunci.', status: 'LOCKED' });
-    }
-    if (session.need_token_reverify) {
-      return res.status(428).json({ error: 'Masukkan Token Ujian terbaru dari Pengawas untuk melanjutkan.', status: 'NEED_TOKEN' });
-    }
 
-    db.prepare('UPDATE exam_sessions SET last_activity_at = ? WHERE id = ?').run(new Date().toISOString(), session.id);
+    db.prepare("UPDATE exam_sessions SET status = 'WORKING', need_token_reverify = 0, last_activity_at = ? WHERE id = ?").run(new Date().toISOString(), session.id);
     res.json({ status: 'WORKING', need_token_reverify: 0 });
   });
 
@@ -1844,8 +1838,19 @@ function createApp(db) {
   });
 
   // Ambil token ujian aktif sesuai kelas / sesi siswa (untuk Pop-up Peraturan & Ambil Token)
-  // Hanya staf (pengawas/operator) yang boleh melihat token ujian; siswa wajib meminta token ke pengawas
-  app.get('/api/ujian/active-token', requireStaffAuth(['pengawas', 'operator']), (req, res) => {
+  // Token ujian boleh dilihat staf (pengawas/operator) atau siswa yang sudah login (fitur "Ambil Token"),
+  // tetapi tidak oleh pengunjung anonim.
+  function requireStaffOrStudentSession(req, res, next) {
+    const staff = getStaffFromReq(req);
+    if (staff && (staff.role === 'pengawas' || staff.role === 'operator')) {
+      req.staffUser = staff;
+      return next();
+    }
+    if (req.headers['x-session-token']) return requireStudentSession(req, res, next);
+    return res.status(401).json({ error: 'Silakan login terlebih dahulu untuk mengambil token ujian.' });
+  }
+
+  app.get('/api/ujian/active-token', requireStaffOrStudentSession, (req, res) => {
     const { sessionId, class_name } = req.query || {};
     let activeExam = null;
     if (sessionId) {

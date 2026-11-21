@@ -324,7 +324,7 @@ test('Guru can attach Image and Audio (Listening MP3) to any question and studen
   assert.equal(qWithMedia.audio_data, mediaRes.audio_data);
 });
 
-test('Direct student name search, confirmation with TTL & NISN, direct exam start with proctor token, and lock needs proctor unlock', async (t) => {
+test('Direct student name search, confirmation with TTL & NISN, direct exam start with token, and self-resume', async (t) => {
   const db = initDb(':memory:');
   const app = createApp(db);
   const server = app.listen(0);
@@ -385,7 +385,7 @@ test('Direct student name search, confirmation with TTL & NISN, direct exam star
   });
   assert.equal(ansRes.status, 200);
 
-  // 6. Keluar aplikasi -> terkunci; siswa TIDAK bisa membuka sendiri, wajib dibuka pengawas + token terbaru
+  // 6. Uji self-resume jika terdeteksi keluar aplikasi (tanpa perlu web pengawas/teknisi)
   await fetch(`${base}/api/ujian/violation`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -395,24 +395,8 @@ test('Direct student name search, confirmation with TTL & NISN, direct exam star
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId: startRes.sessionId })
-  });
-  assert.equal(resumeRes.status, 423);
-
-  const pengawasAuth = await fetch(`${base}/api/staff/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'pengawas', password: 'pengawas123' })
   }).then(r => r.json());
-  await fetch(`${base}/api/pengawas/unlock/${startRes.sessionId}`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${pengawasAuth.staffToken}` }
-  });
-  const reverify = await fetch(`${base}/api/ujian/verify-resume-token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId: startRes.sessionId, token: examToken })
-  });
-  assert.equal(reverify.status, 200);
+  assert.equal(resumeRes.status, 'WORKING');
 
   // 7. Selesaikan ujian -> setelah selesai, tidak bisa masuk lagi dan tidak bisa ubah jawaban
   const test5Esais = db.prepare("SELECT * FROM questions WHERE exam_id = ? AND type = 'ESAI'").all(findRes.exam.id);

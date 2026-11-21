@@ -676,7 +676,7 @@ test('Teacher can create Bank Soal in guru panel, and Operator can select from d
       'Authorization': `Bearer ${guruAuth.staffToken}`
     },
     body: JSON.stringify({
-      subject: 'Kimia Dasar',
+      subject: 'Kimia',
       title: 'Penilaian Akhir Semester (PAS)',
       class_target: 'XII IPA 1, XII IPA 2',
       duration_minutes: 90
@@ -717,7 +717,7 @@ test('Teacher can create Bank Soal in guru panel, and Operator can select from d
   }).then(r => r.json());
   const foundExam = opOverview.exams.find(e => e.id === newExamId);
   assert.ok(foundExam);
-  assert.equal(foundExam.subject, 'Kimia Dasar');
+  assert.equal(foundExam.subject, 'Kimia');
   assert.equal(foundExam.total_questions, 1);
   assert.equal(foundExam.pg_count, 1);
   assert.equal(foundExam.teacher_name, 'Ibu Dra. Siti Aminah, S.Pd.');
@@ -738,7 +738,7 @@ test('Teacher can create Bank Soal in guru panel, and Operator can select from d
     },
     body: JSON.stringify({
       exam_id: newExamId,
-      subject: 'Kimia Dasar',
+      subject: 'Kimia',
       title: 'Penilaian Akhir Semester (PAS)',
       class_target: 'XII IPA 1, XII IPA 2',
       exam_date: '2026-11-21',

@@ -160,7 +160,8 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
     "ALTER TABLE exam_sessions ADD COLUMN last_activity_at TEXT",
     "ALTER TABLE questions ADD COLUMN audio_data TEXT",
     "ALTER TABLE students ADD COLUMN birth_info TEXT",
-    "ALTER TABLE exam_sessions ADD COLUMN session_token TEXT"
+    "ALTER TABLE exam_sessions ADD COLUMN session_token TEXT",
+    "ALTER TABLE exams ADD COLUMN prev_token TEXT"
   ];
   for (const sql of safeAlter) {
     try { db.exec(sql); } catch {}

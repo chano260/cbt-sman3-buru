@@ -69,6 +69,67 @@ function generateRandomToken() {
   return token;
 }
 
+const TOKEN_GRACE_SECONDS = 120; // token lama masih diterima 2 menit setelah pergantian otomatis
+const ESSAY_UPLOAD_GRACE_SECONDS = 10 * 60; // foto esai boleh diunggah s.d. 10 menit setelah waktu habis
+
+// ---------- Pencocokan kelas & mapel (persis, bukan potongan kata) ----------
+function normText(s) {
+  return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function isAllClassesTarget(target) {
+  const t = normText(target);
+  return !t || t === 'all' || t === 'semua kelas' || t === '-';
+}
+
+// null = semua kelas; selain itu daftar kelas ternormalisasi
+function parseClassTargets(target) {
+  if (isAllClassesTarget(target)) return null;
+  return String(target).split(/[,;]+/).map(normText).filter(Boolean);
+}
+
+function classInTarget(className, target) {
+  const list = parseClassTargets(target);
+  return list === null || list.includes(normText(className));
+}
+
+function classTargetsOverlap(a, b) {
+  const la = parseClassTargets(a);
+  const lb = parseClassTargets(b);
+  if (la === null || lb === null) return true;
+  return la.some(c => lb.includes(c));
+}
+
+function splitSubjects(str) {
+  return String(str || '').split(/[,;&/]+/).map(normText).filter(Boolean);
+}
+
+// Mapel ujian harus sama persis dengan salah satu mapel yang diampu
+function subjectMatches(teacherSubjectStr, examSubjectStr) {
+  const exam = normText(examSubjectStr);
+  return !!exam && splitSubjects(teacherSubjectStr).includes(exam);
+}
+
+// Nonaktifkan hanya ujian aktif yang target kelasnya bentrok (ujian paralel per kelas)
+function deactivateOverlappingExams(db, examId, classTarget) {
+  const actives = db.prepare('SELECT id, class_target FROM exams WHERE is_active = 1 AND id != ?').all(Number(examId) || 0);
+  const off = db.prepare('UPDATE exams SET is_active = 0 WHERE id = ?');
+  for (const e of actives) {
+    if (classTargetsOverlap(e.class_target, classTarget)) off.run(e.id);
+  }
+}
+
+function tokenMatches(exam, input) {
+  const tok = String(input || '').toUpperCase().trim();
+  if (!tok || !exam) return false;
+  if (tok === String(exam.token || '').toUpperCase().trim()) return true;
+  if (exam.prev_token && tok === String(exam.prev_token).toUpperCase().trim() && exam.token_updated_at) {
+    const sinceRotate = (Date.now() - new Date(exam.token_updated_at).getTime()) / 1000;
+    return sinceRotate <= TOKEN_GRACE_SECONDS;
+  }
+  return false;
+}
+
 // Otomatis putar token jika sudah lewat 15 menit
 function ensureFresh15MinToken(db, exam) {
   if (!exam) return null;
@@ -82,7 +143,9 @@ function ensureFresh15MinToken(db, exam) {
       nextToken = generateRandomToken();
     }
     const nowIso = new Date(nowMs).toISOString();
-    db.prepare('UPDATE exams SET token = ?, token_updated_at = ? WHERE id = ?').run(nextToken, nowIso, exam.id);
+    const prevToken = exam.token_updated_at ? exam.token : null;
+    db.prepare('UPDATE exams SET token = ?, token_updated_at = ?, prev_token = ? WHERE id = ?').run(nextToken, nowIso, prevToken, exam.id);
+    exam.prev_token = prevToken;
     exam.token = nextToken;
     exam.token_updated_at = nowIso;
     return { ...exam, token_remaining_seconds: TOKEN_ROTATION_SECONDS };
@@ -94,20 +157,34 @@ function ensureFresh15MinToken(db, exam) {
   };
 }
 
-// Pencocokan ujian aktif sesuai kelas siswa (multi-guru per mapel, anti-tertukar)
+// Pilih ujian aktif untuk sebuah kelas: utamakan yang menyebut kelas itu, lalu yang untuk "Semua Kelas"
+function pickExamForClass(activeExams, className) {
+  const specific = activeExams.find(e => {
+    const list = parseClassTargets(e.class_target);
+    return list !== null && list.includes(normText(className));
+  });
+  return specific || activeExams.find(e => isAllClassesTarget(e.class_target)) || null;
+}
+
+// Pencocokan ujian aktif sesuai kelas siswa (ujian paralel per kelas, anti-tertukar)
 function getActiveExamForStudent(db, className) {
-  if (className && className !== '-' && className !== 'ALL' && className !== 'Semua Kelas') {
-    const cleanClass = String(className).trim();
-    const specific = db.prepare(`
-      SELECT * FROM exams 
-      WHERE is_active = 1 
-        AND (class_target = 'ALL' OR class_target = 'Semua Kelas' OR class_target LIKE '%' || ? || '%')
-      ORDER BY id DESC LIMIT 1
-    `).get(cleanClass);
-    if (specific) return ensureFresh15MinToken(db, specific);
+  const actives = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC').all();
+  if (className && !isAllClassesTarget(className)) {
+    const pick = pickExamForClass(actives, className);
+    return pick ? ensureFresh15MinToken(db, pick) : null;
   }
-  const fallback = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
-  return ensureFresh15MinToken(db, fallback);
+  return actives[0] ? ensureFresh15MinToken(db, actives[0]) : null;
+}
+
+// Cari bank soal sumber untuk salin otomatis: mapel sama persis DAN guru yang sama
+function findDonorExam(db, targetExamId, subject, teacherId) {
+  const candidates = db.prepare(`
+    SELECT id, subject FROM exams
+    WHERE id != ? AND teacher_id IS ?
+      AND (SELECT COUNT(*) FROM questions WHERE exam_id = exams.id) > 0
+    ORDER BY id DESC
+  `).all(Number(targetExamId), teacherId === undefined || teacherId === null ? null : Number(teacherId));
+  return candidates.find(c => normText(c.subject) === normText(subject)) || null;
 }
 
 // Pengacak urutan soal PG deterministik per siswa (anti-contek antar meja sebelahan)
@@ -343,28 +420,13 @@ function createApp(db) {
     };
   }
 
-  function subjectMatches(teacherSubjectStr, examSubjectStr) {
-    if (!teacherSubjectStr || !examSubjectStr) return false;
-    const teacherSubjs = teacherSubjectStr
-      .split(/[,;&/]+/)
-      .map(s => s.trim().toLowerCase())
-      .filter(Boolean);
-    const examSubj = String(examSubjectStr || '').trim().toLowerCase();
-
-    return teacherSubjs.some(ts => {
-      if (ts === examSubj) return true;
-      if (examSubj.includes(ts) || ts.includes(examSubj)) return true;
-      return false;
-    });
-  }
-
   function teacherCanAccessExam(staffUser, examOrObj) {
     if (!examOrObj || !staffUser) return false;
     if (staffUser.role === 'operator') return true;
     if (staffUser.role !== 'guru') return false;
 
-    // 1. Akun guru WAJIB mengampu mata pelajaran ini!
-    if (staffUser.subject && !subjectMatches(staffUser.subject, examOrObj.subject)) {
+    // 1. Akun guru WAJIB mengampu mata pelajaran ini (nama mapel sama persis). Guru tanpa mapel tidak punya akses.
+    if (!subjectMatches(staffUser.subject, examOrObj.subject)) {
       return false;
     }
 
@@ -438,6 +500,34 @@ function createApp(db) {
       req.staffUser = staffUser;
       next();
     };
+  }
+
+  // Ruang yang menjadi tanggung jawab akun pengawas (null = tidak dibatasi: operator / pengawas "Semua Ruang")
+  function pengawasRoomOf(user) {
+    if (!user || user.role !== 'pengawas') return null;
+    const room = String(user.room || '').trim();
+    if (!room || room === 'ALL' || /^semua/i.test(room)) return null;
+    return room;
+  }
+
+  function canManageStudentRoom(user, student) {
+    const room = pengawasRoomOf(user);
+    return !room || (student && student.room === room);
+  }
+
+  // Muat sesi + siswa lalu pastikan pengawas hanya mengelola siswa di ruangnya
+  function loadSessionForStaff(req, res) {
+    const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(req.params.sessionId));
+    if (!session) {
+      res.status(404).json({ error: 'Sesi siswa tidak ditemukan' });
+      return null;
+    }
+    const student = db.prepare('SELECT * FROM students WHERE id = ?').get(session.student_id);
+    if (!canManageStudentRoom(req.staffUser, student)) {
+      res.status(403).json({ error: `Akses ditolak: siswa ini bukan peserta di ruang Anda (${pengawasRoomOf(req.staffUser)}).` });
+      return null;
+    }
+    return { session, student };
   }
 
   app.get('/api/server-info', (req, res) => {
@@ -698,7 +788,7 @@ function createApp(db) {
       const existing = db.prepare('SELECT * FROM exams WHERE id = ?').get(Number(exam_id));
       if (existing) {
         const token = generateRandomToken();
-        db.prepare('UPDATE exams SET is_active = 0').run();
+        deactivateOverlappingExams(db, existing.id, class_target || existing.class_target);
         db.prepare(`
           UPDATE exams
           SET title = COALESCE(NULLIF(?, ''), title),
@@ -730,19 +820,14 @@ function createApp(db) {
 
     if (!title) return res.status(400).json({ error: 'Nama ujian wajib diisi' });
     const token = generateRandomToken();
-    db.prepare('UPDATE exams SET is_active = 0').run();
+    deactivateOverlappingExams(db, 0, class_target || 'Semua Kelas');
 
     let targetTeacherId = null;
     if (req.body && req.body.teacher_id) {
       targetTeacherId = Number(req.body.teacher_id);
     } else {
-      const teachers = db.prepare("SELECT id, subject FROM users WHERE role = 'guru'").all();
-      const cleanSubj = String(subject || '').trim().toLowerCase();
-      const match = teachers.find(t => {
-        if (!t.subject) return false;
-        const subjs = t.subject.split(/[,;&/]+/).map(s => s.trim().toLowerCase());
-        return subjs.some(s => s === cleanSubj || cleanSubj.includes(s) || s.includes(cleanSubj));
-      });
+      const teachers = db.prepare("SELECT id, subject FROM users WHERE role = 'guru' ORDER BY id ASC").all();
+      const match = teachers.find(t => subjectMatches(t.subject, subject));
       if (match) targetTeacherId = match.id;
     }
 
@@ -764,13 +849,7 @@ function createApp(db) {
     );
     const newExamId = Number(info.lastInsertRowid);
     let autoCopied = 0;
-    const donor = db.prepare(`
-      SELECT id FROM exams
-      WHERE id != ?
-        AND (LOWER(TRIM(subject)) = LOWER(TRIM(?)) OR LOWER(subject) LIKE '%' || LOWER(?) || '%')
-        AND (SELECT COUNT(*) FROM questions WHERE exam_id = exams.id) > 0
-      ORDER BY id DESC LIMIT 1
-    `).get(newExamId, subject, subject);
+    const donor = findDonorExam(db, newExamId, subject, targetTeacherId);
     if (donor) {
       autoCopied = copyQuestions(db, donor.id, newExamId);
       invalidateQuestionsCache(newExamId);
@@ -786,20 +865,14 @@ function createApp(db) {
     let autoCopied = 0;
     const qCount = db.prepare('SELECT COUNT(*) as c FROM questions WHERE exam_id = ?').get(examId).c;
     if (qCount === 0) {
-      const donor = db.prepare(`
-        SELECT id FROM exams
-        WHERE id != ?
-          AND (LOWER(TRIM(subject)) = LOWER(TRIM(?)) OR LOWER(subject) LIKE '%' || LOWER(?) || '%')
-          AND (SELECT COUNT(*) FROM questions WHERE exam_id = exams.id) > 0
-        ORDER BY id DESC LIMIT 1
-      `).get(examId, targetExam.subject, targetExam.subject);
+      const donor = findDonorExam(db, examId, targetExam.subject, targetExam.teacher_id);
       if (donor) {
         autoCopied = copyQuestions(db, donor.id, examId);
         invalidateQuestionsCache(examId);
       }
     }
 
-    db.prepare('UPDATE exams SET is_active = 0').run();
+    deactivateOverlappingExams(db, examId, targetExam.class_target);
     db.prepare('UPDATE exams SET is_active = 1, token_updated_at = ? WHERE id = ?').run(new Date().toISOString(), examId);
     res.json({ activated: examId, total_questions: qCount + autoCopied, autoCopiedQuestions: autoCopied });
   });
@@ -826,14 +899,8 @@ function createApp(db) {
       db.prepare('DELETE FROM exam_sessions WHERE exam_id = ?').run(examId);
       db.prepare('DELETE FROM questions WHERE exam_id = ?').run(examId);
       db.prepare('DELETE FROM room_reports WHERE exam_id = ?').run(examId);
+      // Sengaja TIDAK mengaktifkan ujian lain secara otomatis: operator yang memilih jadwal berikutnya
       db.prepare('DELETE FROM exams WHERE id = ?').run(examId);
-
-      if (exam.is_active === 1) {
-        const nextActive = db.prepare('SELECT id FROM exams ORDER BY id DESC LIMIT 1').get();
-        if (nextActive) {
-          db.prepare('UPDATE exams SET is_active = 1 WHERE id = ?').run(nextActive.id);
-        }
-      }
     });
     tx();
     invalidateQuestionsCache(examId);
@@ -963,6 +1030,9 @@ function createApp(db) {
 
     const student = db.prepare('SELECT * FROM students WHERE id = ?').get(studentId);
     if (!student) return res.status(404).json({ error: 'Siswa tidak ditemukan.' });
+    if (!canManageStudentRoom(req.staffUser, student)) {
+      return res.status(403).json({ error: `Akses ditolak: siswa ini bukan peserta di ruang Anda (${pengawasRoomOf(req.staffUser)}).` });
+    }
 
     const oldClass = student.class_name;
     db.prepare('UPDATE students SET class_name = ? WHERE id = ?').run(targetClass, studentId);
@@ -1103,11 +1173,8 @@ function createApp(db) {
     if (!isOperator) {
       const staffUser = req.staffUser;
       filteredExams = allExams.filter(exam => {
-        // 1. Mata pelajaran ujian WAJIB cocok dengan mapel yang diampu oleh akun guru ini!
-        if (staffUser.subject) {
-          const matchSubj = subjectMatches(staffUser.subject, exam.subject);
-          if (!matchSubj) return false;
-        }
+        // 1. Mata pelajaran ujian WAJIB sama persis dengan mapel yang diampu oleh akun guru ini!
+        if (!subjectMatches(staffUser.subject, exam.subject)) return false;
 
         // 2. Jika mapel cocok:
         if (exam.teacher_id !== null && exam.teacher_id !== undefined) {
@@ -1155,6 +1222,9 @@ function createApp(db) {
   app.post('/api/guru/exams', requireStaffAuth(['guru', 'operator']), (req, res) => {
     const { title, subject, class_target, duration_minutes, shuffle_questions } = req.body || {};
     if (!subject) return res.status(400).json({ error: 'Mata pelajaran wajib diisi' });
+    if (req.staffUser.role === 'guru' && !subjectMatches(req.staffUser.subject, subject)) {
+      return res.status(403).json({ error: `Anda hanya dapat membuat bank soal untuk mapel yang Anda ampu (${req.staffUser.subject || 'belum diatur operator'}).` });
+    }
     const finalTitle = title || `Ujian ${subject}`;
     const token = generateRandomToken();
     const nowIso = new Date().toISOString();
@@ -1191,14 +1261,8 @@ function createApp(db) {
       db.prepare('DELETE FROM exam_sessions WHERE exam_id = ?').run(examId);
       db.prepare('DELETE FROM questions WHERE exam_id = ?').run(examId);
       db.prepare('DELETE FROM room_reports WHERE exam_id = ?').run(examId);
+      // Sengaja TIDAK mengaktifkan ujian lain secara otomatis: operator yang memilih jadwal berikutnya
       db.prepare('DELETE FROM exams WHERE id = ?').run(examId);
-
-      if (exam.is_active === 1) {
-        const nextActive = db.prepare('SELECT id FROM exams ORDER BY id DESC LIMIT 1').get();
-        if (nextActive) {
-          db.prepare('UPDATE exams SET is_active = 1 WHERE id = ?').run(nextActive.id);
-        }
-      }
     });
     tx();
     invalidateQuestionsCache(examId);
@@ -1334,13 +1398,23 @@ function createApp(db) {
       }
 
       if (replaceExisting) {
-        db.prepare('DELETE FROM questions WHERE exam_id = ?').run(examId);
+        // Mengganti soal saat siswa sudah menjawab akan memutus jawaban dari soalnya (nilai hilang)
+        const answered = db.prepare('SELECT COUNT(*) AS c FROM answers a JOIN questions q ON q.id = a.question_id WHERE q.exam_id = ?').get(examId).c;
+        if (answered > 0) {
+          return res.status(409).json({
+            error: `Soal tidak dapat diganti karena sudah ada ${answered} jawaban siswa pada paket ini. Gunakan mode tambah soal, atau buat paket ujian baru.`
+          });
+        }
       }
 
       const insertQ = db.prepare(`
         INSERT INTO questions (exam_id, number, type, question_text, image_data, option_a, option_b, option_c, option_d, option_e, answer_key)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
+      const importTx = db.transaction(() => {
+      if (replaceExisting) {
+        db.prepare('DELETE FROM questions WHERE exam_id = ?').run(examId);
+      }
       for (const q of parsed) {
         insertQ.run(
           examId,
@@ -1356,6 +1430,8 @@ function createApp(db) {
           q.answer_key || null
         );
       }
+      });
+      importTx();
 
       invalidateQuestionsCache(examId);
 
@@ -1419,32 +1495,65 @@ function createApp(db) {
 
   // ==================== PANEL PENGAWAS RUANGAN & PANTAU KERJA SISWA ====================
   app.get('/api/pengawas/room', requireStaffAuth(['pengawas', 'operator']), async (req, res) => {
-    const room = req.query.room || 'ALL';
-    const rawExam = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
-    const activeExam = ensureFresh15MinToken(db, rawExam);
+    // Pengawas dengan ruang tertentu selalu dikunci ke ruangnya sendiri
+    const ownRoom = pengawasRoomOf(req.staffUser);
+    const room = ownRoom || req.query.room || 'ALL';
+    const actives = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC').all().map(e => ensureFresh15MinToken(db, e));
     const qrBundle = await buildQrBundle(req);
-    if (!activeExam) return res.json({ activeExam: null, ...qrBundle, students: [], reports: [] });
+    if (actives.length === 0) return res.json({ activeExam: null, activeExams: [], ...qrBundle, lockedRoom: ownRoom, students: [], reports: [] });
 
-    const scoreData = calculateExamScores(db, activeExam.id);
-    const filtered = scoreData.scores
-      .filter(s => room === 'ALL' || s.room === room)
-      .map(({ score, correct_pg, wrong_pg, ...rest }) => rest);
+    // Ujian paralel: setiap siswa di ruang ini dipetakan ke ujian aktif sesuai kelasnya
+    const roomStudents = db.prepare('SELECT * FROM students ORDER BY room ASC, seat_number ASC, full_name ASC').all()
+      .filter(s => room === 'ALL' || s.room === room);
+    const scoreCache = new Map();
+    const scoresFor = (examId) => {
+      if (!scoreCache.has(examId)) {
+        const data = calculateExamScores(db, examId);
+        scoreCache.set(examId, { data, byStudent: new Map(data.scores.map(s => [s.student_id, s])) });
+      }
+      return scoreCache.get(examId);
+    };
+    const examUse = new Map();
+    const students = roomStudents.map(st => {
+      const exam = pickExamForClass(actives, st.class_name);
+      if (!exam) {
+        return {
+          student_id: st.id, session_id: null, exam_id: null, exam_subject: '-', exam_title: '-',
+          exam_number: st.exam_number, nisn: st.nisn, full_name: st.full_name, class_name: st.class_name,
+          room: st.room, seat_number: st.seat_number, status: 'NOT_STARTED', need_token_reverify: 0,
+          current_question_number: null, last_activity_at: null, violation_count: 0, last_violation_reason: null,
+          answered_pg: 0, total_pg: 0, recent_choices: []
+        };
+      }
+      examUse.set(exam.id, (examUse.get(exam.id) || 0) + 1);
+      const { score, correct_pg, wrong_pg, ...rest } = scoresFor(exam.id).byStudent.get(st.id);
+      return rest;
+    });
 
-    const reports = db.prepare('SELECT * FROM room_reports WHERE exam_id = ? ORDER BY id DESC').all(activeExam.id);
+    const usedExams = actives.filter(e => examUse.has(e.id));
+    const listForRoom = usedExams.length > 0 ? usedExams : actives;
+    const primary = [...listForRoom].sort((a, b) => (examUse.get(b.id) || 0) - (examUse.get(a.id) || 0))[0];
+    const primaryScores = scoresFor(primary.id).data;
+    const examIds = listForRoom.map(e => e.id);
+    const reports = db.prepare(`SELECT * FROM room_reports WHERE exam_id IN (${examIds.map(() => '?').join(',')}) ORDER BY id DESC`).all(...examIds);
+    const pub = (e) => ({
+      id: e.id,
+      title: e.title,
+      subject: e.subject,
+      class_target: e.class_target,
+      session_name: e.session_name,
+      token: e.token,
+      token_remaining_seconds: e.token_remaining_seconds,
+      duration_minutes: e.duration_minutes
+    });
     res.json({
       ...qrBundle,
-      activeExam: {
-        id: activeExam.id,
-        title: activeExam.title,
-        subject: activeExam.subject,
-        session_name: activeExam.session_name,
-        token: activeExam.token,
-        token_remaining_seconds: activeExam.token_remaining_seconds,
-        duration_minutes: activeExam.duration_minutes
-      },
-      pgCount: scoreData.pgCount,
-      esaiCount: scoreData.esaiCount,
-      students: filtered,
+      lockedRoom: ownRoom,
+      activeExam: pub(primary),
+      activeExams: listForRoom.map(pub),
+      pgCount: primaryScores.pgCount,
+      esaiCount: primaryScores.esaiCount,
+      students,
       reports
     });
   });
@@ -1452,8 +1561,9 @@ function createApp(db) {
   // Endpoint Intip / Pantau Kerja Siswa Secara Langsung untuk Operator & Pengawas (Anti-Contek)
   app.get('/api/pengawas/student-work/:sessionId', requireStaffAuth(['pengawas', 'operator', 'guru']), (req, res) => {
     const sessionId = Number(req.params.sessionId);
-    const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(sessionId);
-    if (!session) return res.status(404).json({ error: 'Sesi siswa tidak ditemukan' });
+    const loaded = loadSessionForStaff(req, res);
+    if (!loaded) return;
+    const session = loaded.session;
 
     if (req.staffUser && req.staffUser.role === 'guru') {
       const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(session.exam_id);
@@ -1491,6 +1601,7 @@ function createApp(db) {
 
   app.post('/api/pengawas/unlock/:sessionId', requireStaffAuth(['pengawas', 'operator']), (req, res) => {
     const sessionId = Number(req.params.sessionId);
+    if (!loadSessionForStaff(req, res)) return;
     // Saat dibuka kuncinya oleh pengawas, siswa berstatus WORKING tetapi wajib memasukkan Token 15-menit terbaru (need_token_reverify = 1)
     db.prepare("UPDATE exam_sessions SET status = 'WORKING', need_token_reverify = 1 WHERE id = ?").run(sessionId);
     res.json({ ok: true, sessionId, status: 'WORKING', need_token_reverify: 1 });
@@ -1498,12 +1609,14 @@ function createApp(db) {
 
   app.post('/api/pengawas/reset-login/:sessionId', requireStaffAuth(['pengawas', 'operator']), (req, res) => {
     const sessionId = Number(req.params.sessionId);
+    if (!loadSessionForStaff(req, res)) return;
     db.prepare("UPDATE exam_sessions SET status = 'WORKING', need_token_reverify = 1, device_info = NULL WHERE id = ?").run(sessionId);
     res.json({ ok: true, sessionId });
   });
 
   app.post('/api/pengawas/report', requireStaffAuth(['pengawas', 'operator']), (req, res) => {
-    const { exam_id, room, pengawas_name, notes, absent_students } = req.body || {};
+    const { exam_id, pengawas_name, notes, absent_students } = req.body || {};
+    const room = pengawasRoomOf(req.staffUser) || (req.body || {}).room;
     const activeExam = exam_id
       ? { id: exam_id }
       : db.prepare('SELECT id FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
@@ -1689,7 +1802,7 @@ function createApp(db) {
   // lain otomatis memutus perangkat lama). Tanpa token ujian yang valid, sesi wajib verifikasi token dulu.
   // Status LOCKED tidak pernah dibuka oleh login ulang: hanya pengawas yang dapat membuka kunci.
   function openStudentSession(student, activeExam, examToken, deviceInfo, defaultDevice) {
-    const tokenValid = !!examToken && String(examToken).toUpperCase().trim() === String(activeExam.token).toUpperCase().trim();
+    const tokenValid = tokenMatches(activeExam, examToken);
     const needToken = tokenValid ? 0 : 1;
     const sessionToken = randomToken(24);
     const nowIso = new Date().toISOString();
@@ -1798,7 +1911,7 @@ function createApp(db) {
 
     // Jika token dikirim pada saat login, validasi token. Tanpa token, sesi wajib verifikasi token sebelum menjawab.
     if (token) {
-      if (String(token).toUpperCase().trim() !== String(activeExam.token).toUpperCase().trim()) {
+      if (!tokenMatches(activeExam, token)) {
         return res.status(403).json({ error: 'Token Ujian tidak sesuai atau sudah berganti (Token berganti otomatis tiap 15 menit)! Tanyakan Token terbaru ke Pengawas Ruangan.' });
       }
     }
@@ -1887,9 +2000,7 @@ function createApp(db) {
     const activeExam = ensureFresh15MinToken(db, rawExam);
     if (!activeExam) return res.status(404).json({ error: 'Belum ada ujian yang aktif.' });
 
-    const inputTok = String(token || '').toUpperCase().trim();
-    const currTok = String(activeExam.token).toUpperCase().trim();
-    if (!inputTok || inputTok !== currTok) {
+    if (!tokenMatches(activeExam, token)) {
       return res.status(403).json({
         error: 'Token Ujian tidak sesuai atau sudah berganti! Silakan periksa token 6-digit terbaru di papan pengumuman atau tanyakan ke pengawas.'
       });
@@ -1913,7 +2024,7 @@ function createApp(db) {
 
     const rawExam = db.prepare('SELECT * FROM exams WHERE id = ?').get(session.exam_id);
     const activeExam = ensureFresh15MinToken(db, rawExam);
-    if (String(token || '').toUpperCase().trim() !== String(activeExam.token).toUpperCase().trim()) {
+    if (!tokenMatches(activeExam, token)) {
       return res.status(403).json({ error: 'Token 15-Menit tidak sesuai! Minta Token terbaru dari Pengawas Ruangan.' });
     }
 
@@ -1995,6 +2106,12 @@ function createApp(db) {
     }
     if (session.status === 'LOCKED') return res.status(423).json({ error: 'Sesi ujian sedang terkunci.' });
     if (session.need_token_reverify) return res.status(428).json({ error: 'Masukkan Token Ujian terbaru dari Pengawas untuk melanjutkan.', status: 'NEED_TOKEN' });
+
+    const examDur = db.prepare('SELECT duration_minutes FROM exams WHERE id = ?').get(session.exam_id);
+    const elapsedSec = Math.floor((Date.now() - new Date(session.started_at).getTime()) / 1000);
+    if (elapsedSec > (examDur && examDur.duration_minutes ? examDur.duration_minutes : 90) * 60 + ESSAY_UPLOAD_GRACE_SECONDS) {
+      return res.status(400).json({ error: 'Batas waktu unggah foto lembar jawaban esai (10 menit setelah waktu ujian habis) sudah lewat. Serahkan lembar kertas kepada Pengawas Ruangan.' });
+    }
     if (session.status === 'FINISHED') return res.status(400).json({ error: 'Ujian sudah selesai dikumpulkan.' });
 
     const question = db.prepare('SELECT id, type, number FROM questions WHERE id = ? AND exam_id = ?').get(questionId, session.exam_id);

@@ -208,14 +208,34 @@
         document.getElementById('pwQrImg').src = data.qrDataUrl;
       }
 
+      // Pengawas yang terikat ruang tertentu hanya dapat memantau ruangnya sendiri
+      const roomSel = document.getElementById('roomSelect');
+      if (data.lockedRoom) {
+        if (![...roomSel.options].some(o => o.value === data.lockedRoom)) {
+          roomSel.add(new Option(data.lockedRoom, data.lockedRoom));
+        }
+        roomSel.value = data.lockedRoom;
+        roomSel.disabled = true;
+        roomSel.title = 'Akun pengawas ini hanya untuk ' + data.lockedRoom;
+      } else {
+        roomSel.disabled = false;
+        roomSel.title = '';
+      }
+
       if (data.activeExam) {
         const rem = data.activeExam.token_remaining_seconds || 900;
         const mm = String(Math.floor(rem / 60)).padStart(2, '0');
         const ss = String(rem % 60).padStart(2, '0');
-        document.getElementById('pengawasToken').textContent = `TOKEN: ${data.activeExam.token} (${mm}:${ss})`;
-        document.getElementById('bigTokenDisplay').textContent = data.activeExam.token;
+        const exams = data.activeExams && data.activeExams.length ? data.activeExams : [data.activeExam];
+        const tokenList = exams.length > 1
+          ? exams.map(e => `${e.token} (${e.subject})`).join(' • ')
+          : `${data.activeExam.token} (${mm}:${ss})`;
+        document.getElementById('pengawasToken').textContent = `TOKEN: ${tokenList}`;
+        document.getElementById('bigTokenDisplay').textContent = exams.map(e => e.token).join(' / ');
         document.getElementById('tokenCountdownDisplay').textContent = `⏱ Token ganti otomatis dalam ${mm}:${ss} (Siswa yang gangguan wajib pakai token baru)`;
-        document.getElementById('examMetaDisplay').textContent = `${data.activeExam.subject} — ${data.activeExam.title} (${data.activeExam.session_name})`;
+        document.getElementById('examMetaDisplay').textContent = exams
+          .map(e => `${e.subject} — ${e.title} (${e.session_name}) • Kelas: ${e.class_target || 'Semua Kelas'}`)
+          .join('  |  ');
       }
 
       const students = data.students || [];
@@ -296,13 +316,22 @@
     }
 
     async function unlockStudent(sessionId) {
-      await fetch(`/api/pengawas/unlock/${sessionId}`, { method: 'POST', headers: authHeaders() });
+      const res = await fetch(`/api/pengawas/unlock/${sessionId}`, { method: 'POST', headers: authHeaders() });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Gagal membuka kunci siswa.');
+      }
       loadRoomData();
     }
 
     async function resetStudentLogin(sessionId) {
-      await fetch(`/api/pengawas/reset-login/${sessionId}`, { method: 'POST', headers: authHeaders() });
-      alert('Login siswa berhasil di-reset. Siswa dapat login kembali di HP baru dan jawabannya tetap tersimpan.');
+      const res = await fetch(`/api/pengawas/reset-login/${sessionId}`, { method: 'POST', headers: authHeaders() });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Gagal mereset login siswa.');
+      } else {
+        alert('Login siswa berhasil di-reset. Siswa dapat login kembali di HP baru dan jawabannya tetap tersimpan.');
+      }
       loadRoomData();
     }
 

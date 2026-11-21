@@ -820,8 +820,8 @@
         const totalQ = Number(e.total_questions || 0);
         const pgQ = Number(e.pg_count || 0);
         const esaiQ = Number(e.esai_count || 0);
-        const safeSubject = (e.subject || '').replace(/'/g, "\\'");
-        const safeTarget = (e.class_target || '').replace(/'/g, "\\'");
+        const safeSubject = e.subject || '';
+        const safeTarget = e.class_target || '';
         const qBadge = totalQ > 0
           ? `<span class="badge badge-finished" title="${pgQ} PG, ${esaiQ} Esai">${totalQ} Soal (${pgQ} PG${esaiQ > 0 ? `, ${esaiQ} Esai` : ''})</span>`
           : `<span class="badge" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca;">⚠️ 0 Soal</span>`;
@@ -840,8 +840,8 @@
             ${qBadge}
             <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">
               ${totalQ > 0 ? `<button class="btn btn-sm btn-outline" style="font-size:11px;padding:2px 7px;" onclick="openPreviewQuestionsModal(${e.id})">👁️ Intip Soal</button>` : ''}
-              ${totalQ === 0 ? `<button class="btn btn-sm btn-outline" style="font-size:11px;padding:2px 7px;color:#d97706;border-color:#fcd34d;" onclick="openCopyQuestionsModal(${e.id}, '${safeSubject}')">📋 Salin Soal</button>` : ''}
-              <button class="btn btn-sm btn-outline" style="font-size:11px;padding:2px 7px;" onclick="openUploadWordModal(${e.id}, '${safeSubject}', '${safeTarget}')">
+              ${totalQ === 0 ? `<button class="btn btn-sm btn-outline" style="font-size:11px;padding:2px 7px;color:#d97706;border-color:#fcd34d;" onclick="openCopyQuestionsModal(${e.id}, '${escJs(safeSubject)}')">📋 Salin Soal</button>` : ''}
+              <button class="btn btn-sm btn-outline" style="font-size:11px;padding:2px 7px;" onclick="openUploadWordModal(${e.id}, '${escJs(safeSubject)}', '${escJs(safeTarget)}')">
                 📤 Upload Word
               </button>
             </div>
@@ -852,7 +852,7 @@
           <td>
             <div style="display:flex;gap:4px;flex-wrap:wrap;">
               ${!e.is_active ? `<button class="btn btn-sm ${totalQ > 0 ? 'btn-primary' : 'btn-outline'}" onclick="activateExam(${e.id}, ${totalQ})">${totalQ > 0 ? '⚡ Aktifkan' : 'Aktifkan (0 Soal)'}</button>` : ''}
-              <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;font-size:11px;padding:3px 8px;" onclick="confirmDeleteExam(${e.id}, '${safeSubject}', ${totalQ})">🗑️ Hapus</button>
+              <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;font-size:11px;padding:3px 8px;" onclick="confirmDeleteExam(${e.id}, '${escJs(safeSubject)}', ${totalQ})">🗑️ Hapus</button>
               <a href="/guru.html" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px;padding:3px 8px;" title="Kelola butir soal di Panel Guru">Panel Guru ↗</a>
             </div>
           </td>
@@ -868,8 +868,8 @@
           <td><code>${esc(u.username)}</code></td>
           <td>${esc(u.subject || u.room || '-')}</td>
           <td>
-            <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;margin-right:4px;" onclick="openEditStaffModal(${u.id}, '${(u.full_name || '').replace(/'/g, "\\'")}', '${(u.username || '').replace(/'/g, "\\'")}', '${u.role}', '${(u.subject || u.room || '').replace(/'/g, "\\'")}')">✏️ Edit</button>
-            ${u.role !== 'operator' ? `<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;padding:2px 8px;font-size:11px;" onclick="confirmDeleteStaff(${u.id}, '${(u.full_name || '').replace(/'/g, "\\'")}', '${u.role}')">Hapus</button>` : ''}
+            <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;margin-right:4px;" onclick="openEditStaffModal(${u.id}, '${escJs(u.full_name)}', '${escJs(u.username)}', '${u.role}', '${escJs(u.subject || u.room || '')}')">✏️ Edit</button>
+            ${u.role !== 'operator' ? `<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;padding:2px 8px;font-size:11px;" onclick="confirmDeleteStaff(${u.id}, '${escJs(u.full_name)}', '${u.role}')">Hapus</button>` : ''}
           </td>
         </tr>
       `).join('');

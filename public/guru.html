@@ -728,7 +728,7 @@
           <td style="color:var(--green);font-weight:700;">${s.correct_pg}</td>
           <td style="color:var(--red);font-weight:700;">${s.wrong_pg}</td>
           <td><b style="font-size:15px;color:#065f46;">${s.score}</b></td>
-          <td>${s.session_id ? `<button class="btn btn-sm btn-outline" onclick="openGuruEssayPhotos(${s.session_id}, '${(s.full_name || '').replace(/'/g, "\\'")}')">📝 Cek Foto Esai</button>` : '-'}</td>
+          <td>${s.session_id ? `<button class="btn btn-sm btn-outline" onclick="openGuruEssayPhotos(${s.session_id}, '${escJs(s.full_name)}')">📝 Cek Foto Esai</button>` : '-'}</td>
         </tr>
       `).join('');
     }

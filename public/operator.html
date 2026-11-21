@@ -629,6 +629,7 @@
     </div>
   </div>
 
+  <script src="/dialog.js"></script>
   <script>
 
     // Escape teks dari server sebelum dimasukkan ke innerHTML (mencegah XSS)
@@ -948,9 +949,20 @@
       const newClass = document.getElementById('ccNewClass').value.trim();
       const resetExam = document.getElementById('ccResetExam').checked;
       if (!newClass) {
-        alert('Silakan masukkan nama kelas tujuan baru');
+        cbtAlert('Silakan masukkan nama kelas tujuan baru');
         return;
       }
+      const ok = await cbtConfirm(resetExam ? {
+        title: 'Pindah Kelas & Reset Ujian?',
+        message: `Siswa akan dipindah ke kelas ${newClass}. Karena "Reset ujian" dicentang, SEMUA jawaban dan sesi ujian siswa ini akan DIHAPUS dan tidak dapat dikembalikan.`,
+        confirmText: 'Ya, Pindah & Reset',
+        tone: 'danger'
+      } : {
+        title: 'Pindah Kelas Siswa?',
+        message: `Siswa akan dipindah ke kelas ${newClass}. Jawaban yang sudah tersimpan tidak dihapus.`,
+        confirmText: 'Ya, Pindahkan'
+      });
+      if (!ok) return;
       try {
         const res = await fetch('/api/operator/student-change-class', {
           method: 'POST',
@@ -959,18 +971,24 @@
         });
         const data = await res.json();
         if (!res.ok) {
-          alert(data.error || 'Gagal memindahkan kelas siswa');
+          cbtAlert(data.error || 'Gagal memindahkan kelas siswa');
           return;
         }
-        alert(data.message || 'Berhasil memindahkan kelas siswa!');
+        cbtAlert(data.message || 'Berhasil memindahkan kelas siswa!');
         closeChangeClassModal();
         await loadOverview();
       } catch (err) {
-        alert('Terjadi kesalahan: ' + err.message);
+        cbtAlert('Terjadi kesalahan: ' + err.message);
       }
     }
 
     async function refreshToken() {
+      const ok = await cbtConfirm({
+        title: 'Acak Token Sekarang?',
+        message: 'Token ujian akan langsung diganti. Siswa yang belum masuk atau yang sedang gangguan harus memakai token baru.',
+        confirmText: 'Ya, Acak Token'
+      });
+      if (!ok) return;
       await fetch('/api/operator/token', { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: '{}' });
       loadOverview();
     }
@@ -1022,6 +1040,12 @@
     }
 
     async function resetSession(sessionId) {
+      const ok = await cbtConfirm({
+        title: 'Reset Login Siswa?',
+        message: 'Siswa akan keluar dari perangkat saat ini dan harus login ulang memakai token. Jawaban yang sudah tersimpan tidak hilang.',
+        confirmText: 'Ya, Reset Login'
+      });
+      if (!ok) return;
       await fetch(`/api/pengawas/reset-login/${sessionId}`, { method: 'POST', headers: authHeaders() });
       loadOverview();
     }
@@ -1037,11 +1061,11 @@
           ? currentOverview.activeExams
           : (currentOverview.activeExam ? [currentOverview.activeExam] : []);
         if (actives.length === 0) {
-          alert('Belum ada ujian aktif untuk diekspor. Pilih ujian pada filter "Pantauan" terlebih dahulu.');
+          cbtAlert('Belum ada ujian aktif untuk diekspor. Pilih ujian pada filter "Pantauan" terlebih dahulu.');
           return;
         }
         if (actives.length > 1) {
-          alert(`Ada ${actives.length} ujian aktif bersamaan (${actives.map(e => e.subject).join(', ')}).\nPilih ujian yang ingin diekspor pada filter pantauan di atas tabel, lalu klik Export lagi.`);
+          cbtAlert(`Ada ${actives.length} ujian aktif bersamaan (${actives.map(e => e.subject).join(', ')}).\nPilih ujian yang ingin diekspor pada filter pantauan di atas tabel, lalu klik Export lagi.`);
           if (sel) sel.focus();
           return;
         }
@@ -1058,7 +1082,7 @@
     async function importStudentsExcel() {
       const inp = document.getElementById('studentExcelInput');
       if (!inp.files || !inp.files[0]) {
-        alert('Pilih file Excel (.xlsx) daftar siswa terlebih dahulu.');
+        cbtAlert('Pilih file Excel (.xlsx) daftar siswa terlebih dahulu.');
         return;
       }
       const fd = new FormData();
@@ -1135,7 +1159,7 @@
         loadOverview();
       } else {
         const err = await res.json();
-        alert(err.error || 'Gagal menambah siswa');
+        cbtAlert(err.error || 'Gagal menambah siswa');
       }
     }
 
@@ -1177,19 +1201,23 @@
         loadOverview();
       } else {
         const err = await res.json();
-        alert(err.error || 'Gagal membuat/mengaktifkan jadwal ujian');
+        cbtAlert(err.error || 'Gagal membuat/mengaktifkan jadwal ujian');
       }
     }
 
     async function activateExam(id, totalQ) {
       if (totalQ === 0) {
-        const conf = confirm('⚠️ Perhatian: Paket ujian ini masih 0 soal! Yakin ingin mengaktifkannya? (Sistem akan otomatis menyalin butir soal jika ada bank soal untuk mapel ini)');
+        const conf = await cbtConfirm({
+          title: 'Aktifkan Paket 0 Soal?',
+          message: 'Paket ujian ini masih 0 soal. Sistem akan mencoba menyalin soal otomatis dari bank soal dengan mapel dan guru yang sama. Jika tidak ada, siswa tidak akan bisa mengerjakan soal.',
+          confirmText: 'Ya, Aktifkan'
+        });
         if (!conf) return;
       }
       const res = await fetch(`/api/operator/exams/${id}/activate`, { method: 'POST', headers: authHeaders() });
       const data = await res.json();
       if (data.autoCopiedQuestions > 0) {
-        alert(`✅ Paket ujian diaktifkan! Otomatis menyalin ${data.autoCopiedQuestions} butir soal dari bank soal yang tersedia.`);
+        cbtAlert(`✅ Paket ujian diaktifkan! Otomatis menyalin ${data.autoCopiedQuestions} butir soal dari bank soal yang tersedia.`);
       }
       loadOverview();
     }
@@ -1200,7 +1228,7 @@
       const sel = document.getElementById('copySourceExamSelect');
       const donors = (currentOverview?.exams || []).filter(e => e.id !== targetExamId && Number(e.total_questions || 0) > 0);
       if (!donors.length) {
-        alert('Belum ada bank soal lain yang memiliki butir soal untuk disalin.');
+        cbtAlert('Belum ada bank soal lain yang memiliki butir soal untuk disalin.');
         return;
       }
       sel.innerHTML = donors.map(d => `<option value="${d.id}">${esc(d.subject)} (${esc(d.title)}) — ${d.total_questions} Soal [Guru: ${esc(d.teacher_name || 'Guru')}]</option>`).join('');
@@ -1215,6 +1243,12 @@
       const targetId = document.getElementById('copyTargetExamId').value;
       const sourceId = document.getElementById('copySourceExamSelect').value;
       if (!targetId || !sourceId) return;
+      const ok = await cbtConfirm({
+        title: 'Salin Soal ke Paket Ini?',
+        message: 'Semua butir soal dari paket sumber akan DITAMBAHKAN ke paket tujuan. Soal yang sudah ada di paket tujuan tidak dihapus, jadi pastikan tidak terjadi soal ganda.',
+        confirmText: 'Ya, Salin Soal'
+      });
+      if (!ok) return;
       try {
         const res = await fetch(`/api/operator/exams/${targetId}/copy-questions-from/${sourceId}`, {
           method: 'POST',
@@ -1222,14 +1256,14 @@
         });
         const data = await res.json();
         if (!res.ok) {
-          alert(data.error || 'Gagal menyalin soal');
+          cbtAlert(data.error || 'Gagal menyalin soal');
           return;
         }
-        alert(data.message || 'Soal berhasil disalin!');
+        cbtAlert(data.message || 'Soal berhasil disalin!');
         closeCopyQuestionsModal();
         loadOverview();
       } catch (err) {
-        alert('Terjadi kesalahan: ' + err.message);
+        cbtAlert('Terjadi kesalahan: ' + err.message);
       }
     }
 
@@ -1248,10 +1282,10 @@
               headers: authHeaders()
             });
             const data = await res.json();
-            if (!res.ok) alert(data.error || 'Gagal menghapus jadwal ujian');
+            if (!res.ok) cbtAlert(data.error || 'Gagal menghapus jadwal ujian');
             loadOverview();
           } catch (err) {
-            alert('Terjadi kesalahan: ' + err.message);
+            cbtAlert('Terjadi kesalahan: ' + err.message);
           }
         }
       );
@@ -1503,8 +1537,17 @@
       if (!uploadTargetExamId) return;
       const fileInp = document.getElementById('opWordFileInput');
       if (!fileInp.files || !fileInp.files[0]) {
-        alert('Silakan pilih file Microsoft Word (.docx) terlebih dahulu.');
+        cbtAlert('Silakan pilih file Microsoft Word (.docx) terlebih dahulu.');
         return;
+      }
+      if (document.getElementById('opReplaceCheck').checked) {
+        const ok = await cbtConfirm({
+          title: 'Timpa Semua Soal Lama?',
+          message: 'Semua soal yang sudah ada di paket ini akan DIHAPUS dan diganti dengan isi file Word. Tindakan ini tidak dapat dibatalkan.',
+          confirmText: 'Ya, Timpa Soal',
+          tone: 'danger'
+        });
+        if (!ok) return;
       }
       const btn = document.getElementById('btnSubmitOpWord');
       const origText = btn.innerHTML;
@@ -1535,7 +1578,7 @@
           msg.textContent = `⚠️ ${data.error || 'Gagal mengimpor file Word'}`;
         }
       } catch (err) {
-        alert('Gagal menghubungi server. Pastikan server aktif.');
+        cbtAlert('Gagal menghubungi server. Pastikan server aktif.');
       } finally {
         btn.disabled = false;
         btn.innerHTML = origText;
@@ -1565,7 +1608,7 @@
         loadOverview();
       } else {
         const err = await res.json();
-        alert(err.error || 'Gagal menyimpan akun');
+        cbtAlert(err.error || 'Gagal menyimpan akun');
       }
     }
 
@@ -1579,7 +1622,7 @@
             loadOverview();
           } else {
             const err = await res.json();
-            alert(err.error || 'Gagal menghapus akun staf');
+            cbtAlert(err.error || 'Gagal menghapus akun staf');
           }
         }
       );
@@ -1630,7 +1673,7 @@
         loadOverview();
       } else {
         const err = await res.json();
-        alert(err.error || 'Gagal menyimpan perubahan');
+        cbtAlert(err.error || 'Gagal menyimpan perubahan');
       }
     }
 

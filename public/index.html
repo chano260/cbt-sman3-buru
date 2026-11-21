@@ -22,7 +22,7 @@
       <button class="bp3-icon-btn" title="Layar Penuh" onclick="toggleFullscreen()">
         <svg class="icon" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
       </button>
-      <button class="bp3-icon-btn" title="Petunjuk & Bantuan" onclick="alert('Silakan hubungi Proktor / Teknisi Server jika membutuhkan bantuan teknis.')">
+      <button class="bp3-icon-btn" title="Petunjuk & Bantuan" onclick="cbtAlert('Silakan hubungi Proktor / Teknisi Server jika membutuhkan bantuan teknis.')">
         <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
       </button>
       <div class="bp3-user-pill">
@@ -143,7 +143,7 @@
           <svg class="icon" style="width:14px;height:14px;color:#94a3b8;" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
         </a>
 
-        <a href="javascript:void(0)" onclick="alert('Alamat server aktif: ' + window.location.origin)" class="bp3-doc-item">
+        <a href="javascript:void(0)" onclick="cbtAlert('Alamat server aktif: ' + window.location.origin)" class="bp3-doc-item">
           <div class="bp3-doc-left">
             <svg class="icon" style="color:#6366f1;" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
             <span>Informasi Jaringan Server</span>
@@ -158,6 +158,7 @@
     Sistem Evaluasi CBT SMA Negeri 3 Buru © 2026 • Terinspirasi Standar Desain Asesmen Nasional
   </footer>
 
+  <script src="/dialog.js"></script>
   <script>
     let remainingSeconds = 0;
     let countdownTimer = null;

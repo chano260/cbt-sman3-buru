@@ -591,6 +591,7 @@
     </div>
   </div>
 
+  <script src="/dialog.js"></script>
   <script>
     // Escape teks dari server sebelum dimasukkan ke innerHTML (mencegah XSS)
     function esc(v) {
@@ -617,7 +618,9 @@
         // Sesi dipakai di perangkat lain / tidak valid -> kembali ke layar login
         sessionStorage.removeItem('cbt_active_session_id');
         sessionStorage.removeItem('cbt_session_token');
-        alert('Sesi login Anda tidak berlaku lagi (mungkin dipakai login di perangkat lain). Silakan login ulang.');
+        sessionToken = ''; // cegah pop-up ganda dari request polling lain yang juga 401
+        examActive = false;
+        await cbtAlert('Sesi login Anda tidak berlaku lagi (mungkin dipakai login di perangkat lain). Silakan login ulang.', 'warning', 'Sesi Berakhir');
         window.location.reload();
       }
       return res;
@@ -931,11 +934,11 @@
           if (tokVal) tokVal.textContent = data.token;
         } else {
           if (tokVal) tokVal.textContent = 'GAGAL';
-          alert(data.error || 'Gagal mengambil token ujian aktif.');
+          cbtAlert(data.error || 'Gagal mengambil token ujian aktif.');
         }
       } catch (err) {
         if (tokVal) tokVal.textContent = 'ERROR';
-        alert('Gagal menghubungi server untuk mengambil token: ' + err.message);
+        cbtAlert('Gagal menghubungi server untuk mengambil token: ' + err.message);
       }
     }
 
@@ -943,7 +946,7 @@
       const tokVal = document.getElementById('revealedTokenVal');
       const token = tokVal ? tokVal.textContent.trim() : '';
       if (!token || token === '------' || token === 'MEMUAT...' || token === 'GAGAL' || token === 'ERROR') {
-        alert('Token belum tersedia. Silakan centang persetujuan tata tertib.');
+        cbtAlert('Token belum tersedia. Silakan centang persetujuan tata tertib.');
         return;
       }
       const inpTok = document.getElementById('inpSubtestToken');
@@ -985,7 +988,7 @@
             tokErr.textContent = data.error || 'Token tidak sesuai.';
             tokErr.style.display = 'block';
           } else {
-            alert(data.error || 'Token tidak sesuai.');
+            cbtAlert(data.error || 'Token tidak sesuai.');
           }
           return;
         }
@@ -1004,7 +1007,7 @@
       } catch (err) {
         closeModalConfirmStartTest();
         if (btn) btn.disabled = false;
-        alert('Gagal memverifikasi token ke server CBT.');
+        cbtAlert('Gagal memverifikasi token ke server CBT.');
       }
     }
 
@@ -1381,7 +1384,7 @@
           statusEl.textContent = '❌ Gagal: ' + err.message;
         }
         if (btn) btn.disabled = false;
-        alert('Gagal mengunggah foto: ' + err.message);
+        cbtAlert('Gagal mengunggah foto: ' + err.message);
       }
     }
 
@@ -1445,7 +1448,7 @@
       if (res.ok) {
         showFinishedScreen(data.message);
       } else {
-        alert(data.error || 'Gagal menyelesaikan ujian. Periksa koneksi jaringan.');
+        cbtAlert(data.error || 'Gagal menyelesaikan ujian. Periksa koneksi jaringan.');
       }
     }
 

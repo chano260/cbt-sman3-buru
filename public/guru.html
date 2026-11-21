@@ -269,6 +269,7 @@
     </div>
   </div>
 
+  <script src="/dialog.js"></script>
   <script>
 
     // Escape teks dari server sebelum dimasukkan ke innerHTML (mencegah XSS)
@@ -369,7 +370,7 @@
       const class_target = (document.getElementById('newBkClass').value || '').trim();
       const duration_minutes = Number(document.getElementById('newBkDuration').value) || 90;
       if (!subject) {
-        alert('Mata pelajaran wajib diisi.');
+        cbtAlert('Mata pelajaran wajib diisi.');
         return;
       }
       const res = await fetch('/api/guru/exams', {
@@ -382,9 +383,9 @@
         closeCreateBankSoalModal();
         currentExamId = data.id;
         await loadExams();
-        alert(`✓ Bank Soal "${subject}" berhasil dibuat! Silakan upload naskah Word (.docx) atau input soal di bawah.`);
+        cbtAlert(`✓ Bank Soal "${subject}" berhasil dibuat! Silakan upload naskah Word (.docx) atau input soal di bawah.`);
       } else {
-        alert(data.error || 'Gagal membuat Bank Soal');
+        cbtAlert(data.error || 'Gagal membuat Bank Soal');
       }
     }
 
@@ -487,7 +488,7 @@
 
     function deleteCurrentBankSoal() {
       if (!currentExamId) {
-        alert('Pilih paket bank soal yang ingin dihapus terlebih dahulu.');
+        cbtAlert('Pilih paket bank soal yang ingin dihapus terlebih dahulu.');
         return;
       }
       const sel = document.getElementById('examSelector');
@@ -503,13 +504,13 @@
             });
             const data = await res.json();
             if (!res.ok) {
-              alert(data.error || 'Gagal menghapus bank soal');
+              cbtAlert(data.error || 'Gagal menghapus bank soal');
               return;
             }
             currentExamId = null;
             await loadExams();
           } catch (err) {
-            alert('Terjadi kesalahan: ' + err.message);
+            cbtAlert('Terjadi kesalahan: ' + err.message);
           }
         }
       );
@@ -603,11 +604,18 @@
       if (res.ok) {
         loadQuestions();
       } else {
-        alert('Gagal mengunggah media soal.');
+        cbtAlert('Gagal mengunggah media soal.');
       }
     }
 
     async function clearQuestionMedia(questionId, kind) {
+      const ok = await cbtConfirm({
+        title: kind === 'audio' ? 'Hapus Audio Soal?' : 'Hapus Gambar Soal?',
+        message: `${kind === 'audio' ? 'Audio listening' : 'Gambar'} pada soal ini akan dihapus. Siswa tidak akan melihat/mendengarnya lagi.`,
+        confirmText: 'Ya, Hapus',
+        tone: 'danger'
+      });
+      if (!ok) return;
       const fd = new FormData();
       if (kind === 'image') fd.append('clearImage', 'true');
       if (kind === 'audio') fd.append('clearAudio', 'true');
@@ -621,13 +629,22 @@
 
     async function uploadWordFile() {
       if (!currentExamId) {
-        alert('Silakan buat atau pilih Bank Soal terlebih dahulu menggunakan tombol "+ Buat Bank Soal Baru".');
+        cbtAlert('Silakan buat atau pilih Bank Soal terlebih dahulu menggunakan tombol "+ Buat Bank Soal Baru".');
         return;
       }
       const fileInput = document.getElementById('wordFileInput');
       if (!fileInput.files || !fileInput.files[0]) {
-        alert('Silakan pilih file Microsoft Word (.docx) terlebih dahulu.');
+        cbtAlert('Silakan pilih file Microsoft Word (.docx) terlebih dahulu.');
         return;
+      }
+      if (document.getElementById('replaceCheck').checked) {
+        const ok = await cbtConfirm({
+          title: 'Timpa Semua Soal Lama?',
+          message: 'Semua soal yang sudah ada di bank soal ini akan DIHAPUS dan diganti dengan isi file Word. Tindakan ini tidak dapat dibatalkan.',
+          confirmText: 'Ya, Timpa Soal',
+          tone: 'danger'
+        });
+        if (!ok) return;
       }
       const formData = new FormData();
       formData.append('file', fileInput.files[0]);
@@ -654,7 +671,7 @@
 
     async function addManualQuestion() {
       if (!currentExamId) {
-        alert('Silakan buat atau pilih Bank Soal terlebih dahulu menggunakan tombol "+ Buat Bank Soal Baru".');
+        cbtAlert('Silakan buat atau pilih Bank Soal terlebih dahulu menggunakan tombol "+ Buat Bank Soal Baru".');
         return;
       }
       const fd = new FormData();
@@ -736,7 +753,7 @@
     async function openGuruEssayPhotos(sessionId, studentName) {
       const res = await fetch(`/api/pengawas/student-work/${sessionId}`, { headers: authHeaders() });
       if (!res.ok) {
-        alert('Gagal memuat jawaban siswa');
+        cbtAlert('Gagal memuat jawaban siswa');
         return;
       }
       const data = await res.json();

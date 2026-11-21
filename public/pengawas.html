@@ -151,6 +151,7 @@
     </div>
   </div>
 
+  <script src="/dialog.js"></script>
   <script>
 
     // Escape teks dari server sebelum dimasukkan ke innerHTML (mencegah XSS)
@@ -319,18 +320,24 @@
       const res = await fetch(`/api/pengawas/unlock/${sessionId}`, { method: 'POST', headers: authHeaders() });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || 'Gagal membuka kunci siswa.');
+        cbtAlert(data.error || 'Gagal membuka kunci siswa.');
       }
       loadRoomData();
     }
 
     async function resetStudentLogin(sessionId) {
+      const ok = await cbtConfirm({
+        title: 'Reset Login Siswa?',
+        message: 'Siswa akan keluar dari perangkat saat ini dan harus login ulang memakai token. Jawaban yang sudah tersimpan tidak hilang.',
+        confirmText: 'Ya, Reset Login'
+      });
+      if (!ok) return;
       const res = await fetch(`/api/pengawas/reset-login/${sessionId}`, { method: 'POST', headers: authHeaders() });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || 'Gagal mereset login siswa.');
+        cbtAlert(data.error || 'Gagal mereset login siswa.');
       } else {
-        alert('Login siswa berhasil di-reset. Siswa dapat login kembali di HP baru dan jawabannya tetap tersimpan.');
+        cbtAlert('Login siswa berhasil di-reset. Siswa dapat login kembali di HP baru dan jawabannya tetap tersimpan.');
       }
       loadRoomData();
     }

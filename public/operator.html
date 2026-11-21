@@ -42,12 +42,13 @@
 
   <div class="app-shell">
     <aside class="sidebar">
-      <button class="nav-btn active" onclick="switchTab('tab-dashboard', this)">📊 Pantauan & Token</button>
-      <button class="nav-btn" onclick="switchTab('tab-print', this)">🖨️ Cetak 4 Dokumen Ujian</button>
-      <button class="nav-btn" onclick="switchTab('tab-students', this)">👥 Data Siswa & Kelas</button>
-      <button class="nav-btn" onclick="switchTab('tab-exams', this)">📅 Jadwal & Sesi Ujian</button>
-      <button class="nav-btn" onclick="switchTab('tab-staff', this)">🔐 Akun Guru & Pengawas</button>
+      <button class="nav-btn active" onclick="switchTab('tab-dashboard', this)"><span class="nav-icon" aria-hidden="true">📊</span><span>Pantauan & Token</span></button>
+      <button class="nav-btn" onclick="switchTab('tab-print', this)"><span class="nav-icon" aria-hidden="true">🖨️</span><span>Cetak 4 Dokumen Ujian</span></button>
+      <button class="nav-btn" onclick="switchTab('tab-students', this)"><span class="nav-icon" aria-hidden="true">👥</span><span>Data Siswa & Kelas</span></button>
+      <button class="nav-btn" onclick="switchTab('tab-exams', this)"><span class="nav-icon" aria-hidden="true">📅</span><span>Jadwal & Sesi Ujian</span></button>
+      <button class="nav-btn" onclick="switchTab('tab-staff', this)"><span class="nav-icon" aria-hidden="true">🔐</span><span>Akun Guru & Pengawas</span></button>
     </aside>
+    <script src="/sidebar.js"></script>
 
     <main class="main-content">
       <!-- TAB 1: DASHBOARD & TOKEN -->

@@ -1707,3 +1707,99 @@ tr:last-child td {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* ------------------------------------------------------------------
+   Sidebar yang bisa diciutkan (public/sidebar.js)
+   ------------------------------------------------------------------ */
+.nav-icon {
+  display: inline-flex;
+  width: 20px;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 13px;
+  margin-bottom: 6px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sidebar-toggle:hover {
+  background: #f8fafc;
+  color: var(--dark);
+  border-style: solid;
+}
+
+.sidebar-toggle-icon {
+  display: inline-flex;
+  width: 20px;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Di HP sidebar sudah berupa baris tombol yang digeser, jadi tombol ciut tidak diperlukan */
+@media (max-width: 900px) {
+  .sidebar-toggle {
+    display: none;
+  }
+}
+
+/* Mode ciut: hanya di layar lebar */
+@media (min-width: 901px) {
+  /* Sengaja tanpa animasi lebar kolom: saat animasi berjalan, label sempat
+     tampil di kolom yang masih sempit sehingga teks terlipat berantakan. */
+  .sidebar-collapsed .app-shell {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .sidebar-collapsed .bp3-dashboard-grid {
+    grid-template-columns: 72px minmax(0, 1fr) 310px;
+  }
+
+  .sidebar-collapsed .app-shell > .sidebar {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .sidebar-collapsed .sidebar-toggle,
+  .sidebar-collapsed .app-shell > .sidebar .nav-btn,
+  .sidebar-collapsed .bp3-sidebar-left .bp3-nav-item {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .sidebar-collapsed .sidebar-toggle-label,
+  .sidebar-collapsed .app-shell > .sidebar .nav-btn > span:not(.nav-icon),
+  .sidebar-collapsed .bp3-sidebar-left .bp3-nav-item > span,
+  .sidebar-collapsed .bp3-sidebar-left .bp3-menu-section-label {
+    display: none;
+  }
+
+  .sidebar-collapsed .app-shell > .sidebar .nav-btn .nav-icon,
+  .sidebar-collapsed .bp3-sidebar-left .bp3-nav-item .icon {
+    font-size: 18px;
+  }
+}
+
+/* Lebar 901-1080px: portal memakai 2 kolom */
+@media (min-width: 901px) and (max-width: 1080px) {
+  .sidebar-collapsed .bp3-dashboard-grid {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+}

@@ -340,7 +340,14 @@ function createApp(db) {
 
   // ==================== PANEL OPERATOR ====================
   app.get('/api/operator/overview', requireStaffAuth(['operator']), async (req, res) => {
-    const exams = db.prepare('SELECT * FROM exams ORDER BY id DESC').all();
+    const exams = db.prepare(`
+      SELECT e.*,
+        (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id AND q.type = 'PG') AS pg_count,
+        (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id AND q.type = 'ESAI') AS esai_count,
+        (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id) AS total_questions
+      FROM exams e
+      ORDER BY e.id DESC
+    `).all();
     const rawActive = exams.find(e => e.is_active === 1) || exams[0];
     const activeExam = ensureFresh15MinToken(db, rawActive);
     const students = db.prepare('SELECT * FROM students ORDER BY room ASC, seat_number ASC, full_name ASC').all();

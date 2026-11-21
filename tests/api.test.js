@@ -65,6 +65,17 @@ test('Student exam lifecycle: login, auto-save PG, no key/score leak, lock on vi
     method: 'POST',
     headers: { 'Authorization': `Bearer ${pengawasAuth.staffToken}` }
   });
+
+  // Unggah foto lembar jawaban kertas untuk soal esai sebelum menyelesaikan subtes
+  const esaiQuestions = db.prepare("SELECT * FROM questions WHERE exam_id = ? AND type = 'ESAI'").all(exam.id);
+  for (const eq of esaiQuestions) {
+    const form = new FormData();
+    form.append('sessionId', String(loginRes.sessionId));
+    form.append('questionId', String(eq.id));
+    form.append('photo', new Blob([Buffer.from([0xff, 0xd8, 0xff, 0xe0])], { type: 'image/jpeg' }), 'esai.jpg');
+    await fetch(`${base}/api/ujian/upload-essay-photo`, { method: 'POST', body: form });
+  }
+
   const finishRes = await fetch(`${base}/api/ujian/finish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -376,6 +387,15 @@ test('Direct student name search, confirmation with TTL & NISN, direct exam star
   assert.equal(resumeRes.status, 'WORKING');
 
   // 7. Selesaikan ujian -> setelah selesai, tidak bisa masuk lagi dan tidak bisa ubah jawaban
+  const test5Esais = db.prepare("SELECT * FROM questions WHERE exam_id = ? AND type = 'ESAI'").all(findRes.exam.id);
+  for (const eq of test5Esais) {
+    const form = new FormData();
+    form.append('sessionId', String(startRes.sessionId));
+    form.append('questionId', String(eq.id));
+    form.append('photo', new Blob([Buffer.from([0xff, 0xd8, 0xff, 0xe0])], { type: 'image/jpeg' }), 'esai.jpg');
+    await fetch(`${base}/api/ujian/upload-essay-photo`, { method: 'POST', body: form });
+  }
+
   const finRes = await fetch(`${base}/api/ujian/finish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -534,6 +554,85 @@ test('Multi-teacher class targeting, active token retrieval modal, and operator 
   }).then(r => r.json());
   assert.equal(restartRes.exam.id, examBId);
   assert.equal(restartRes.exam.title, 'Matematika Paket B (Guru 2)');
+});
+
+test('Mandatory essay answer paper photo upload before finishing exam, and teacher/proctor inspection', async (t) => {
+  const db = initDb(':memory:');
+  const app = createApp(db);
+  const server = app.listen(0);
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const student = db.prepare('SELECT * FROM students LIMIT 1').get();
+  const exam = db.prepare('SELECT * FROM exams WHERE is_active = 1 LIMIT 1').get();
+
+  // Pastikan ada soal ESAI pada ujian ini
+  const esaiQ = db.prepare("SELECT * FROM questions WHERE exam_id = ? AND type = 'ESAI' LIMIT 1").get(exam.id);
+  assert.ok(esaiQ, 'Harus ada minimal 1 soal ESAI');
+
+  // Mulai sesi ujian siswa
+  const startRes = await fetch(`${base}/api/ujian/start-direct`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentId: student.id, nisnLast4: student.nisn.slice(-4) })
+  }).then(r => r.json());
+  assert.ok(startRes.sessionId);
+
+  // 1. Coba selesaikan ujian saat lembar esai belum difoto -> HARUS DITOLAK 400
+  const earlyFinishRes = await fetch(`${base}/api/ujian/finish`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: startRes.sessionId })
+  });
+  assert.equal(earlyFinishRes.status, 400);
+  const earlyFinishData = await earlyFinishRes.json();
+  assert.ok(earlyFinishData.error.includes('belum difoto'));
+
+  // 2. Unggah foto lembar jawaban kertas untuk semua soal esai pada ujian
+  const allEsaiQs = db.prepare("SELECT * FROM questions WHERE exam_id = ? AND type = 'ESAI'").all(exam.id);
+  const fakePhoto = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]); // JPEG header
+  let firstUpload = null;
+  for (const eq of allEsaiQs) {
+    const form = new FormData();
+    form.append('sessionId', String(startRes.sessionId));
+    form.append('questionId', String(eq.id));
+    form.append('currentQuestionNumber', String(eq.number));
+    form.append('photo', new Blob([fakePhoto], { type: 'image/jpeg' }), `lembar_esai_${eq.number}.jpg`);
+
+    const uploadRes = await fetch(`${base}/api/ujian/upload-essay-photo`, {
+      method: 'POST',
+      body: form
+    }).then(r => r.json());
+    assert.equal(uploadRes.ok, true);
+    assert.ok(uploadRes.essayPhoto.startsWith('/uploads/essay-'));
+    if (!firstUpload) firstUpload = uploadRes;
+  }
+
+  // 3. Sesi sekarang mengembalikan essayPhotos
+  const sessRes = await fetch(`${base}/api/ujian/session/${startRes.sessionId}`).then(r => r.json());
+  assert.equal(sessRes.essayPhotos[esaiQ.id], firstUpload.essayPhoto);
+
+  // 4. Guru & Pengawas dapat memeriksa foto lembar jawaban kertas siswa
+  const guruAuth = await fetch(`${base}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'guru', password: 'guru123', role: 'guru' })
+  }).then(r => r.json());
+
+  const workRes = await fetch(`${base}/api/pengawas/student-work/${startRes.sessionId}`, {
+    headers: { 'Authorization': `Bearer ${guruAuth.staffToken}` }
+  }).then(r => r.json());
+  const esaiWork = workRes.workDetail.find(w => w.question_id === esaiQ.id);
+  assert.ok(esaiWork);
+  assert.equal(esaiWork.essay_photo, firstUpload.essayPhoto);
+
+  // 5. Setelah seluruh lembar esai difoto, ujian BERHASIL diselesaikan
+  const finishRes = await fetch(`${base}/api/ujian/finish`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: startRes.sessionId })
+  }).then(r => r.json());
+  assert.equal(finishRes.status, 'FINISHED');
 });
 
 

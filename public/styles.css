@@ -1321,6 +1321,12 @@ tr:last-child td {
   color: #ffffff;
 }
 
+.exambppp-num-btn.essay.done {
+  background: #059669;
+  border-color: #059669;
+  color: #ffffff;
+}
+
 .exambppp-num-btn.active {
   box-shadow: 0 0 0 3px #10b981;
 }

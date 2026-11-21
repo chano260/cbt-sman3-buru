@@ -778,14 +778,17 @@
       document.getElementById('wmStudentSub').textContent = `Sedang di Soal Nomor ${data.session.current_question_number || 1} • Status: ${data.session.status} • Pelanggaran: ${data.session.violation_count}x`;
 
       document.getElementById('wmBody').innerHTML = `
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:16px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px;">
           ${data.workDetail.map(w => `
-            <div style="border:1.5px solid ${w.is_current ? '#2563eb' : w.chosen_option ? '#86efac' : '#e2e8f0'};background:${w.is_current ? '#eff6ff' : w.chosen_option ? '#f0fdf4' : '#fff'};border-radius:10px;padding:8px 10px;font-size:12px;">
+            <div style="border:1.5px solid ${w.is_current ? '#2563eb' : (w.essay_photo || w.chosen_option) ? '#86efac' : '#e2e8f0'};background:${w.is_current ? '#eff6ff' : (w.essay_photo || w.chosen_option) ? '#f0fdf4' : '#fff'};border-radius:10px;padding:8px 10px;font-size:12px;">
               <div style="display:flex;justify-content:space-between;font-weight:800;">
                 <span>No. ${w.number} (${w.type})</span>
-                <span style="color:${w.chosen_option ? '#15803d' : '#94a3b8'};">${w.chosen_option ? 'Jawab: ' + w.chosen_option : w.type === 'ESAI' ? 'Kertas' : 'Kosong'}</span>
+                <span style="color:${(w.essay_photo || w.chosen_option) ? '#15803d' : '#94a3b8'};">
+                  ${w.type === 'ESAI' ? (w.essay_photo ? '📷 Difoto' : 'Belum Foto') : (w.chosen_option ? 'Jawab: ' + w.chosen_option : 'Kosong')}
+                </span>
               </div>
               ${w.is_current ? '<div style="font-size:10.5px;color:#2563eb;font-weight:700;margin-top:3px;">👀 Sedang Dilihat Siswa</div>' : ''}
+              ${w.essay_photo ? `<div style="margin-top:5px;"><a href="${w.essay_photo}" target="_blank" style="color:var(--primary);font-size:11px;font-weight:700;text-decoration:underline;">🔍 Lihat Foto Kertas</a></div>` : ''}
             </div>
           `).join('')}
         </div>

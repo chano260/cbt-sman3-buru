@@ -125,6 +125,7 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
       session_id INTEGER NOT NULL,
       question_id INTEGER NOT NULL,
       chosen_option TEXT NOT NULL,
+      essay_photo TEXT,
       updated_at TEXT NOT NULL,
       UNIQUE(session_id, question_id)
     );
@@ -151,6 +152,7 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
 
   // Migrasi aman jika file database lama sudah ada
   const safeAlter = [
+    "ALTER TABLE answers ADD COLUMN essay_photo TEXT",
     "ALTER TABLE exams ADD COLUMN token_updated_at TEXT",
     "ALTER TABLE exam_sessions ADD COLUMN need_token_reverify INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE exam_sessions ADD COLUMN current_question_number INTEGER NOT NULL DEFAULT 1",

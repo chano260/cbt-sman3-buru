@@ -2,9 +2,14 @@ package id.sch.sman3buru.exambro;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import android.content.ClipData;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Build;
+import android.provider.MediaStore;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
@@ -12,6 +17,7 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -22,16 +28,24 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
 public class MainActivity extends Activity {
+
+    private static final int REQUEST_ESSAY_PHOTO = 1001;
 
     private LinearLayout setupLayout;
     private EditText serverUrlInput;
     private Button connectBtn;
     private WebView examWebView;
     private boolean isLockModeActive = false;
+
+    // Pemilih file dari <input type="file"> di halaman ujian (foto lembar jawaban esai)
+    private ValueCallback<Uri[]> pendingFileCallback;
+    private boolean capturingPhoto = false;
+    private boolean launchedCamera = false;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -84,7 +98,15 @@ public class MainActivity extends Activity {
                 return false;
             }
         });
-        examWebView.setWebChromeClient(new WebChromeClient());
+        // Tanpa onShowFileChooser, WebView Android mengabaikan ketukan pada <input type="file">,
+        // sehingga tombol "Buka Kamera & Foto Lembar Jawaban" tidak melakukan apa-apa.
+        examWebView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback,
+                                             FileChooserParams fileChooserParams) {
+                return openEssayPhotoChooser(filePathCallback, fileChooserParams);
+            }
+        });
 
         connectBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -128,9 +150,84 @@ public class MainActivity extends Activity {
         }
     }
 
+    /**
+     * Buka kamera untuk memotret lembar jawaban esai (atau galeri jika kamera tidak tersedia).
+     * Kamera dibuka di task yang sama dengan Exambro (tanpa FLAG_ACTIVITY_NEW_TASK) agar tetap
+     * diizinkan saat layar disematkan (screen pinning), dan dengan FLAG_ACTIVITY_NO_USER_ACTION
+     * agar tidak dianggap siswa meninggalkan aplikasi.
+     */
+    private boolean openEssayPhotoChooser(ValueCallback<Uri[]> callback, WebChromeClient.FileChooserParams params) {
+        if (pendingFileCallback != null) {
+            pendingFileCallback.onReceiveValue(null);
+        }
+        pendingFileCallback = callback;
+
+        Intent intent = null;
+        launchedCamera = false;
+        Intent camera = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (camera.resolveActivity(getPackageManager()) != null) {
+            File target = PhotoProvider.photoFile(this);
+            if (target.exists()) target.delete();
+            Uri output = PhotoProvider.photoUri();
+            camera.putExtra(MediaStore.EXTRA_OUTPUT, output);
+            camera.setClipData(ClipData.newRawUri("", output));
+            camera.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent = camera;
+            launchedCamera = true;
+        } else if (params != null) {
+            intent = params.createIntent();
+        }
+
+        if (intent == null) {
+            finishEssayPhotoChooser(null);
+            Toast.makeText(this, "Kamera tidak ditemukan di HP ini.", Toast.LENGTH_LONG).show();
+            return true;
+        }
+
+        intent.addFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION);
+        capturingPhoto = true;
+        try {
+            startActivityForResult(intent, REQUEST_ESSAY_PHOTO);
+        } catch (ActivityNotFoundException | SecurityException e) {
+            capturingPhoto = false;
+            finishEssayPhotoChooser(null);
+            Toast.makeText(this, "Kamera tidak dapat dibuka: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+        return true;
+    }
+
+    // Callback WebView WAJIB selalu dipanggil (juga saat batal); jika tidak, input file tidak bisa dipakai lagi.
+    private void finishEssayPhotoChooser(Uri[] result) {
+        if (pendingFileCallback != null) {
+            pendingFileCallback.onReceiveValue(result);
+            pendingFileCallback = null;
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_ESSAY_PHOTO) return;
+        capturingPhoto = false;
+
+        Uri[] result = null;
+        if (resultCode == RESULT_OK) {
+            File photo = PhotoProvider.photoFile(this);
+            if (launchedCamera && photo.exists() && photo.length() > 0) {
+                result = new Uri[] { PhotoProvider.photoUri() };
+            } else {
+                result = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
+            }
+        }
+        finishEssayPhotoChooser(result);
+        enableImmersiveFullscreen();
+    }
+
     @Override
     protected void onUserLeaveHint() {
         super.onUserLeaveHint();
+        // Membuka kamera untuk foto esai adalah aksi resmi, bukan pelanggaran
+        if (capturingPhoto) return;
         if (isLockModeActive && examWebView != null) {
             examWebView.evaluateJavascript(
                 "window.onExambroViolationDetected && window.onExambroViolationDetected('Siswa menekan tombol Home / pindah aplikasi di Android');",

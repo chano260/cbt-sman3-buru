@@ -5,6 +5,20 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- Sengaja TIDAK meminta izin CAMERA: foto diambil lewat aplikasi kamera bawaan
+         (ACTION_IMAGE_CAPTURE). Jika izin CAMERA dideklarasikan tetapi belum diberikan,
+         Android justru menolak membuka kamera. -->
+
+    <!-- Android 11+: agar aplikasi kamera & galeri terlihat oleh Exambro -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.GET_CONTENT" />
+            <data android:mimeType="image/*" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="false"
@@ -26,5 +40,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Penyimpanan sementara foto lembar jawaban esai dari aplikasi kamera -->
+        <provider
+            android:name=".PhotoProvider"
+            android:authorities="id.sch.sman3buru.exambro.photos"
+            android:exported="false"
+            android:grantUriPermissions="true" />
     </application>
 </manifest>

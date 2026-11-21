@@ -105,6 +105,37 @@ function seededShufflePgQuestions(questions, seedNumber) {
   return [...arr, ...esaiList];
 }
 
+function copyQuestions(db, sourceExamId, targetExamId) {
+  const sourceQuestions = db.prepare('SELECT * FROM questions WHERE exam_id = ? ORDER BY number ASC, id ASC').all(Number(sourceExamId));
+  if (!sourceQuestions || sourceQuestions.length === 0) return 0;
+
+  const insert = db.prepare(`
+    INSERT INTO questions (exam_id, number, type, question_text, image_data, audio_data, option_a, option_b, option_c, option_d, option_e, answer_key)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const tx = db.transaction((qs) => {
+    for (const q of qs) {
+      insert.run(
+        Number(targetExamId),
+        q.number,
+        q.type,
+        q.question_text,
+        q.image_data,
+        q.audio_data,
+        q.option_a,
+        q.option_b,
+        q.option_c,
+        q.option_d,
+        q.option_e,
+        q.answer_key
+      );
+    }
+  });
+  tx(sourceQuestions);
+  return sourceQuestions.length;
+}
+
 function calculateExamScores(db, examId) {
   const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);
   if (!exam) return { exam: null, pgCount: 0, esaiCount: 0, scores: [] };
@@ -124,6 +155,9 @@ function calculateExamScores(db, examId) {
       return {
         student_id: student.id,
         session_id: null,
+        exam_id: exam.id,
+        exam_subject: exam.subject,
+        exam_title: exam.title,
         exam_number: student.exam_number,
         nisn: student.nisn,
         full_name: student.full_name,
@@ -172,6 +206,9 @@ function calculateExamScores(db, examId) {
     return {
       student_id: student.id,
       session_id: sess.id,
+      exam_id: exam.id,
+      exam_subject: exam.subject,
+      exam_title: exam.title,
       exam_number: student.exam_number,
       nisn: student.nisn,
       full_name: student.full_name,
@@ -397,7 +434,127 @@ function createApp(db) {
     const activeExam = ensureFresh15MinToken(db, rawActive);
     const students = db.prepare('SELECT * FROM students ORDER BY room ASC, seat_number ASC, full_name ASC').all();
     const staff = db.prepare('SELECT id, username, full_name, role, subject, room FROM users ORDER BY role ASC, id ASC').all();
-    const scoreData = activeExam ? calculateExamScores(db, activeExam.id) : { scores: [], pgCount: 0, esaiCount: 0 };
+
+    const requestedExamId = req.query.exam_id;
+    let monitoring = [];
+    let pgCount = activeExam?.pg_count || 0;
+    let esaiCount = activeExam?.esai_count || 0;
+
+    if (requestedExamId && requestedExamId !== 'ALL') {
+      const targetExamId = Number(requestedExamId);
+      const scoreData = calculateExamScores(db, targetExamId);
+      monitoring = scoreData.scores;
+      pgCount = scoreData.pgCount;
+      esaiCount = scoreData.esaiCount;
+    } else {
+      // Pantauan live menyeluruh: tampilkan semua siswa beserta status sesi ujian terbarunya
+      const allSessions = db.prepare(`
+        SELECT s.*, e.subject AS exam_subject, e.title AS exam_title
+        FROM exam_sessions s
+        JOIN exams e ON e.id = s.exam_id
+        ORDER BY s.last_activity_at DESC, s.id DESC
+      `).all();
+
+      const latestSessionByStudent = new Map();
+      for (const s of allSessions) {
+        if (!latestSessionByStudent.has(s.student_id)) {
+          latestSessionByStudent.set(s.student_id, s);
+        } else if (activeExam && s.exam_id === activeExam.id) {
+          latestSessionByStudent.set(s.student_id, s);
+        }
+      }
+
+      const examIdsInSessions = [...new Set(allSessions.map(s => s.exam_id))];
+      const examDataCache = new Map();
+      for (const exId of examIdsInSessions) {
+        const pgs = db.prepare("SELECT id, number, answer_key FROM questions WHERE exam_id = ? AND type = 'PG'").all(exId);
+        examDataCache.set(exId, {
+          pgCount: pgs.length,
+          keyMap: new Map(pgs.map(q => [q.id, (q.answer_key || '').toUpperCase()]))
+        });
+      }
+
+      monitoring = students.map(st => {
+        const sess = latestSessionByStudent.get(st.id);
+        if (!sess) {
+          return {
+            student_id: st.id,
+            session_id: null,
+            exam_id: activeExam?.id || null,
+            exam_subject: activeExam?.subject || '-',
+            exam_title: activeExam?.title || '-',
+            exam_number: st.exam_number,
+            nisn: st.nisn,
+            full_name: st.full_name,
+            class_name: st.class_name,
+            room: st.room,
+            seat_number: st.seat_number,
+            status: 'NOT_STARTED',
+            need_token_reverify: 0,
+            current_question_number: null,
+            last_activity_at: null,
+            violation_count: 0,
+            last_violation_reason: null,
+            answered_pg: 0,
+            correct_pg: 0,
+            wrong_pg: 0,
+            total_pg: pgCount,
+            recent_choices: [],
+            score: 0
+          };
+        }
+
+        const cache = examDataCache.get(sess.exam_id) || { pgCount: 0, keyMap: new Map() };
+        const ansRows = db.prepare(`
+          SELECT a.question_id, a.chosen_option, a.updated_at, q.number
+          FROM answers a
+          JOIN questions q ON q.id = a.question_id
+          WHERE a.session_id = ?
+          ORDER BY q.number ASC
+        `).all(sess.id);
+
+        let correct = 0;
+        let answeredPg = 0;
+        const recentChoices = [];
+        for (const ans of ansRows) {
+          if (cache.keyMap.has(ans.question_id)) {
+            answeredPg++;
+            const chosen = (ans.chosen_option || '').toUpperCase();
+            if (chosen === cache.keyMap.get(ans.question_id)) correct++;
+            recentChoices.push({ number: ans.number, chosen, updated_at: ans.updated_at });
+          }
+        }
+        const wrong = Math.max(0, answeredPg - correct);
+        const score = cache.pgCount > 0 ? Number(((correct / cache.pgCount) * 100).toFixed(1)) : 0;
+
+        return {
+          student_id: st.id,
+          session_id: sess.id,
+          exam_id: sess.exam_id,
+          exam_subject: sess.exam_subject,
+          exam_title: sess.exam_title,
+          exam_number: st.exam_number,
+          nisn: st.nisn,
+          full_name: st.full_name,
+          class_name: st.class_name,
+          room: st.room,
+          seat_number: st.seat_number,
+          status: sess.status,
+          need_token_reverify: sess.need_token_reverify || 0,
+          current_question_number: sess.current_question_number || 1,
+          last_activity_at: sess.last_activity_at || sess.started_at,
+          violation_count: sess.violation_count,
+          last_violation_reason: sess.last_violation_reason,
+          answered_pg: answeredPg,
+          correct_pg: correct,
+          wrong_pg: wrong,
+          total_pg: cache.pgCount,
+          recent_choices: recentChoices,
+          score
+        };
+      });
+    }
+
     const qrBundle = await buildQrBundle(req);
     const classes = db.prepare("SELECT DISTINCT class_name FROM students WHERE class_name IS NOT NULL AND class_name != '' ORDER BY class_name ASC").all().map(r => r.class_name);
     const teachers = db.prepare("SELECT id, username, full_name, subject FROM users WHERE role = 'guru' ORDER BY full_name ASC").all();
@@ -411,9 +568,9 @@ function createApp(db) {
       staff,
       classes,
       teachers,
-      monitoring: scoreData.scores,
-      pgCount: scoreData.pgCount,
-      esaiCount: scoreData.esaiCount
+      monitoring,
+      pgCount,
+      esaiCount
     });
   });
 
@@ -528,14 +685,58 @@ function createApp(db) {
       shuffle_questions !== undefined ? (shuffle_questions ? 1 : 0) : 1,
       targetTeacherId
     );
-    res.json({ id: Number(info.lastInsertRowid), token });
+    const newExamId = Number(info.lastInsertRowid);
+    let autoCopied = 0;
+    const donor = db.prepare(`
+      SELECT id FROM exams
+      WHERE id != ?
+        AND (LOWER(TRIM(subject)) = LOWER(TRIM(?)) OR LOWER(subject) LIKE '%' || LOWER(?) || '%')
+        AND (SELECT COUNT(*) FROM questions WHERE exam_id = exams.id) > 0
+      ORDER BY id DESC LIMIT 1
+    `).get(newExamId, subject, subject);
+    if (donor) {
+      autoCopied = copyQuestions(db, donor.id, newExamId);
+      invalidateQuestionsCache(newExamId);
+    }
+    res.json({ id: newExamId, token, autoCopiedQuestions: autoCopied });
   });
 
   app.post('/api/operator/exams/:id/activate', requireStaffAuth(['operator']), (req, res) => {
     const examId = Number(req.params.id);
+    const targetExam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);
+    if (!targetExam) return res.status(404).json({ error: 'Ujian tidak ditemukan' });
+
+    let autoCopied = 0;
+    const qCount = db.prepare('SELECT COUNT(*) as c FROM questions WHERE exam_id = ?').get(examId).c;
+    if (qCount === 0) {
+      const donor = db.prepare(`
+        SELECT id FROM exams
+        WHERE id != ?
+          AND (LOWER(TRIM(subject)) = LOWER(TRIM(?)) OR LOWER(subject) LIKE '%' || LOWER(?) || '%')
+          AND (SELECT COUNT(*) FROM questions WHERE exam_id = exams.id) > 0
+        ORDER BY id DESC LIMIT 1
+      `).get(examId, targetExam.subject, targetExam.subject);
+      if (donor) {
+        autoCopied = copyQuestions(db, donor.id, examId);
+        invalidateQuestionsCache(examId);
+      }
+    }
+
     db.prepare('UPDATE exams SET is_active = 0').run();
     db.prepare('UPDATE exams SET is_active = 1, token_updated_at = ? WHERE id = ?').run(new Date().toISOString(), examId);
-    res.json({ activated: examId });
+    res.json({ activated: examId, total_questions: qCount + autoCopied, autoCopiedQuestions: autoCopied });
+  });
+
+  app.post('/api/operator/exams/:targetId/copy-questions-from/:sourceId', requireStaffAuth(['operator']), (req, res) => {
+    const targetId = Number(req.params.targetId);
+    const sourceId = Number(req.params.sourceId);
+    const targetExam = db.prepare('SELECT id, subject FROM exams WHERE id = ?').get(targetId);
+    const sourceExam = db.prepare('SELECT id, subject FROM exams WHERE id = ?').get(sourceId);
+    if (!targetExam || !sourceExam) return res.status(404).json({ error: 'Paket ujian tidak ditemukan' });
+
+    const count = copyQuestions(db, sourceId, targetId);
+    invalidateQuestionsCache(targetId);
+    res.json({ message: `Berhasil menyalin ${count} butir soal ke ${targetExam.subject}`, copiedCount: count });
   });
 
   app.post('/api/operator/students', requireStaffAuth(['operator']), (req, res) => {

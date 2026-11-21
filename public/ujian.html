@@ -1104,7 +1104,34 @@
     }
 
     function renderCurrentQuestion() {
-      if (questions.length === 0) return;
+      const card = document.getElementById('activeQuestionCard');
+      if (questions.length === 0) {
+        if (card) {
+          const subj = examData?.exam?.subject || 'Mata Pelajaran Ini';
+          card.innerHTML = `
+            <div style="text-align:center;padding:36px 16px;">
+              <div style="font-size:46px;margin-bottom:12px;">⚠️</div>
+              <div style="font-size:18px;font-weight:800;color:#92400e;margin-bottom:8px;">Paket Ujian Ini Belum Memiliki Butir Soal</div>
+              <p style="font-size:14px;color:#78350f;max-width:540px;margin:0 auto 16px;line-height:1.6;">
+                Paket soal untuk ujian <b>${subj}</b> belum diunggah atau paket yang diaktifkan oleh sekolah masih kosong (0 butir soal).
+              </p>
+              <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:10px;padding:14px;font-size:13px;color:#92400e;display:inline-block;max-width:480px;line-height:1.5;">
+                📢 Silakan laporkan hal ini kepada <b>Pengawas Ruangan</b> atau <b>Operator CBT</b> agar paket bank soal yang benar diaktifkan.
+              </div>
+            </div>
+          `;
+        }
+        document.getElementById('subbarQuestionNumber').textContent = 'Informasi Soal';
+        document.getElementById('qBottomIndicator').textContent = '0 / 0';
+        if (sessionId && examActive) {
+          fetch('/api/ujian/heartbeat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId, currentQuestionNumber: 0 })
+          }).catch(() => {});
+        }
+        return;
+      }
       const q = questions[currentIndex];
       document.getElementById('subbarQuestionNumber').textContent = `Soal Nomor ${q.number}`;
       document.getElementById('qBottomIndicator').textContent = `${currentIndex + 1} / ${questions.length}`;

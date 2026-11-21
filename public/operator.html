@@ -123,6 +123,19 @@
           </div>
         </div>
 
+        <div id="activeExamZeroWarning" style="display:none;background:#fef2f2;border:2px solid #ef4444;border-radius:10px;padding:14px 18px;margin-bottom:18px;">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <span style="font-size:28px;">⚠️</span>
+            <div style="flex:1;">
+              <div style="font-weight:800;color:#991b1b;font-size:15px;">PERINGATAN: Paket Ujian Aktif Saat Ini MASIH 0 SOAL (KOSONG)!</div>
+              <div style="font-size:13px;color:#7f1d1d;margin-top:2px;">
+                Paket <b id="warnExamSubject">-</b> tidak memiliki butir soal. Siswa yang login saat ini tidak akan dapat mengerjakan soal!
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="switchTab('tab-exams', document.querySelectorAll('.nav-btn')[3])">Buka Jadwal & Aktifkan Paket yang Ada Soal ↗</button>
+          </div>
+        </div>
+
         <div class="card">
           <div class="card-header" style="flex-wrap:wrap;gap:10px;">
             <div>
@@ -130,6 +143,9 @@
               <p style="font-size:12.5px;color:var(--muted);">Nilai PG hanya tampil di layar Operator & Guru (tidak tampil di HP siswa)</p>
             </div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <select id="monExamFilter" class="input" style="padding:5px 8px;font-size:12px;font-weight:700;max-width:280px;" onchange="loadOverview()">
+                <option value="ALL">🌐 Semua Ujian / Sesi Siswa</option>
+              </select>
               <select id="monClassFilter" class="input" style="padding:5px 8px;font-size:12px;width:auto;" onchange="renderMonitoringTable()">
                 <option value="ALL">Semua Kelas</option>
               </select>
@@ -574,6 +590,28 @@
     </div>
   </div>
 
+  <!-- MODAL SALIN SOAL DARI BANK SOAL -->
+  <div id="modalCopyQuestions" style="position:fixed;inset:0;background:rgba(15,23,42,0.7);z-index:150;display:none;align-items:center;justify-content:center;padding:16px;">
+    <div class="card" style="max-width:500px;width:100%;margin:0;padding:24px;border-radius:14px;box-shadow:var(--shadow-lg);">
+      <div class="card-header" style="margin-bottom:12px;">
+        <div class="card-title">📋 Salin Butir Soal ke Paket Ujian</div>
+        <button class="btn btn-sm btn-outline" onclick="closeCopyQuestionsModal()">✕</button>
+      </div>
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px;">
+        Salin seluruh butir soal (PG & Esai) dari bank soal guru lain ke paket ujian: <b id="copyTargetSubjectLabel" style="color:var(--primary);">-</b>
+      </p>
+      <input type="hidden" id="copyTargetExamId">
+      <div class="form-group" style="margin-bottom:18px;">
+        <label>Pilih Sumber Bank Soal (Yang Sudah Ada Soal)</label>
+        <select id="copySourceExamSelect" class="input" style="font-weight:600;"></select>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn btn-outline" type="button" onclick="closeCopyQuestionsModal()">Batal</button>
+        <button class="btn btn-primary" type="button" onclick="submitCopyQuestions()">🚀 Salin Soal Sekarang</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let currentOverview = null;
     let currentPrintData = null;
@@ -612,11 +650,14 @@
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
       if (btn) btn.classList.add('active');
       if (tabId === 'tab-print') loadPrintData();
+      if (tabId === 'tab-dashboard') loadOverview();
     }
 
     async function loadOverview() {
       if (!staffToken) return;
-      const res = await fetch('/api/operator/overview', { headers: authHeaders() });
+      const monExamSel = document.getElementById('monExamFilter');
+      const examQuery = (monExamSel && monExamSel.value && monExamSel.value !== 'ALL') ? `?exam_id=${monExamSel.value}` : '';
+      const res = await fetch(`/api/operator/overview${examQuery}`, { headers: authHeaders() });
       if (res.status === 401) {
         document.getElementById('loginOverlay').style.display = 'flex';
         return;
@@ -648,6 +689,34 @@
         document.getElementById('statToken').textContent = data.activeExam.token;
         document.getElementById('statTokenTimer').textContent = `⏱ Otomatis ganti token baru dalam ${mm}:${ss}`;
         document.getElementById('statExamTitle').textContent = `${data.activeExam.subject} (${data.activeExam.class_target}) • ${data.pgCount} PG & ${data.esaiCount} Esai`;
+
+        const warnBox = document.getElementById('activeExamZeroWarning');
+        if (warnBox) {
+          const totalQ = Number(data.activeExam.total_questions || (data.pgCount + data.esaiCount) || 0);
+          if (totalQ === 0) {
+            warnBox.style.display = 'block';
+            document.getElementById('warnExamSubject').textContent = `${data.activeExam.subject} (${data.activeExam.title})`;
+          } else {
+            warnBox.style.display = 'none';
+          }
+        }
+      }
+
+      // Populate filter ujian jika belum ada atau diperbarui
+      if (data.exams && data.exams.length) {
+        const selEx = document.getElementById('monExamFilter');
+        if (selEx) {
+          const prevEx = selEx.value;
+          let optExHtml = '<option value="ALL">🌐 Semua Ujian / Sesi Siswa</option>';
+          data.exams.forEach(e => {
+            const act = e.is_active ? ' ● Aktif' : '';
+            optExHtml += `<option value="${e.id}">${e.subject} (${e.total_questions || 0} Soal)${act}</option>`;
+          });
+          selEx.innerHTML = optExHtml;
+          if (prevEx && (prevEx === 'ALL' || data.exams.some(e => String(e.id) === String(prevEx)))) {
+            selEx.value = prevEx;
+          }
+        }
       }
 
       document.getElementById('statTotalStudents').textContent = data.students.length;
@@ -724,6 +793,7 @@
             ${qBadge}
             <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">
               ${totalQ > 0 ? `<button class="btn btn-sm btn-outline" style="font-size:11px;padding:2px 7px;" onclick="openPreviewQuestionsModal(${e.id})">👁️ Intip Soal</button>` : ''}
+              ${totalQ === 0 ? `<button class="btn btn-sm btn-outline" style="font-size:11px;padding:2px 7px;color:#d97706;border-color:#fcd34d;" onclick="openCopyQuestionsModal(${e.id}, '${safeSubject}')">📋 Salin Soal</button>` : ''}
               <button class="btn btn-sm btn-outline" style="font-size:11px;padding:2px 7px;" onclick="openUploadWordModal(${e.id}, '${safeSubject}', '${safeTarget}')">
                 📤 Upload Word
               </button>
@@ -734,7 +804,7 @@
           <td>${e.is_active ? '<span class="badge badge-finished">● Aktif</span>' : '<span class="badge badge-idle">Nonaktif</span>'}</td>
           <td>
             <div style="display:flex;gap:4px;flex-wrap:wrap;">
-              ${!e.is_active ? `<button class="btn btn-sm btn-primary" onclick="activateExam(${e.id})">Aktifkan</button>` : ''}
+              ${!e.is_active ? `<button class="btn btn-sm ${totalQ > 0 ? 'btn-primary' : 'btn-outline'}" onclick="activateExam(${e.id}, ${totalQ})">${totalQ > 0 ? '⚡ Aktifkan' : 'Aktifkan (0 Soal)'}</button>` : ''}
               <a href="/guru.html" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px;padding:3px 8px;" title="Kelola butir soal di Panel Guru">Panel Guru ↗</a>
             </div>
           </td>
@@ -771,6 +841,9 @@
         if (m.status === 'FINISHED') badge = '<span class="badge badge-finished">✓ Selesai</span>';
         if (m.status === 'LOCKED') badge = '<span class="badge badge-locked">🔒 TERKUNCI</span>';
 
+        const subjBadge = (m.exam_subject && m.exam_subject !== '-')
+          ? `<div style="font-size:11px;font-weight:700;color:var(--primary);margin-top:2px;">[${m.exam_subject}]</div>`
+          : '';
         const recentStr = (m.recent_choices || []).slice(-6).map(c => `${c.number}:${c.chosen}`).join(' ');
         const safeName = (m.full_name || '').replace(/'/g, "\\'");
         return `
@@ -781,7 +854,7 @@
               <b>${m.class_name}</b> • ${m.room}
               <div><button class="btn btn-sm btn-outline" style="font-size:10px;padding:1px 5px;margin-top:2px;" onclick="openChangeClassModal(${m.student_id}, '${safeName}', '${m.class_name}')">✏️ Pindah</button></div>
             </td>
-            <td>${badge}</td>
+            <td>${badge}${subjBadge}</td>
             <td>
               <b>${m.answered_pg} / ${m.total_pg} PG</b>
               ${recentStr ? `<div style="font-size:11px;color:var(--primary);font-family:monospace;">[${recentStr}]</div>` : ''}
@@ -1022,9 +1095,56 @@
       }
     }
 
-    async function activateExam(id) {
-      await fetch(`/api/operator/exams/${id}/activate`, { method: 'POST', headers: authHeaders() });
+    async function activateExam(id, totalQ) {
+      if (totalQ === 0) {
+        const conf = confirm('⚠️ Perhatian: Paket ujian ini masih 0 soal! Yakin ingin mengaktifkannya? (Sistem akan otomatis menyalin butir soal jika ada bank soal untuk mapel ini)');
+        if (!conf) return;
+      }
+      const res = await fetch(`/api/operator/exams/${id}/activate`, { method: 'POST', headers: authHeaders() });
+      const data = await res.json();
+      if (data.autoCopiedQuestions > 0) {
+        alert(`✅ Paket ujian diaktifkan! Otomatis menyalin ${data.autoCopiedQuestions} butir soal dari bank soal yang tersedia.`);
+      }
       loadOverview();
+    }
+
+    function openCopyQuestionsModal(targetExamId, targetSubject) {
+      document.getElementById('copyTargetExamId').value = targetExamId;
+      document.getElementById('copyTargetSubjectLabel').textContent = targetSubject;
+      const sel = document.getElementById('copySourceExamSelect');
+      const donors = (currentOverview?.exams || []).filter(e => e.id !== targetExamId && Number(e.total_questions || 0) > 0);
+      if (!donors.length) {
+        alert('Belum ada bank soal lain yang memiliki butir soal untuk disalin.');
+        return;
+      }
+      sel.innerHTML = donors.map(d => `<option value="${d.id}">${d.subject} (${d.title}) — ${d.total_questions} Soal [Guru: ${d.teacher_name || 'Guru'}]</option>`).join('');
+      document.getElementById('modalCopyQuestions').style.display = 'flex';
+    }
+
+    function closeCopyQuestionsModal() {
+      document.getElementById('modalCopyQuestions').style.display = 'none';
+    }
+
+    async function submitCopyQuestions() {
+      const targetId = document.getElementById('copyTargetExamId').value;
+      const sourceId = document.getElementById('copySourceExamSelect').value;
+      if (!targetId || !sourceId) return;
+      try {
+        const res = await fetch(`/api/operator/exams/${targetId}/copy-questions-from/${sourceId}`, {
+          method: 'POST',
+          headers: authHeaders()
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || 'Gagal menyalin soal');
+          return;
+        }
+        alert(data.message || 'Soal berhasil disalin!');
+        closeCopyQuestionsModal();
+        loadOverview();
+      } catch (err) {
+        alert('Terjadi kesalahan: ' + err.message);
+      }
     }
 
     let currentClassesList = [];

@@ -909,6 +909,86 @@ test('Teacher account subject isolation: teachers only see/edit their own subjec
   assert.equal(delStaff.deleted, addMultiTeacher.id);
 });
 
+test('Operator can copy questions between exam packages, auto-copies questions when activating empty packages, and live monitoring tracks students across all exams', async (t) => {
+  const db = initDb(':memory:');
+  const app = createApp(db);
+  const server = app.listen(0);
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const opAuth = await fetch(`${base}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'operator', password: 'admin123', role: 'operator' })
+  }).then(r => r.json());
+
+  // 1. Buat paket ujian A (Matematika) dengan 2 butir soal PG
+  const examA = await fetch(`${base}/api/operator/exams`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${opAuth.staffToken}` },
+    body: JSON.stringify({ title: 'Bank Soal Matematika Asli', subject: 'Matematika Peminatan', class_target: 'XII IPA 1' })
+  }).then(r => r.json());
+
+  await fetch(`${base}/api/guru/exams/${examA.id}/questions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${opAuth.staffToken}` },
+    body: JSON.stringify({ number: 1, type: 'PG', question_text: 'Hitung limit x->0 sin(x)/x', option_a: '1', option_b: '0', option_c: '-1', option_d: 'Tak hingga', option_e: 'Tidak ada', answer_key: 'A' })
+  });
+  await fetch(`${base}/api/guru/exams/${examA.id}/questions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${opAuth.staffToken}` },
+    body: JSON.stringify({ number: 2, type: 'PG', question_text: 'Turunan dari sin(x) adalah', option_a: 'cos(x)', option_b: '-cos(x)', option_c: 'tan(x)', option_d: 'sec(x)', option_e: 'csc(x)', answer_key: 'A' })
+  });
+
+  // 2. Buat paket ujian B (Matematika untuk kelas lain) yang awalnya kosong
+  const examB = await fetch(`${base}/api/operator/exams`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${opAuth.staffToken}` },
+    body: JSON.stringify({ title: 'Jadwal Matematika XII IPA 2', subject: 'Matematika Peminatan', class_target: 'XII IPA 2' })
+  }).then(r => r.json());
+
+  // Karena mapel sama, sistem auto-copy 2 butir soal dari examA ke examB
+  assert.equal(examB.autoCopiedQuestions, 2);
+
+  const bQuestions = await fetch(`${base}/api/guru/exams/${examB.id}/questions`, {
+    headers: { 'Authorization': `Bearer ${opAuth.staffToken}` }
+  }).then(r => r.json());
+  assert.equal(bQuestions.questions.length, 2);
+
+  // 3. Tes manual copy endpoint ke paket C yang benar-benar baru
+  const examC = db.prepare("INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, is_active) VALUES ('Paket C', 'Fisika Eksperimen', 'XII IPA 1', '2026-11-21', '08:00 WIT', 'Sesi 1', 90, 'TOKENC', 0)").run();
+  const examCId = Number(examC.lastInsertRowid);
+
+  const copyRes = await fetch(`${base}/api/operator/exams/${examCId}/copy-questions-from/${examA.id}`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${opAuth.staffToken}` }
+  }).then(r => r.json());
+  assert.equal(copyRes.copiedCount, 2);
+
+  // 4. Siswa login ke examA
+  const studentLogin = await fetch(`${base}/api/ujian/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ exam_number: '26-03-001', password: 'BURU01' })
+  }).then(r => r.json());
+  assert.ok(studentLogin.sessionId);
+
+  // 5. Operator overview tanpa query exam_id (ALL): Siswa 26-03-001 terpantau WORKING
+  const overviewAll = await fetch(`${base}/api/operator/overview`, {
+    headers: { 'Authorization': `Bearer ${opAuth.staffToken}` }
+  }).then(r => r.json());
+
+  const monStudent = overviewAll.monitoring.find(m => m.exam_number === '26-03-001');
+  assert.ok(monStudent);
+  assert.equal(monStudent.status, 'WORKING');
+  assert.equal(monStudent.exam_subject, 'Matematika Peminatan');
+
+  // Siswa lain yang belum login tetap NOT_STARTED
+  const unloggedStudent = overviewAll.monitoring.find(m => m.exam_number === '26-03-002');
+  assert.ok(unloggedStudent);
+  assert.equal(unloggedStudent.status, 'NOT_STARTED');
+});
+
 
 
 

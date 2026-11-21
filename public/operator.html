@@ -630,6 +630,17 @@
   </div>
 
   <script>
+
+    // Escape teks dari server sebelum dimasukkan ke innerHTML (mencegah XSS)
+    function esc(v) {
+      return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    // Untuk nilai di dalam string JS pada atribut onclick="fn('...')"
+    function escJs(v) {
+      return esc(String(v == null ? '' : v).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' '));
+    }
     let currentOverview = null;
     let currentPrintData = null;
     let currentMonitoringList = [];
@@ -746,7 +757,7 @@
           let optExHtml = '<option value="ALL">🌐 Semua Ujian / Sesi Siswa</option>';
           data.exams.forEach(e => {
             const act = e.is_active ? ' ● Aktif' : '';
-            optExHtml += `<option value="${e.id}">${e.subject} (${e.total_questions || 0} Soal)${act}</option>`;
+            optExHtml += `<option value="${e.id}">${esc(e.subject)} (${e.total_questions || 0} Soal)${act}</option>`;
           });
           selEx.innerHTML = optExHtml;
           if (prevEx && (prevEx === 'ALL' || data.exams.some(e => String(e.id) === String(prevEx)))) {
@@ -767,12 +778,12 @@
         const selCls = document.getElementById('monClassFilter');
         if (selCls) {
           const currentVal = selCls.value;
-          selCls.innerHTML = '<option value="ALL">Semua Kelas</option>' + data.classes.map(c => `<option value="${c}">${c}</option>`).join('');
+          selCls.innerHTML = '<option value="ALL">Semua Kelas</option>' + data.classes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
           if (data.classes.includes(currentVal)) selCls.value = currentVal;
         }
         const dl = document.getElementById('classListDatalist');
         if (dl) {
-          dl.innerHTML = data.classes.map(c => `<option value="${c}"></option>`).join('');
+          dl.innerHTML = data.classes.map(c => `<option value="${esc(c)}"></option>`).join('');
         }
       }
 
@@ -781,21 +792,21 @@
 
       // Render tabel siswa
       document.getElementById('studentsTableBody').innerHTML = data.students.map(s => {
-        const safeName = (s.full_name || '').replace(/'/g, "\\'");
+        const safeName = s.full_name || '';
         return `
         <tr>
-          <td>Meja ${s.seat_number}</td>
-          <td><b>${s.exam_number}</b></td>
-          <td>${s.nisn}</td>
-          <td><b>${s.full_name}</b></td>
-          <td>${s.birth_info || '-'}</td>
+          <td>Meja ${esc(s.seat_number)}</td>
+          <td><b>${esc(s.exam_number)}</b></td>
+          <td>${esc(s.nisn)}</td>
+          <td><b>${esc(s.full_name)}</b></td>
+          <td>${esc(s.birth_info || '-')}</td>
           <td>
-            <b>${s.class_name}</b>
-            <div><button class="btn btn-sm btn-outline" style="font-size:10px;padding:1px 5px;margin-top:2px;" onclick="openChangeClassModal(${s.id}, '${safeName}', '${s.class_name}')">✏️ Pindah</button></div>
+            <b>${esc(s.class_name)}</b>
+            <div><button class="btn btn-sm btn-outline" style="font-size:10px;padding:1px 5px;margin-top:2px;" onclick="openChangeClassModal(${s.id}, '${escJs(safeName)}', '${escJs(s.class_name)}')">✏️ Pindah</button></div>
           </td>
-          <td>${s.room}</td>
+          <td>${esc(s.room)}</td>
           <td><code>${s.password}</code></td>
-          <td><button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;padding:2px 7px;font-size:11px;" onclick="confirmDeleteStudent(${s.id}, '${safeName}', '${s.exam_number}')">🗑️ Hapus</button></td>
+          <td><button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;padding:2px 7px;font-size:11px;" onclick="confirmDeleteStudent(${s.id}, '${escJs(safeName)}', '${escJs(s.exam_number)}')">🗑️ Hapus</button></td>
         </tr>
       `;
       }).join('');
@@ -818,13 +829,13 @@
         return `
         <tr>
           <td>
-            <b>${e.subject}</b>
+            <b>${esc(e.subject)}</b>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">
-              Guru: <span style="color:#0f172a;font-weight:600;">${e.teacher_name || 'Guru Mapel'}</span>
+              Guru: <span style="color:#0f172a;font-weight:600;">${esc(e.teacher_name || 'Guru Mapel')}</span>
             </div>
           </td>
-          <td>${e.title}</td>
-          <td><span class="badge" style="background:#f8fafc;border:1px solid #cbd5e1;color:#334155;">${e.class_target || 'Semua Kelas'}</span></td>
+          <td>${esc(e.title)}</td>
+          <td><span class="badge" style="background:#f8fafc;border:1px solid #cbd5e1;color:#334155;">${esc(e.class_target || 'Semua Kelas')}</span></td>
           <td>
             ${qBadge}
             <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">
@@ -835,7 +846,7 @@
               </button>
             </div>
           </td>
-          <td>${e.session_name} • ${e.duration_minutes} Menit</td>
+          <td>${esc(e.session_name)} • ${e.duration_minutes} Menit</td>
           <td><b style="color:var(--primary);">${e.token}</b></td>
           <td>${e.is_active ? '<span class="badge badge-finished">● Aktif</span>' : '<span class="badge badge-idle">Nonaktif</span>'}</td>
           <td>
@@ -853,9 +864,9 @@
       document.getElementById('staffTableBody').innerHTML = data.staff.map(u => `
         <tr>
           <td><span class="badge badge-working">${u.role.toUpperCase()}</span></td>
-          <td><b>${u.full_name}</b></td>
-          <td><code>${u.username}</code></td>
-          <td>${u.subject || u.room || '-'}</td>
+          <td><b>${esc(u.full_name)}</b></td>
+          <td><code>${esc(u.username)}</code></td>
+          <td>${esc(u.subject || u.room || '-')}</td>
           <td>
             <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;margin-right:4px;" onclick="openEditStaffModal(${u.id}, '${(u.full_name || '').replace(/'/g, "\\'")}', '${(u.username || '').replace(/'/g, "\\'")}', '${u.role}', '${(u.subject || u.room || '').replace(/'/g, "\\'")}')">✏️ Edit</button>
             ${u.role !== 'operator' ? `<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;padding:2px 8px;font-size:11px;" onclick="confirmDeleteStaff(${u.id}, '${(u.full_name || '').replace(/'/g, "\\'")}', '${u.role}')">Hapus</button>` : ''}
@@ -879,17 +890,17 @@
         if (m.status === 'LOCKED') badge = '<span class="badge badge-locked">🔒 TERKUNCI</span>';
 
         const subjBadge = (m.exam_subject && m.exam_subject !== '-')
-          ? `<div style="font-size:11px;font-weight:700;color:var(--primary);margin-top:2px;">[${m.exam_subject}]</div>`
+          ? `<div style="font-size:11px;font-weight:700;color:var(--primary);margin-top:2px;">[${esc(m.exam_subject)}]</div>`
           : '';
         const recentStr = (m.recent_choices || []).slice(-6).map(c => `${c.number}:${c.chosen}`).join(' ');
-        const safeName = (m.full_name || '').replace(/'/g, "\\'");
+        const safeName = m.full_name || '';
         return `
           <tr>
-            <td><b>${m.exam_number}</b></td>
-            <td><b>${m.full_name}</b><br><span style="font-size:11px;color:var(--muted);">Meja ${m.seat_number}</span></td>
+            <td><b>${esc(m.exam_number)}</b></td>
+            <td><b>${esc(m.full_name)}</b><br><span style="font-size:11px;color:var(--muted);">Meja ${esc(m.seat_number)}</span></td>
             <td>
-              <b>${m.class_name}</b> • ${m.room}
-              <div><button class="btn btn-sm btn-outline" style="font-size:10px;padding:1px 5px;margin-top:2px;" onclick="openChangeClassModal(${m.student_id}, '${safeName}', '${m.class_name}')">✏️ Pindah</button></div>
+              <b>${esc(m.class_name)}</b> • ${esc(m.room)}
+              <div><button class="btn btn-sm btn-outline" style="font-size:10px;padding:1px 5px;margin-top:2px;" onclick="openChangeClassModal(${m.student_id}, '${escJs(safeName)}', '${escJs(m.class_name)}')">✏️ Pindah</button></div>
             </td>
             <td>${badge}${subjBadge}</td>
             <td>
@@ -1164,7 +1175,7 @@
         alert('Belum ada bank soal lain yang memiliki butir soal untuk disalin.');
         return;
       }
-      sel.innerHTML = donors.map(d => `<option value="${d.id}">${d.subject} (${d.title}) — ${d.total_questions} Soal [Guru: ${d.teacher_name || 'Guru'}]</option>`).join('');
+      sel.innerHTML = donors.map(d => `<option value="${d.id}">${esc(d.subject)} (${esc(d.title)}) — ${d.total_questions} Soal [Guru: ${esc(d.teacher_name || 'Guru')}]</option>`).join('');
       document.getElementById('modalCopyQuestions').style.display = 'flex';
     }
 
@@ -1236,9 +1247,9 @@
         html += '<optgroup label="📦 Bank Soal Guru Tersedia">';
         exams.forEach(e => {
           const totalQ = Number(e.total_questions || 0);
-          const teacher = e.teacher_name ? `Guru: ${e.teacher_name}` : 'Guru Mapel';
+          const teacher = e.teacher_name ? `Guru: ${esc(e.teacher_name)}` : 'Guru Mapel';
           const status = totalQ > 0 ? `✅ ${totalQ} Soal SIAP (${e.pg_count} PG, ${e.esai_count} Esai)` : '⚠️ 0 Soal (Kosong)';
-          html += `<option value="exam:${e.id}">${e.subject} — ${e.title} [${teacher}] • ${status}</option>`;
+          html += `<option value="exam:${e.id}">${esc(e.subject)} — ${esc(e.title)} [${teacher}] • ${status}</option>`;
         });
         html += '</optgroup>';
       }
@@ -1249,7 +1260,7 @@
           html += '<optgroup label="📚 Mata Pelajaran Pengampu Guru">';
           uniqueSubjs.forEach(s => {
             const tNames = teachers.filter(t => t.subject === s).map(t => t.full_name).join(', ');
-            html += `<option value="subj:${s}">Mata Pelajaran: ${s} (${tNames})</option>`;
+            html += `<option value="subj:${esc(s)}">Mata Pelajaran: ${esc(s)} (${esc(tNames)})</option>`;
           });
           html += '</optgroup>';
         }
@@ -1340,8 +1351,8 @@
         const esaiCount = questions.filter(q => q.type === 'ESAI').length;
 
         headerInfo.innerHTML = `
-          <div>Mata Pelajaran: <b style="font-size:15px;color:var(--dark);">${exam.subject || '-'}</b> (${exam.title || '-'})</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px;">Target Kelas: <b>${exam.class_target || 'Semua Kelas'}</b> • Durasi: <b>${exam.duration_minutes || 90} Menit</b></div>
+          <div>Mata Pelajaran: <b style="font-size:15px;color:var(--dark);">${esc(exam.subject || '-')}</b> (${esc(exam.title || '-')})</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">Target Kelas: <b>${esc(exam.class_target || 'Semua Kelas')}</b> • Durasi: <b>${exam.duration_minutes || 90} Menit</b></div>
           <div style="margin-top:6px;display:flex;gap:8px;align-items:center;">
             <span class="badge badge-finished">${questions.length} Total Soal</span>
             <span class="badge" style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;">${pgCount} PG</span>
@@ -1362,14 +1373,14 @@
                 <span style="font-weight:700;font-size:13px;color:var(--dark);">No. ${q.number} <span class="badge ${isPg ? 'badge-finished' : 'badge-working'}" style="font-size:10px;padding:1px 6px;">${q.type}</span></span>
                 ${isPg && q.answer_key ? `<span class="badge" style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;font-weight:700;">Kunci: ${q.answer_key}</span>` : ''}
               </div>
-              <div style="font-size:13px;color:#1e293b;line-height:1.5;margin-bottom:8px;">${q.question_text || ''}</div>
+              <div style="font-size:13px;color:#1e293b;line-height:1.5;margin-bottom:8px;">${esc(q.question_text || '')}</div>
               ${isPg ? `
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px;">
-                  <div style="${q.answer_key === 'A' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">A. ${q.option_a || '-'}</div>
-                  <div style="${q.answer_key === 'B' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">B. ${q.option_b || '-'}</div>
-                  <div style="${q.answer_key === 'C' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">C. ${q.option_c || '-'}</div>
-                  <div style="${q.answer_key === 'D' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">D. ${q.option_d || '-'}</div>
-                  ${q.option_e ? `<div style="${q.answer_key === 'E' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">E. ${q.option_e}</div>` : ''}
+                  <div style="${q.answer_key === 'A' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">A. ${esc(q.option_a || '-')}</div>
+                  <div style="${q.answer_key === 'B' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">B. ${esc(q.option_b || '-')}</div>
+                  <div style="${q.answer_key === 'C' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">C. ${esc(q.option_c || '-')}</div>
+                  <div style="${q.answer_key === 'D' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">D. ${esc(q.option_d || '-')}</div>
+                  ${q.option_e ? `<div style="${q.answer_key === 'E' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">E. ${esc(q.option_e)}</div>` : ''}
                 </div>
               ` : '<div style="font-size:11.5px;color:var(--muted);font-style:italic;">(Lembar Jawaban Kertas Difoto oleh Siswa)</div>'}
             </div>
@@ -1392,7 +1403,7 @@
         sel.innerHTML = `
           <option value="">-- Pilih Kelas dari Data Siswa --</option>
           <option value="Semua Kelas">🌟 Semua Kelas (Seluruh Siswa)</option>
-          ${currentClassesList.map(c => `<option value="${c}">${c}</option>`).join('')}
+          ${currentClassesList.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}
         `;
         if (prevVal) sel.value = prevVal;
       }
@@ -1639,10 +1650,10 @@
           return `
             <tr>
               <td style="border:1px solid #000;text-align:center;padding:7px;">${i + 1}</td>
-              <td style="border:1px solid #000;padding:7px;"><b>${s.exam_number}</b></td>
-              <td style="border:1px solid #000;padding:7px;">${s.full_name}</td>
-              <td style="border:1px solid #000;text-align:center;padding:7px;">${s.class_name}</td>
-              <td style="border:1px solid #000;text-align:center;padding:7px;">${s.room}</td>
+              <td style="border:1px solid #000;padding:7px;"><b>${esc(s.exam_number)}</b></td>
+              <td style="border:1px solid #000;padding:7px;">${esc(s.full_name)}</td>
+              <td style="border:1px solid #000;text-align:center;padding:7px;">${esc(s.class_name)}</td>
+              <td style="border:1px solid #000;text-align:center;padding:7px;">${esc(s.room)}</td>
               <td style="border:1px solid #000;padding:7px;width:130px;">${isOdd ? `${i + 1}. ......................` : ''}</td>
               <td style="border:1px solid #000;padding:7px;width:130px;">${!isOdd ? `${i + 1}. ......................` : ''}</td>
             </tr>
@@ -1653,12 +1664,12 @@
           ${renderKopSurat('DAFTAR HADIR PESERTA UJIAN CBT')}
           <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:12px;">
             <div>
-              <div><b>Kegiatan Ujian:</b> ${exam.title}</div>
-              <div><b>Mata Pelajaran:</b> ${exam.subject}</div>
+              <div><b>Kegiatan Ujian:</b> ${esc(exam.title)}</div>
+              <div><b>Mata Pelajaran:</b> ${esc(exam.subject)}</div>
             </div>
             <div>
               <div><b>Ruang Ujian:</b> ${roomLabel}</div>
-              <div><b>Tanggal / Sesi:</b> ${exam.exam_date} (${exam.session_name})</div>
+              <div><b>Tanggal / Sesi:</b> ${exam.exam_date} (${esc(exam.session_name)})</div>
             </div>
           </div>
           <table style="width:100%;border-collapse:collapse;border:1px solid #000;font-size:12px;">
@@ -1699,10 +1710,10 @@
               <span style="font-weight:600;font-size:11px;">KARTU PESERTA UJIAN SEKOLAH (CBT)</span>
             </div>
             <table style="width:100%;font-size:11.5px;border:none;">
-              <tr><td style="padding:3px 0;width:95px;border:none;"><b>Nama Peserta</b></td><td style="padding:3px 0;border:none;">: <b>${s.full_name}</b></td></tr>
-              <tr><td style="padding:3px 0;border:none;"><b>Nomor Peserta</b></td><td style="padding:3px 0;border:none;">: <b>${s.exam_number}</b></td></tr>
-              <tr><td style="padding:3px 0;border:none;"><b>NISN</b></td><td style="padding:3px 0;border:none;">: ${s.nisn}</td></tr>
-              <tr><td style="padding:3px 0;border:none;"><b>Kelas / Ruang</b></td><td style="padding:3px 0;border:none;">: ${s.class_name} / ${s.room} (Meja ${s.seat_number})</td></tr>
+              <tr><td style="padding:3px 0;width:95px;border:none;"><b>Nama Peserta</b></td><td style="padding:3px 0;border:none;">: <b>${esc(s.full_name)}</b></td></tr>
+              <tr><td style="padding:3px 0;border:none;"><b>Nomor Peserta</b></td><td style="padding:3px 0;border:none;">: <b>${esc(s.exam_number)}</b></td></tr>
+              <tr><td style="padding:3px 0;border:none;"><b>NISN</b></td><td style="padding:3px 0;border:none;">: ${esc(s.nisn)}</td></tr>
+              <tr><td style="padding:3px 0;border:none;"><b>Kelas / Ruang</b></td><td style="padding:3px 0;border:none;">: ${esc(s.class_name)} / ${esc(s.room)} (Meja ${esc(s.seat_number)})</td></tr>
             </table>
             <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:10px;padding-top:6px;border-top:1px dashed #94a3b8;font-size:10.5px;">
               <div style="border:1px solid #000;width:54px;height:68px;display:flex;align-items:center;justify-content:center;font-size:9px;text-align:center;">Pas Foto<br>3x4</div>
@@ -1725,9 +1736,9 @@
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
               <table style="flex:1;font-size:11.5px;border:none;">
-                <tr><td style="padding:2px 0;width:95px;border:none;">Nama Siswa</td><td style="padding:2px 0;border:none;">: <b>${s.full_name}</b></td></tr>
-                <tr><td style="padding:2px 0;border:none;">Kelas / Ruang</td><td style="padding:2px 0;border:none;">: ${s.class_name} / ${s.room}</td></tr>
-                <tr><td style="padding:2px 0;border:none;"><b>Username CBT</b></td><td style="padding:2px 0;border:none;">: <b style="font-size:13.5px;">${s.exam_number}</b></td></tr>
+                <tr><td style="padding:2px 0;width:95px;border:none;">Nama Siswa</td><td style="padding:2px 0;border:none;">: <b>${esc(s.full_name)}</b></td></tr>
+                <tr><td style="padding:2px 0;border:none;">Kelas / Ruang</td><td style="padding:2px 0;border:none;">: ${esc(s.class_name)} / ${esc(s.room)}</td></tr>
+                <tr><td style="padding:2px 0;border:none;"><b>Username CBT</b></td><td style="padding:2px 0;border:none;">: <b style="font-size:13.5px;">${esc(s.exam_number)}</b></td></tr>
                 <tr><td style="padding:2px 0;border:none;"><b>Password CBT</b></td><td style="padding:2px 0;border:none;">: <b style="font-size:13.5px;">${s.password}</b></td></tr>
               </table>
               <div style="text-align:center;">
@@ -1749,9 +1760,9 @@
             <div class="seat-no">NOMOR MEJA: ${String(s.seat_number).padStart(2, '0')} • ${s.room.toUpperCase()}</div>
             <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin:6px 0;">
               <div>
-                <div class="exam-no" style="margin:0;">${s.exam_number}</div>
-                <div class="st-name">${s.full_name}</div>
-                <div style="font-size:12px;font-weight:700;margin-top:3px;">KELAS: ${s.class_name} | NISN: ${s.nisn}</div>
+                <div class="exam-no" style="margin:0;">${esc(s.exam_number)}</div>
+                <div class="st-name">${esc(s.full_name)}</div>
+                <div style="font-size:12px;font-weight:700;margin-top:3px;">KELAS: ${esc(s.class_name)} | NISN: ${esc(s.nisn)}</div>
               </div>
               <div style="text-align:center;">
                 ${qrImgHtml}

@@ -1,4 +1,5 @@
 const path = require('node:path');
+const { hashPassword, isHashed } = require('./security');
 
 function createSqliteConnection(dbPath) {
   try {
@@ -158,7 +159,8 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
     "ALTER TABLE exam_sessions ADD COLUMN current_question_number INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE exam_sessions ADD COLUMN last_activity_at TEXT",
     "ALTER TABLE questions ADD COLUMN audio_data TEXT",
-    "ALTER TABLE students ADD COLUMN birth_info TEXT"
+    "ALTER TABLE students ADD COLUMN birth_info TEXT",
+    "ALTER TABLE exam_sessions ADD COLUMN session_token TEXT"
   ];
   for (const sql of safeAlter) {
     try { db.exec(sql); } catch {}
@@ -278,6 +280,13 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
       'Sebuah larutan glukosa dibuat dengan melarutkan 18 gram glukosa (Mr = 180) ke dalam 500 gram air. Hitunglah molalitas larutan tersebut dan tuliskan langkah perhitungannya secara lengkap di lembar jawaban kertas!',
       null, null, null, null, null, null
     );
+  }
+
+  // Migrasi keamanan: hash semua password staf yang masih tersimpan sebagai teks biasa
+  const plainUsers = db.prepare('SELECT id, password FROM users').all().filter(u => !isHashed(u.password));
+  if (plainUsers.length > 0) {
+    const upd = db.prepare('UPDATE users SET password = ? WHERE id = ?');
+    for (const u of plainUsers) upd.run(hashPassword(u.password), u.id);
   }
 
   return db;

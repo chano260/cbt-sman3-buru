@@ -152,6 +152,17 @@
   </div>
 
   <script>
+
+    // Escape teks dari server sebelum dimasukkan ke innerHTML (mencegah XSS)
+    function esc(v) {
+      return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    // Untuk nilai di dalam string JS pada atribut onclick="fn('...')"
+    function escJs(v) {
+      return esc(String(v == null ? '' : v).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' '));
+    }
     let staffToken = sessionStorage.getItem('cbt_pengawas_token') || '';
 
     function authHeaders(extra = {}) {
@@ -218,8 +229,8 @@
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
               <div>
                 <div style="font-size:14px;font-weight:800;color:#991b1b;">⚠️ PERINGATAN PELANGGARAN EXAMBRO!</div>
-                <div style="font-size:15px;font-weight:800;color:#dc2626;margin-top:2px;">${s.full_name} (Meja ${s.seat_number} • ${s.exam_number})</div>
-                <div style="font-size:12px;color:#7f1d1d;">Alasan: ${s.last_violation_reason || 'Mencoba keluar dari aplikasi ujian'} • Total Pelanggaran: ${s.violation_count}x</div>
+                <div style="font-size:15px;font-weight:800;color:#dc2626;margin-top:2px;">${esc(s.full_name)} (Meja ${esc(s.seat_number)} • ${esc(s.exam_number)})</div>
+                <div style="font-size:12px;color:#7f1d1d;">Alasan: ${esc(s.last_violation_reason || 'Mencoba keluar dari aplikasi ujian')} • Total Pelanggaran: ${s.violation_count}x</div>
               </div>
               <button class="btn btn-red" onclick="unlockStudent(${s.session_id})">🔓 Buka Kunci Sekarang</button>
             </div>
@@ -240,9 +251,9 @@
         return `
           <div class="student-row-card ${s.status === 'LOCKED' ? 'locked' : ''}">
             <div>
-              <div style="font-size:14.5px;font-weight:800;">Meja ${s.seat_number} — ${s.full_name}</div>
+              <div style="font-size:14.5px;font-weight:800;">Meja ${esc(s.seat_number)} — ${esc(s.full_name)}</div>
               <div style="font-size:12px;color:var(--muted);">
-                No. Peserta: <b>${s.exam_number}</b> • Kelas: ${s.class_name} (${s.room}) • Progres PG: <b>${s.answered_pg}/${s.total_pg}</b>
+                No. Peserta: <b>${esc(s.exam_number)}</b> • Kelas: ${esc(s.class_name)} (${esc(s.room)}) • Progres PG: <b>${s.answered_pg}/${s.total_pg}</b>
                 ${s.violation_count > 0 ? `<span style="color:var(--red);font-weight:700;"> • ⚠️ ${s.violation_count}x Pelanggaran</span>` : ''}
                 ${recentStr ? `<div style="font-size:11.5px;color:#1d4ed8;font-family:monospace;margin-top:2px;">Jawaban Dipilih: [${recentStr}]</div>` : ''}
               </div>

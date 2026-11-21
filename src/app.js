@@ -7,6 +7,11 @@ const multer = require('multer');
 const XLSX = require('xlsx');
 const QRCode = require('qrcode');
 const { parseDocxBuffer, parseQuestionsFromText, generateWordTemplateBuffer } = require('./wordParser');
+const { hashPassword, verifyPassword, safeEqual, randomToken } = require('./security');
+
+const STAFF_TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // Token login staf berlaku 12 jam
+const LOGIN_MAX_FAILS = 5;
+const LOGIN_LOCK_MS = 15 * 60 * 1000;
 
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
 fs.mkdirSync(uploadsDir, { recursive: true });
@@ -16,10 +21,26 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 } // Maks 25 MB per file audio/gambar
 });
 
+// SVG sengaja tidak diizinkan: file SVG dapat memuat skrip (stored XSS) karena disajikan dari domain yang sama
+const ALLOWED_MEDIA_EXT = {
+  image: ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
+  audio: ['.mp3', '.wav', '.ogg', '.m4a', '.aac']
+};
+
+function isAllowedMediaFile(fileObj, kind) {
+  if (!fileObj) return true;
+  const orig = String(fileObj.originalname || '').toLowerCase();
+  const ext = path.extname(orig);
+  const mime = String(fileObj.mimetype || '').toLowerCase();
+  if (!ALLOWED_MEDIA_EXT[kind].includes(ext)) return false;
+  if (mime.includes('svg') || mime.includes('html') || mime.includes('xml')) return false;
+  return true;
+}
+
 function saveUploadedMediaFile(fileObj, prefix = 'media') {
   if (!fileObj || !fileObj.buffer) return null;
   const orig = String(fileObj.originalname || '').toLowerCase();
-  const extMatch = orig.match(/\.(png|jpg|jpeg|gif|webp|svg|mp3|wav|ogg|m4a|aac)$/);
+  const extMatch = orig.match(/\.(png|jpg|jpeg|gif|webp|mp3|wav|ogg|m4a|aac)$/);
   const ext = extMatch ? extMatch[0] : (String(fileObj.mimetype || '').startsWith('audio/') ? '.mp3' : '.png');
   const filename = `${prefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${ext}`;
   fs.writeFileSync(path.join(uploadsDir, filename), fileObj.buffer);
@@ -364,11 +385,50 @@ function createApp(db) {
     return true;
   }
 
+  // Ambil akun staf dari token. Data akun selalu dibaca ulang dari DB, sehingga akun yang
+  // dihapus / diubah perannya langsung kehilangan akses. Token query string hanya untuk unduhan GET.
+  function getStaffFromReq(req) {
+    const authHeader = req.headers.authorization || '';
+    let token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    if (!token && req.method === 'GET') token = String(req.query.staffToken || '');
+    if (!token) return null;
+    const entry = staffTokens.get(token);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      staffTokens.delete(token);
+      return null;
+    }
+    const user = db.prepare('SELECT id, username, full_name, role, subject, room FROM users WHERE id = ?').get(entry.userId);
+    if (!user) {
+      staffTokens.delete(token);
+      return null;
+    }
+    return user;
+  }
+
+  // Verifikasi bahwa request siswa membawa token sesi milik sesi ujian yang dimaksud (anti-IDOR)
+  function requireStudentSession(req, res, next) {
+    const rawId = (req.params && req.params.sessionId) || (req.body && req.body.sessionId) || (req.query && req.query.sessionId);
+    const sessionId = Number(rawId);
+    if (!sessionId) return res.status(400).json({ error: 'sessionId wajib diisi.' });
+    const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(sessionId);
+    if (!session) return res.status(404).json({ error: 'Sesi ujian tidak ditemukan.' });
+    const provided = req.headers['x-session-token'];
+    if (!session.session_token || !safeEqual(provided, session.session_token)) {
+      return res.status(401).json({ error: 'Sesi login tidak valid atau sudah dipakai di perangkat lain. Silakan login ulang.', status: 'UNAUTHORIZED' });
+    }
+    req.examSession = session;
+    next();
+  }
+
+  const loginFailures = new Map();
+  function loginKey(req, username) {
+    return `${req.ip}|${String(username || '').trim().toLowerCase()}`;
+  }
+
   function requireStaffAuth(allowedRoles) {
     return (req, res, next) => {
-      const authHeader = req.headers.authorization || '';
-      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : (req.query.staffToken || '');
-      const staffUser = staffTokens.get(token);
+      const staffUser = getStaffFromReq(req);
       if (!staffUser) {
         return res.status(401).json({ error: 'Akses ditolak: Silakan login staf terlebih dahulu.' });
       }
@@ -382,6 +442,8 @@ function createApp(db) {
 
   app.get('/api/server-info', (req, res) => {
     const activeExam = getActiveExamForStudent(db, req.query.class_name);
+    // Token ujian hanya ditampilkan untuk staf yang login (papan token ruang ujian)
+    const showToken = !!getStaffFromReq(req);
     res.json({
       school: 'SMA NEGERI 3 BURU',
       lanIp: getLocalLanIp(),
@@ -394,27 +456,42 @@ function createApp(db) {
         start_time: activeExam.start_time,
         session_name: activeExam.session_name,
         duration_minutes: activeExam.duration_minutes,
-        token: activeExam.token,
-        token_remaining_seconds: activeExam.token_remaining_seconds
+        token: showToken ? activeExam.token : undefined,
+        token_remaining_seconds: showToken ? activeExam.token_remaining_seconds : undefined
       } : null
     });
   });
 
   app.post('/api/staff/login', (req, res) => {
     const { username, password, role } = req.body || {};
-    const user = db.prepare('SELECT id, username, full_name, role, subject, room FROM users WHERE username = ? AND password = ?').get(
-      String(username || '').trim(),
-      String(password || '').trim()
-    );
-    if (!user) {
+    const key = loginKey(req, username);
+    const fail = loginFailures.get(key);
+    if (fail && fail.count >= LOGIN_MAX_FAILS && Date.now() - fail.firstAt < LOGIN_LOCK_MS) {
+      const waitMin = Math.ceil((LOGIN_LOCK_MS - (Date.now() - fail.firstAt)) / 60000);
+      return res.status(429).json({ error: `Terlalu banyak percobaan login gagal. Coba lagi dalam ${waitMin} menit.` });
+    }
+
+    const row = db.prepare('SELECT id, username, password, full_name, role, subject, room FROM users WHERE username = ?').get(String(username || '').trim());
+    if (!row || !verifyPassword(String(password || '').trim(), row.password)) {
+      const cur = (fail && Date.now() - fail.firstAt < LOGIN_LOCK_MS) ? fail : { count: 0, firstAt: Date.now() };
+      cur.count++;
+      loginFailures.set(key, cur);
       return res.status(401).json({ error: 'Username atau password salah' });
     }
+    loginFailures.delete(key);
+    const { password: _pw, ...user } = row;
     if (role && user.role !== role && user.role !== 'operator') {
       return res.status(403).json({ error: `Akun ini bukan untuk panel ${role.toUpperCase()}` });
     }
-    const staffToken = crypto.randomBytes(24).toString('hex');
-    staffTokens.set(staffToken, user);
+    const staffToken = randomToken(24);
+    staffTokens.set(staffToken, { userId: user.id, expiresAt: Date.now() + STAFF_TOKEN_TTL_MS });
     res.json({ user, staffToken });
+  });
+
+  app.post('/api/staff/logout', (req, res) => {
+    const authHeader = req.headers.authorization || '';
+    if (authHeader.startsWith('Bearer ')) staffTokens.delete(authHeader.slice(7).trim());
+    res.json({ ok: true });
   });
 
   // ==================== PANEL OPERATOR ====================
@@ -928,7 +1005,7 @@ function createApp(db) {
       const info = db.prepare(`
         INSERT INTO users (username, password, full_name, role, subject, room)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).run(username.trim(), password.trim(), full_name.trim(), role, subject || null, room || null);
+      `).run(username.trim(), hashPassword(password.trim()), full_name.trim(), role, subject || null, room || null);
       res.json({ id: Number(info.lastInsertRowid) });
     } catch {
       res.status(400).json({ error: 'Username sudah digunakan' });
@@ -965,7 +1042,7 @@ function createApp(db) {
       `).run(
         full_name,
         username,
-        password,
+        password && String(password).trim() ? hashPassword(String(password).trim()) : '',
         role,
         role === 'guru' ? (subject || null) : null,
         role === 'pengawas' ? (room || null) : null,
@@ -1157,6 +1234,9 @@ function createApp(db) {
 
     const imgFile = req.files && req.files.image ? req.files.image[0] : null;
     const audFile = req.files && req.files.audio ? req.files.audio[0] : null;
+    if (!isAllowedMediaFile(imgFile, 'image') || !isAllowedMediaFile(audFile, 'audio')) {
+      return res.status(400).json({ error: 'Format file tidak diizinkan. Gambar: PNG/JPG/GIF/WEBP, Audio: MP3/WAV/OGG/M4A/AAC.' });
+    }
     const savedImg = imgFile ? saveUploadedMediaFile(imgFile, 'img') : (image_data || null);
     const savedAud = audFile ? saveUploadedMediaFile(audFile, 'audio') : (audio_data || null);
 
@@ -1192,6 +1272,10 @@ function createApp(db) {
 
     const imgFile = req.files && req.files.image ? req.files.image[0] : null;
     const audFile = req.files && req.files.audio ? req.files.audio[0] : null;
+
+    if (!isAllowedMediaFile(imgFile, 'image') || !isAllowedMediaFile(audFile, 'audio')) {
+      return res.status(400).json({ error: 'Format file tidak diizinkan. Gambar: PNG/JPG/GIF/WEBP, Audio: MP3/WAV/OGG/M4A/AAC.' });
+    }
 
     let nextImg = existing.image_data;
     let nextAud = existing.audio_data;
@@ -1397,9 +1481,10 @@ function createApp(db) {
       };
     });
 
+    const { session_token: _st, ...safeSession } = session;
     res.json({
       student,
-      session,
+      session: safeSession,
       workDetail
     });
   });
@@ -1440,25 +1525,31 @@ function createApp(db) {
 
   // ==================== PORTAL UJIAN SISWA (EXAMBRO & DIRECT ENTRY) ====================
   const indoMonths = ['januari', 'februari', 'maret', 'april', 'mei', 'juni', 'juli', 'agustus', 'september', 'oktober', 'november', 'desember'];
-  function matchBirthDate(inputDate, birthInfo) {
-    if (!birthInfo || birthInfo === '-' || !inputDate) return true;
-    const str = String(birthInfo).toLowerCase();
-    const inp = String(inputDate).trim();
-    if (str.includes(inp)) return true;
-    const parts = inp.split(/[-/]/);
-    if (parts.length === 3) {
-      let y, m, d;
-      if (parts[0].length === 4) { [y, m, d] = parts; }
-      else { [d, m, y] = parts; }
-      const mIdx = parseInt(m, 10) - 1;
-      const mName = indoMonths[mIdx] || '';
-      const dayNum = String(parseInt(d, 10));
-      const yearMatch = str.includes(y);
-      const dayMatch = str.includes(dayNum);
-      const monthMatch = str.includes(m) || (mName && str.includes(mName));
-      return yearMatch && (dayMatch || monthMatch);
+  const monthAliases = { pebruari: 2, nopember: 11, agust: 8, okt: 10, des: 12, jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, agu: 8, sep: 9, nov: 11 };
+
+  // Ubah "YYYY-MM-DD" / "DD-MM-YYYY" / "Namlea, 14 Januari 2008" menjadi {y, m, d}
+  function parseDateParts(raw) {
+    const str = String(raw || '').toLowerCase().trim();
+    if (!str || str === '-') return null;
+    let mt = str.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+    if (mt) return { y: +mt[1], m: +mt[2], d: +mt[3] };
+    mt = str.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+    if (mt) return { y: +mt[3], m: +mt[2], d: +mt[1] };
+    mt = str.match(/(\d{1,2})\s+([a-z]+)\.?\s+(\d{4})/);
+    if (mt) {
+      const idx = indoMonths.indexOf(mt[2]);
+      const m = idx >= 0 ? idx + 1 : monthAliases[mt[2]];
+      if (m) return { y: +mt[3], m, d: +mt[1] };
     }
-    return true;
+    return null;
+  }
+
+  // Pencocokan tanggal lahir secara ketat (hari, bulan, dan tahun harus sama persis)
+  function matchBirthDate(inputDate, birthInfo) {
+    const a = parseDateParts(inputDate);
+    const b = parseDateParts(birthInfo);
+    if (!a || !b) return false;
+    return a.y === b.y && a.m === b.m && a.d === b.d;
   }
 
   // Aktivasi / Verifikasi Akun Siswa (Sesuai PDF ABM Hal 7: NISN + NPSN + Tanggal Lahir)
@@ -1468,28 +1559,32 @@ function createApp(db) {
     if (!cleanNisn) {
       return res.status(400).json({ error: 'NISN siswa wajib diisi.' });
     }
+    if (!birth_date || !parseDateParts(birth_date)) {
+      return res.status(400).json({ error: 'Tanggal lahir wajib diisi dengan benar.' });
+    }
     const cleanNpsn = String(npsn || '').trim();
     const defaultNpsn = '60101015'; // NPSN Resmi SMA Negeri 3 Buru
     if (cleanNpsn && cleanNpsn.length < 8) {
       return res.status(400).json({ error: 'NPSN Sekolah harus berupa 8 digit angka.' });
     }
 
-    let student = db.prepare('SELECT * FROM students WHERE nisn = ?').get(cleanNisn);
-    if (!student && cleanNisn.length >= 4) {
-      student = db.prepare('SELECT * FROM students WHERE nisn LIKE ? LIMIT 1').get(`%${cleanNisn}`);
-    }
+    // NISN harus cocok persis (tidak lagi menerima potongan / akhiran NISN)
+    const student = db.prepare('SELECT * FROM students WHERE nisn = ?').get(cleanNisn);
     if (!student) {
       return res.status(404).json({
         error: `Data siswa dengan NISN "${cleanNisn}" tidak ditemukan di database sekolah. Pastikan NISN sudah terdaftar.`
       });
     }
 
-    if (birth_date && student.birth_info && student.birth_info !== '-') {
-      if (!matchBirthDate(birth_date, student.birth_info)) {
-        return res.status(401).json({
-          error: 'Tanggal lahir tidak sesuai dengan data siswa di database. Silakan periksa kembali.'
-        });
-      }
+    if (!student.birth_info || student.birth_info === '-' || !parseDateParts(student.birth_info)) {
+      return res.status(409).json({
+        error: 'Data tanggal lahir Anda belum lengkap di server. Silakan login memakai Nomor Peserta & Kata Sandi pada kartu ujian, atau hubungi operator.'
+      });
+    }
+    if (!matchBirthDate(birth_date, student.birth_info)) {
+      return res.status(401).json({
+        error: 'Tanggal lahir tidak sesuai dengan data siswa di database. Silakan periksa kembali.'
+      });
     }
 
     res.json({
@@ -1590,15 +1685,42 @@ function createApp(db) {
     });
   });
 
+  // Membuka / melanjutkan sesi ujian siswa. Setiap login menerbitkan token sesi baru (login di perangkat
+  // lain otomatis memutus perangkat lama). Tanpa token ujian yang valid, sesi wajib verifikasi token dulu.
+  // Status LOCKED tidak pernah dibuka oleh login ulang: hanya pengawas yang dapat membuka kunci.
+  function openStudentSession(student, activeExam, examToken, deviceInfo, defaultDevice) {
+    const tokenValid = !!examToken && String(examToken).toUpperCase().trim() === String(activeExam.token).toUpperCase().trim();
+    const needToken = tokenValid ? 0 : 1;
+    const sessionToken = randomToken(24);
+    const nowIso = new Date().toISOString();
+    let session = db.prepare('SELECT * FROM exam_sessions WHERE exam_id = ? AND student_id = ?').get(activeExam.id, student.id);
+    if (!session) {
+      const info = db.prepare(`
+        INSERT INTO exam_sessions (exam_id, student_id, status, need_token_reverify, current_question_number, last_activity_at, violation_count, started_at, device_info, session_token)
+        VALUES (?, ?, 'WORKING', ?, 1, ?, 0, ?, ?, ?)
+      `).run(activeExam.id, student.id, needToken, nowIso, nowIso, deviceInfo || defaultDevice, sessionToken);
+      session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(info.lastInsertRowid));
+      return { session, sessionToken };
+    }
+    if (session.status === 'FINISHED') {
+      return { finished: true, session };
+    }
+    const nextNeed = session.status === 'LOCKED' ? 1 : needToken;
+    db.prepare('UPDATE exam_sessions SET need_token_reverify = ?, last_activity_at = ?, session_token = ? WHERE id = ?').run(nextNeed, nowIso, sessionToken, session.id);
+    session.need_token_reverify = nextNeed;
+    return { session, sessionToken };
+  }
+
   // Masuk langsung ke soal ("Siap Mengikuti Ujian") dengan verifikasi 4 digit terakhir NISN
   app.post('/api/ujian/start-direct', (req, res) => {
-    const { studentId, name, nisnLast4, device_info } = req.body || {};
+    const { studentId, name, nisnLast4, device_info, token } = req.body || {};
     const pin = String(nisnLast4 || '').trim();
     let student = null;
     if (studentId) {
       student = db.prepare('SELECT * FROM students WHERE id = ?').get(Number(studentId));
     } else if (name) {
-      student = db.prepare('SELECT * FROM students WHERE LOWER(TRIM(full_name)) = LOWER(TRIM(?)) LIMIT 1').get(String(name).trim());
+      const byName = db.prepare('SELECT * FROM students WHERE LOWER(TRIM(full_name)) = LOWER(TRIM(?))').all(String(name).trim());
+      student = byName.find(s => String(s.nisn || '').trim().slice(-4) === pin) || byName[0] || null;
     }
     if (!student) {
       return res.status(404).json({ error: 'Data peserta tidak ditemukan.' });
@@ -1612,29 +1734,20 @@ function createApp(db) {
       return res.status(404).json({ error: `Belum ada ujian yang aktif saat ini untuk kelas ${student.class_name}.` });
     }
 
-    let session = db.prepare('SELECT * FROM exam_sessions WHERE exam_id = ? AND student_id = ?').get(activeExam.id, student.id);
-    const nowIso = new Date().toISOString();
-    if (!session) {
-      const info = db.prepare(`
-        INSERT INTO exam_sessions (exam_id, student_id, status, need_token_reverify, current_question_number, last_activity_at, violation_count, started_at, device_info)
-        VALUES (?, ?, 'WORKING', 0, 1, ?, 0, ?, ?)
-      `).run(activeExam.id, student.id, nowIso, nowIso, device_info || 'Direct Entry Web');
-      session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(info.lastInsertRowid));
-    } else if (session.status === 'FINISHED') {
+    const opened = openStudentSession(student, activeExam, token, device_info, 'Direct Entry Web');
+    if (opened.finished) {
       return res.status(403).json({
         error: `Ujian atas nama ${student.full_name} sudah selesai dikumpulkan dan tidak dapat dibuka atau mengubah jawaban lagi.`,
         status: 'FINISHED'
       });
-    } else {
-      // Izinkan siswa yang belum selesai (WORKING/LOCKED) melanjutkan kembali
-      db.prepare("UPDATE exam_sessions SET status = 'WORKING', need_token_reverify = 0, last_activity_at = ? WHERE id = ?").run(nowIso, session.id);
-      session.status = 'WORKING';
-      session.need_token_reverify = 0;
     }
+    const session = opened.session;
 
     res.json({
       sessionId: session.id,
+      sessionToken: opened.sessionToken,
       status: session.status,
+      need_token_reverify: session.need_token_reverify,
       student: {
         id: student.id,
         exam_number: student.exam_number,
@@ -1655,13 +1768,19 @@ function createApp(db) {
   });
 
   // Melanjutkan ujian secara mandiri jika siswa terganggu / pindah tab (tanpa butuh pengawas)
-  app.post('/api/ujian/self-resume', (req, res) => {
-    const { sessionId } = req.body || {};
-    const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(sessionId));
-    if (!session) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+  // Hanya untuk melanjutkan sesi yang tidak terkunci. Sesi LOCKED wajib dibuka pengawas,
+  // dan sesi yang butuh verifikasi token wajib memasukkan token ujian terbaru.
+  app.post('/api/ujian/self-resume', requireStudentSession, (req, res) => {
+    const session = req.examSession;
     if (session.status === 'FINISHED') return res.json({ status: 'FINISHED' });
+    if (session.status === 'LOCKED') {
+      return res.status(423).json({ error: 'Layar ujian terkunci. Hubungi Pengawas Ruangan untuk membuka kunci.', status: 'LOCKED' });
+    }
+    if (session.need_token_reverify) {
+      return res.status(428).json({ error: 'Masukkan Token Ujian terbaru dari Pengawas untuk melanjutkan.', status: 'NEED_TOKEN' });
+    }
 
-    db.prepare("UPDATE exam_sessions SET status = 'WORKING', need_token_reverify = 0, last_activity_at = ? WHERE id = ?").run(new Date().toISOString(), session.id);
+    db.prepare('UPDATE exam_sessions SET last_activity_at = ? WHERE id = ?').run(new Date().toISOString(), session.id);
     res.json({ status: 'WORKING', need_token_reverify: 0 });
   });
 
@@ -1683,34 +1802,27 @@ function createApp(db) {
       return res.status(404).json({ error: `Belum ada jadwal ujian yang aktif untuk kelas ${student.class_name}.` });
     }
 
-    // Jika token dikirim pada saat login, validasi token (backward compatible dengan test)
+    // Jika token dikirim pada saat login, validasi token. Tanpa token, sesi wajib verifikasi token sebelum menjawab.
     if (token) {
       if (String(token).toUpperCase().trim() !== String(activeExam.token).toUpperCase().trim()) {
         return res.status(403).json({ error: 'Token Ujian tidak sesuai atau sudah berganti (Token berganti otomatis tiap 15 menit)! Tanyakan Token terbaru ke Pengawas Ruangan.' });
       }
     }
 
-    let session = db.prepare('SELECT * FROM exam_sessions WHERE exam_id = ? AND student_id = ?').get(activeExam.id, student.id);
-    const nowIso = new Date().toISOString();
-    if (!session) {
-      const info = db.prepare(`
-        INSERT INTO exam_sessions (exam_id, student_id, status, need_token_reverify, current_question_number, last_activity_at, violation_count, started_at, device_info)
-        VALUES (?, ?, 'WORKING', 0, 1, ?, 0, ?, ?)
-      `).run(activeExam.id, student.id, nowIso, nowIso, device_info || 'Exambro Web');
-      session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(info.lastInsertRowid));
-    } else if (session.status === 'FINISHED') {
+    const opened = openStudentSession(student, activeExam, token, device_info, 'Exambro Web');
+    if (opened.finished) {
       return res.status(403).json({
         error: `Ujian atas nama ${student.full_name} sudah selesai dikumpulkan dan tidak dapat dibuka atau diubah kembali.`,
         status: 'FINISHED'
       });
-    } else {
-      db.prepare('UPDATE exam_sessions SET need_token_reverify = 0, last_activity_at = ? WHERE id = ?').run(nowIso, session.id);
-      session.need_token_reverify = 0;
     }
+    const session = opened.session;
 
     res.json({
       sessionId: session.id,
+      sessionToken: opened.sessionToken,
       status: session.status,
+      need_token_reverify: session.need_token_reverify,
       student: {
         id: student.id,
         exam_number: student.exam_number,
@@ -1732,7 +1844,8 @@ function createApp(db) {
   });
 
   // Ambil token ujian aktif sesuai kelas / sesi siswa (untuk Pop-up Peraturan & Ambil Token)
-  app.get('/api/ujian/active-token', (req, res) => {
+  // Hanya staf (pengawas/operator) yang boleh melihat token ujian; siswa wajib meminta token ke pengawas
+  app.get('/api/ujian/active-token', requireStaffAuth(['pengawas', 'operator']), (req, res) => {
     const { sessionId, class_name } = req.query || {};
     let activeExam = null;
     if (sessionId) {
@@ -1757,11 +1870,13 @@ function createApp(db) {
   });
 
   // Verifikasi Token saat masuk subtes / mulai ujian (PDF ABM Hal 9)
-  app.post('/api/ujian/verify-subtest-token', (req, res) => {
-    const { sessionId, token } = req.body || {};
-    const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(sessionId));
-    if (!session) return res.status(404).json({ error: 'Sesi ujian tidak ditemukan.' });
+  app.post('/api/ujian/verify-subtest-token', requireStudentSession, (req, res) => {
+    const { token } = req.body || {};
+    const session = req.examSession;
     if (session.status === 'FINISHED') return res.status(403).json({ error: 'Ujian sudah selesai dikumpulkan.', status: 'FINISHED' });
+    if (session.status === 'LOCKED') {
+      return res.status(423).json({ error: 'Layar ujian terkunci. Hubungi Pengawas Ruangan untuk membuka kunci.', status: 'LOCKED' });
+    }
 
     const rawExam = db.prepare('SELECT * FROM exams WHERE id = ?').get(session.exam_id);
     const activeExam = ensureFresh15MinToken(db, rawExam);
@@ -1783,10 +1898,10 @@ function createApp(db) {
   });
 
   // Verifikasi Token 15-Menit Terbaru saat siswa selesai gangguan / dibuka kuncinya di tengah ujian
-  app.post('/api/ujian/verify-resume-token', (req, res) => {
-    const { sessionId, token } = req.body || {};
-    const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(sessionId));
-    if (!session) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+  app.post('/api/ujian/verify-resume-token', requireStudentSession, (req, res) => {
+    const { token } = req.body || {};
+    const session = req.examSession;
+    if (session.status === 'FINISHED') return res.status(403).json({ error: 'Ujian sudah selesai dikumpulkan.', status: 'FINISHED' });
     if (session.status === 'LOCKED') {
       return res.status(423).json({ error: 'Pengawas Ruangan belum menekan tombol Buka Kunci untuk Anda.' });
     }
@@ -1802,21 +1917,19 @@ function createApp(db) {
   });
 
   // Heartbeat posisi soal yang sedang dikerjakan siswa
-  app.post('/api/ujian/heartbeat', (req, res) => {
-    const { sessionId, currentQuestionNumber } = req.body || {};
-    if (!sessionId) return res.status(400).json({ error: 'sessionId wajib' });
+  app.post('/api/ujian/heartbeat', requireStudentSession, (req, res) => {
+    const { currentQuestionNumber } = req.body || {};
     db.prepare('UPDATE exam_sessions SET current_question_number = ?, last_activity_at = ? WHERE id = ?').run(
       Number(currentQuestionNumber) || 1,
       new Date().toISOString(),
-      Number(sessionId)
+      req.examSession.id
     );
     res.json({ ok: true });
   });
 
-  app.get('/api/ujian/session/:sessionId', (req, res) => {
-    const sessionId = Number(req.params.sessionId);
-    const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(sessionId);
-    if (!session) return res.status(404).json({ error: 'Sesi ujian tidak ditemukan' });
+  app.get('/api/ujian/session/:sessionId', requireStudentSession, (req, res) => {
+    const session = req.examSession;
+    const sessionId = session.id;
 
     const student = db.prepare('SELECT id, exam_number, full_name, class_name, room, seat_number, nisn, birth_info FROM students WHERE id = ?').get(session.student_id);
     if (student && !student.birth_info) student.birth_info = '-';
@@ -1864,16 +1977,19 @@ function createApp(db) {
   });
 
   // Upload Foto Lembar Jawaban Kertas untuk Soal Esai (Wajib sebelum Selesai Ujian)
-  app.post('/api/ujian/upload-essay-photo', upload.single('photo'), (req, res) => {
-    const sessionId = Number(req.body.sessionId);
+  app.post('/api/ujian/upload-essay-photo', upload.single('photo'), requireStudentSession, (req, res) => {
+    const session = req.examSession;
+    const sessionId = session.id;
     const questionId = Number(req.body.questionId);
     const currentQuestionNumber = req.body.currentQuestionNumber ? Number(req.body.currentQuestionNumber) : null;
-    if (!sessionId || !questionId) {
+    if (!questionId) {
       return res.status(400).json({ error: 'sessionId dan questionId wajib diisi.' });
     }
-    const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(sessionId);
-    if (!session) return res.status(404).json({ error: 'Sesi ujian tidak ditemukan.' });
+    if (req.file && !isAllowedMediaFile(req.file, 'image')) {
+      return res.status(400).json({ error: 'Foto lembar jawaban harus berformat JPG/PNG/WEBP.' });
+    }
     if (session.status === 'LOCKED') return res.status(423).json({ error: 'Sesi ujian sedang terkunci.' });
+    if (session.need_token_reverify) return res.status(428).json({ error: 'Masukkan Token Ujian terbaru dari Pengawas untuk melanjutkan.', status: 'NEED_TOKEN' });
     if (session.status === 'FINISHED') return res.status(400).json({ error: 'Ujian sudah selesai dikumpulkan.' });
 
     const question = db.prepare('SELECT id, type, number FROM questions WHERE id = ? AND exam_id = ?').get(questionId, session.exam_id);
@@ -1912,10 +2028,9 @@ function createApp(db) {
     res.json({ ok: true, questionId: question.id, essayPhoto: photoUrl });
   });
 
-  app.post('/api/ujian/answer', (req, res) => {
-    const { sessionId, questionId, chosenOption, currentQuestionNumber } = req.body || {};
-    const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(sessionId));
-    if (!session) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+  app.post('/api/ujian/answer', requireStudentSession, (req, res) => {
+    const { questionId, chosenOption, currentQuestionNumber } = req.body || {};
+    const session = req.examSession;
 
     if (session.status === 'LOCKED') {
       return res.status(423).json({
@@ -1945,6 +2060,10 @@ function createApp(db) {
       return res.status(400).json({ error: 'Pilihan jawaban harus A, B, C, D, atau E' });
     }
 
+    const question = db.prepare('SELECT id, type FROM questions WHERE id = ? AND exam_id = ?').get(Number(questionId), session.exam_id);
+    if (!question) return res.status(404).json({ error: 'Soal tidak ditemukan pada jadwal ujian ini.' });
+    if (question.type !== 'PG') return res.status(400).json({ error: 'Soal esai dijawab dengan foto lembar jawaban, bukan pilihan ganda.' });
+
     const nowIso = new Date().toISOString();
     db.prepare(`
       INSERT INTO answers (session_id, question_id, chosen_option, updated_at)
@@ -1963,10 +2082,9 @@ function createApp(db) {
     res.json({ saved: true, questionId: Number(questionId), chosenOption: validOption });
   });
 
-  app.post('/api/ujian/violation', (req, res) => {
-    const { sessionId, reason } = req.body || {};
-    const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(sessionId));
-    if (!session) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+  app.post('/api/ujian/violation', requireStudentSession, (req, res) => {
+    const { reason } = req.body || {};
+    const session = req.examSession;
     if (session.status === 'FINISHED') return res.json({ status: 'FINISHED' });
 
     const newCount = (session.violation_count || 0) + 1;
@@ -1980,12 +2098,14 @@ function createApp(db) {
     res.json({ status: 'LOCKED', violation_count: newCount, reason: violationReason });
   });
 
-  app.post('/api/ujian/finish', (req, res) => {
-    const { sessionId } = req.body || {};
-    const session = db.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(Number(sessionId));
-    if (!session) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+  app.post('/api/ujian/finish', requireStudentSession, (req, res) => {
+    const session = req.examSession;
+    if (session.status === 'FINISHED') return res.json({ status: 'FINISHED', finished_at: session.finished_at });
     if (session.status === 'LOCKED') {
       return res.status(423).json({ error: 'Sesi sedang terkunci. Minta pengawas membuka kunci terlebih dahulu.' });
+    }
+    if (session.need_token_reverify) {
+      return res.status(428).json({ error: 'Masukkan Token Ujian terbaru dari Pengawas untuk melanjutkan.', status: 'NEED_TOKEN' });
     }
 
     // Periksa apakah ujian memiliki soal ESAI dan apakah semua lembar jawaban esai sudah difoto

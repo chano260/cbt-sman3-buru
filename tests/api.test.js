@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { initDb } = require('../src/db');
 const { createApp } = require('../src/app');
+require('./helpers/studentSessionFetch');
 
 test('Student exam lifecycle: login, auto-save PG, no key/score leak, lock on violation, unlock by pengawas, accurate PG-only score for guru', async (t) => {
   const db = initDb(':memory:');
@@ -65,6 +66,15 @@ test('Student exam lifecycle: login, auto-save PG, no key/score leak, lock on vi
     method: 'POST',
     headers: { 'Authorization': `Bearer ${pengawasAuth.staffToken}` }
   });
+
+  // Setelah dibuka pengawas, siswa wajib memasukkan token ujian terbaru sebelum melanjutkan
+  const freshToken = db.prepare('SELECT token FROM exams WHERE id = ?').get(exam.id).token;
+  const resumeRes = await fetch(`${base}/api/ujian/verify-resume-token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: loginRes.sessionId, token: freshToken })
+  });
+  assert.equal(resumeRes.status, 200);
 
   // Unggah foto lembar jawaban kertas untuk soal esai sebelum menyelesaikan subtes
   const esaiQuestions = db.prepare("SELECT * FROM questions WHERE exam_id = ? AND type = 'ESAI'").all(exam.id);
@@ -314,7 +324,7 @@ test('Guru can attach Image and Audio (Listening MP3) to any question and studen
   assert.equal(qWithMedia.audio_data, mediaRes.audio_data);
 });
 
-test('Direct student name search, confirmation with TTL & NISN, direct exam start without proctor token, and self-resume', async (t) => {
+test('Direct student name search, confirmation with TTL & NISN, direct exam start with proctor token, and lock needs proctor unlock', async (t) => {
   const db = initDb(':memory:');
   const app = createApp(db);
   const server = app.listen(0);
@@ -348,15 +358,17 @@ test('Direct student name search, confirmation with TTL & NISN, direct exam star
   assert.equal(findRes.student.class_name, 'XII IPA 1');
   assert.ok(findRes.student.birth_info.includes('Namlea'));
 
-  // 3. Masuk langsung ke soal ("Siap Mengikuti Ujian") dengan verifikasi 4 digit NISN
+  // 3. Masuk langsung ke soal ("Siap Mengikuti Ujian") dengan verifikasi 4 digit NISN + token dari pengawas
+  const examToken = db.prepare('SELECT token FROM exams WHERE id = ?').get(findRes.exam.id).token;
   const startRes = await fetch(`${base}/api/ujian/start-direct`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ studentId: findRes.student.id, nisnLast4: '4501' })
+    body: JSON.stringify({ studentId: findRes.student.id, nisnLast4: '4501', token: examToken })
   }).then(r => r.json());
 
   assert.ok(startRes.sessionId);
   assert.equal(startRes.status, 'WORKING');
+  assert.equal(startRes.need_token_reverify, 0);
   assert.equal(startRes.student.full_name, 'Ahmad Fauzi');
 
   // 4. Pastikan bisa langsung load paket soal ujian
@@ -373,7 +385,7 @@ test('Direct student name search, confirmation with TTL & NISN, direct exam star
   });
   assert.equal(ansRes.status, 200);
 
-  // 6. Uji self-resume jika terdeteksi keluar aplikasi (tanpa perlu web pengawas/teknisi)
+  // 6. Keluar aplikasi -> terkunci; siswa TIDAK bisa membuka sendiri, wajib dibuka pengawas + token terbaru
   await fetch(`${base}/api/ujian/violation`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -383,8 +395,24 @@ test('Direct student name search, confirmation with TTL & NISN, direct exam star
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId: startRes.sessionId })
+  });
+  assert.equal(resumeRes.status, 423);
+
+  const pengawasAuth = await fetch(`${base}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'pengawas', password: 'pengawas123' })
   }).then(r => r.json());
-  assert.equal(resumeRes.status, 'WORKING');
+  await fetch(`${base}/api/pengawas/unlock/${startRes.sessionId}`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${pengawasAuth.staffToken}` }
+  });
+  const reverify = await fetch(`${base}/api/ujian/verify-resume-token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: startRes.sessionId, token: examToken })
+  });
+  assert.equal(reverify.status, 200);
 
   // 7. Selesaikan ujian -> setelah selesai, tidak bisa masuk lagi dan tidak bisa ubah jawaban
   const test5Esais = db.prepare("SELECT * FROM questions WHERE exam_id = ? AND type = 'ESAI'").all(findRes.exam.id);
@@ -506,12 +534,18 @@ test('Multi-teacher class targeting, active token retrieval modal, and operator 
   `).run(nowIso);
   const examBId = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
-  // 2. Ambil token aktif via /api/ujian/active-token berdasarkan kelas siswa
-  const tokenARes = await fetch(`${base}/api/ujian/active-token?class_name=${encodeURIComponent('XII IPA 1')}`).then(r => r.json());
+  // 2. Pengawas mengambil token aktif via /api/ujian/active-token berdasarkan kelas siswa (wajib login staf)
+  const pwAuth = await fetch(`${base}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'pengawas', password: 'pengawas123' })
+  }).then(r => r.json());
+  const pwHeaders = { 'Authorization': `Bearer ${pwAuth.staffToken}` };
+  const tokenARes = await fetch(`${base}/api/ujian/active-token?class_name=${encodeURIComponent('XII IPA 1')}`, { headers: pwHeaders }).then(r => r.json());
   assert.equal(tokenARes.token, 'TOKNA1');
   assert.equal(tokenARes.subject, 'Matematika');
 
-  const tokenBRes = await fetch(`${base}/api/ujian/active-token?class_name=${encodeURIComponent('XII IPA 3')}`).then(r => r.json());
+  const tokenBRes = await fetch(`${base}/api/ujian/active-token?class_name=${encodeURIComponent('XII IPA 3')}`, { headers: pwHeaders }).then(r => r.json());
   assert.equal(tokenBRes.token, 'TOKNB2');
 
   // 3. Siswa XII IPA 1 login -> harus mendapat ujian Guru A
@@ -570,11 +604,11 @@ test('Mandatory essay answer paper photo upload before finishing exam, and teach
   const esaiQ = db.prepare("SELECT * FROM questions WHERE exam_id = ? AND type = 'ESAI' LIMIT 1").get(exam.id);
   assert.ok(esaiQ, 'Harus ada minimal 1 soal ESAI');
 
-  // Mulai sesi ujian siswa
+  // Mulai sesi ujian siswa (dengan token ujian dari pengawas)
   const startRes = await fetch(`${base}/api/ujian/start-direct`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ studentId: student.id, nisnLast4: student.nisn.slice(-4) })
+    body: JSON.stringify({ studentId: student.id, nisnLast4: student.nisn.slice(-4), token: exam.token })
   }).then(r => r.json());
   assert.ok(startRes.sessionId);
 

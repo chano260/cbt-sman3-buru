@@ -183,9 +183,16 @@
 
     async function loadServerInfo() {
       try {
-        const res = await fetch('/api/server-info');
+        // Token hanya ditampilkan bila halaman dibuka dari browser yang sudah login Panel Pengawas / Operator
+        const staffToken = sessionStorage.getItem('cbt_pengawas_token') || sessionStorage.getItem('cbt_operator_token') || '';
+        const res = await fetch('/api/server-info', staffToken ? { headers: { Authorization: `Bearer ${staffToken}` } } : undefined);
         if (!res.ok) return;
         const data = await res.json();
+        if (data.activeExam && !data.activeExam.token) {
+          renderTokenDigits('-----');
+          document.getElementById('tokenCountdownVal').textContent = 'Token dibacakan oleh Pengawas Ruangan';
+          return;
+        }
         if (data.activeExam && data.activeExam.token) {
           renderTokenDigits(data.activeExam.token);
           remainingSeconds = data.activeExam.token_remaining_seconds || 900;

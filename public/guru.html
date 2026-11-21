@@ -270,6 +270,17 @@
   </div>
 
   <script>
+
+    // Escape teks dari server sebelum dimasukkan ke innerHTML (mencegah XSS)
+    function esc(v) {
+      return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    // Untuk nilai di dalam string JS pada atribut onclick="fn('...')"
+    function escJs(v) {
+      return esc(String(v == null ? '' : v).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' '));
+    }
     let currentExamId = null;
     let staffToken = sessionStorage.getItem('cbt_guru_token') || '';
     let currentTeacherProfile = null;
@@ -307,7 +318,7 @@
         // Jika guru mengampu 2 mapel atau lebih: sediakan dropdown mapel pengampu
         container.innerHTML = `
           <select id="newBkSubject" class="input" style="font-weight:600;background:#fff;" onchange="onBkSubjectSelectChange(this)">
-            ${subjects.map(s => `<option value="${s}">Mapel Pengampu: ${s}</option>`).join('')}
+            ${subjects.map(s => `<option value="${esc(s)}">Mapel Pengampu: ${esc(s)}</option>`).join('')}
             <option value="__CUSTOM__">+ Ketik Mata Pelajaran Lain...</option>
           </select>
           <input id="newBkSubjectCustom" class="input" placeholder="Ketik nama mata pelajaran..." style="display:none;margin-top:6px;">
@@ -315,7 +326,7 @@
       } else if (subjects.length === 1) {
         // Jika guru mengampu 1 mapel: kunci mapel tersebut agar praktis & tidak salah ketik
         container.innerHTML = `
-          <input id="newBkSubject" class="input" value="${subjects[0]}" readonly style="background:#f1f5f9;font-weight:600;color:#0f172a;">
+          <input id="newBkSubject" class="input" value="${esc(subjects[0])}" readonly style="background:#f1f5f9;font-weight:600;color:#0f172a;">
           <small style="color:var(--muted);font-size:11.5px;margin-top:3px;display:block;">Mapel pengampu akun Anda: <b>${subjects[0]}</b></small>
         `;
       } else {
@@ -434,7 +445,7 @@
         const subjs = currentTeacherProfile.subjects && currentTeacherProfile.subjects.length > 0
           ? currentTeacherProfile.subjects.join(', ')
           : (currentTeacherProfile.subject || 'Semua Mapel');
-        document.getElementById('guruNameChip').innerHTML = `👤 <b>${currentTeacherProfile.full_name}</b> <span style="font-size:11px;opacity:0.88;background:rgba(255,255,255,0.22);padding:2px 7px;border-radius:4px;margin-left:5px;">Mapel: ${subjs}</span>`;
+        document.getElementById('guruNameChip').innerHTML = `👤 <b>${esc(currentTeacherProfile.full_name)}</b> <span style="font-size:11px;opacity:0.88;background:rgba(255,255,255,0.22);padding:2px 7px;border-radius:4px;margin-left:5px;">Mapel: ${subjs}</span>`;
       }
 
       const sel = document.getElementById('examSelector');
@@ -457,7 +468,7 @@
       }
 
       sel.innerHTML = data.exams.map(e => `
-        <option value="${e.id}">[${e.subject}] ${e.title} (${e.class_target || 'Semua Kelas'}) — ${e.totalCount || 0} Soal (${e.pgCount || 0} PG, ${e.esaiCount || 0} Esai)</option>
+        <option value="${e.id}">[${esc(e.subject)}] ${esc(e.title)} (${esc(e.class_target || 'Semua Kelas')}) — ${e.totalCount || 0} Soal (${e.pgCount || 0} PG, ${e.esaiCount || 0} Esai)</option>
       `).join('');
 
       if (!currentExamId || !data.exams.some(e => e.id === currentExamId)) {
@@ -552,7 +563,7 @@
                 <span class="badge" style="background:#fef3c7;color:#b45309;border-color:#fde68a;">SOAL ESAI NO. ${q.number} • Lembar Kertas</span>
                 ${mediaActionBtns}
               </div>
-              <p style="font-size:14px;font-weight:500;color:#78350f;">${q.question_text}</p>
+              <p style="font-size:14px;font-weight:500;color:#78350f;">${esc(q.question_text)}</p>
               ${mediaPreview}
             </div>
           `;
@@ -566,14 +577,14 @@
               </div>
               ${mediaActionBtns}
             </div>
-            <p style="font-size:14px;font-weight:500;margin-bottom:10px;">${q.question_text}</p>
+            <p style="font-size:14px;font-weight:500;margin-bottom:10px;">${esc(q.question_text)}</p>
             ${mediaPreview}
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px;font-size:12.5px;color:var(--slate);">
-              <div><b>A.</b> ${q.option_a || '-'}</div>
-              <div><b>B.</b> ${q.option_b || '-'}</div>
-              <div><b>C.</b> ${q.option_c || '-'}</div>
-              <div><b>D.</b> ${q.option_d || '-'}</div>
-              <div><b>E.</b> ${q.option_e || '-'}</div>
+              <div><b>A.</b> ${esc(q.option_a || '-')}</div>
+              <div><b>B.</b> ${esc(q.option_b || '-')}</div>
+              <div><b>C.</b> ${esc(q.option_c || '-')}</div>
+              <div><b>D.</b> ${esc(q.option_d || '-')}</div>
+              <div><b>E.</b> ${esc(q.option_e || '-')}</div>
             </div>
           </div>
         `;
@@ -708,9 +719,9 @@
       const data = await res.json();
       document.getElementById('guruScoresBody').innerHTML = (data.scores || []).map(s => `
         <tr>
-          <td><b>${s.exam_number}</b></td>
-          <td><b>${s.full_name}</b></td>
-          <td>${s.class_name} • ${s.room}</td>
+          <td><b>${esc(s.exam_number)}</b></td>
+          <td><b>${esc(s.full_name)}</b></td>
+          <td>${esc(s.class_name)} • ${esc(s.room)}</td>
           <td>${s.status === 'FINISHED' ? '<span class="badge badge-finished">✓ Selesai</span>' : s.status === 'WORKING' ? '<span class="badge badge-working">● Mengerjakan</span>' : s.status === 'LOCKED' ? '<span class="badge badge-locked">🔒 Terkunci</span>' : '<span class="badge badge-idle">Belum Login</span>'}</td>
           <td>${s.violation_count > 0 ? `<span class="badge badge-locked">⚠️ ${s.violation_count}x</span>` : '<span style="color:var(--green);font-weight:700;">Aman (0)</span>'}</td>
           <td>${s.answered_pg} / ${s.total_pg}</td>
@@ -742,7 +753,7 @@
               Soal Esai Nomor ${w.number}
             </div>
             <div style="font-size:12.5px;color:#334155;margin-bottom:12px;background:#fff;padding:8px 12px;border-radius:8px;border:1px solid #e2e8f0;">
-              ${w.question_snippet}
+              ${esc(w.question_snippet)}
             </div>
             ${w.essay_photo ? `
               <div style="text-align:center;">

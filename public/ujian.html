@@ -352,7 +352,7 @@
     <div class="exambppp-modal-card" style="max-width:440px;text-align:left;">
       <div class="exambppp-modal-title" style="text-align:center;font-size:17px;">Peraturan & Tata Tertib Ujian</div>
       <p class="exambppp-modal-desc" style="text-align:center;margin-bottom:14px;">
-        Silakan baca dan setujui peraturan ujian di bawah untuk mendapatkan Token Ujian Anda:
+        Silakan baca dan setujui peraturan ujian di bawah. Token Ujian diberikan oleh Pengawas Ruangan:
       </p>
 
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:13px 15px;font-size:12.5px;color:#334155;line-height:1.65;margin-bottom:14px;">
@@ -371,10 +371,10 @@
 
       <!-- KOTAK TOKEN YANG MUNCUL SETELAH DICEKLIS -->
       <div id="boxRevealedToken" style="display:none;background:#ecfdf5;border:1.5px solid #a7f3d0;border-radius:10px;padding:14px;margin-top:14px;text-align:center;">
-        <div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">TOKEN UJIAN AKTIF ANDA</div>
-        <div id="revealedTokenVal" style="font-size:26px;font-weight:900;letter-spacing:0.22em;color:#065f46;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin-bottom:10px;">------</div>
+        <div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">TOKEN UJIAN</div>
+        <div id="revealedTokenVal" style="font-size:13px;font-weight:600;color:#065f46;line-height:1.5;margin-bottom:10px;">Mintalah Token Ujian kepada Pengawas Ruangan, lalu ketik token tersebut pada kolom "Masukkan Token Ujian".</div>
         <button type="button" class="exambppp-btn-teal" style="background:#059669;padding:10px;font-size:13px;" onclick="applyRevealedToken()">
-          <span>Gunakan Token Ini & Mulai Ujian &rarr;</span>
+          <span>Saya Setuju, Isi Token &rarr;</span>
         </button>
       </div>
 
@@ -563,9 +563,11 @@
       </p>
       <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:11px 13px;border-radius:9px;font-size:12px;color:#64748b;margin-bottom:18px;line-height:1.5;">
         Aktivitas ini tercatat secara otomatis pada sistem pengawasan ruang ujian SMA Negeri 3 Buru.
+        <b>Layar ujian terkunci. Angkat tangan dan minta Pengawas Ruangan membuka kunci untuk Anda.</b>
       </div>
+      <div id="lockedStillMsg" style="color:#e11d48;font-size:12px;font-weight:600;margin-bottom:10px;display:none;"></div>
       <button class="exambppp-btn-teal" style="background:#059669;" onclick="selfResumeExam()">
-        Saya Mengerti, Lanjutkan Ujian
+        Cek Status Buka Kunci
       </button>
     </div>
   </div>
@@ -578,20 +580,48 @@
       </div>
       <h1 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:8px;">Lanjutkan Pengerjaan Ujian</h1>
       <p style="font-size:13px;color:#475569;margin-bottom:16px;line-height:1.5;">
-        Sesi ujian Anda dijeda sementara. Klik tombol di bawah untuk kembali ke lembar soal:
+        Sesi ujian Anda dijeda sementara. Masukkan Token Ujian terbaru dari Pengawas Ruangan untuk kembali ke lembar soal:
       </p>
-      <button class="exambppp-btn-teal" style="background:#059669;" onclick="selfResumeExam()">
-        Lanjutkan Ujian Sekarang
-      </button>
-      <div style="margin-top:14px;border-top:1px solid #f1f5f9;padding-top:12px;">
-        <input id="inpResumeToken" class="exambppp-input" style="text-align:center;font-size:14px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px;" placeholder="TOKEN RUANGAN (OPSIONAL)">
+      <div style="margin-top:4px;">
+        <input id="inpResumeToken" class="exambppp-input" style="text-align:center;font-size:14px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px;" placeholder="TOKEN UJIAN" autocomplete="off">
         <div id="resumeTokenErr" style="color:#e11d48;font-size:12px;font-weight:600;margin-bottom:8px;display:none;"></div>
-        <button class="btn btn-outline" style="width:100%;padding:8px;font-size:12px;" onclick="submitResumeToken()">Verifikasi dengan Token</button>
+        <button class="exambppp-btn-teal" style="background:#059669;" onclick="submitResumeToken()">Verifikasi Token & Lanjutkan</button>
       </div>
     </div>
   </div>
 
   <script>
+    // Escape teks dari server sebelum dimasukkan ke innerHTML (mencegah XSS)
+    function esc(v) {
+      return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // Token sesi siswa: disertakan otomatis pada semua request /api/ujian/* (anti-IDOR)
+    let sessionToken = sessionStorage.getItem('cbt_session_token') || '';
+    function setStudentSession(id, token) {
+      sessionId = id;
+      sessionToken = token || '';
+      sessionStorage.setItem('cbt_active_session_id', String(id));
+      sessionStorage.setItem('cbt_session_token', sessionToken);
+    }
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = async (url, opts = {}) => {
+      if (typeof url === 'string' && url.startsWith('/api/ujian/') && sessionToken) {
+        opts = { ...opts, headers: { ...(opts.headers || {}), 'X-Session-Token': sessionToken } };
+      }
+      const res = await nativeFetch(url, opts);
+      if (res.status === 401 && typeof url === 'string' && url.startsWith('/api/ujian/') && sessionToken) {
+        // Sesi dipakai di perangkat lain / tidak valid -> kembali ke layar login
+        sessionStorage.removeItem('cbt_active_session_id');
+        sessionStorage.removeItem('cbt_session_token');
+        alert('Sesi login Anda tidak berlaku lagi (mungkin dipakai login di perangkat lain). Silakan login ulang.');
+        window.location.reload();
+      }
+      return res;
+    };
+
     let sessionId = sessionStorage.getItem('cbt_active_session_id') || null;
     let selectedStudent = null;
     let verifiedNisnLast4 = '';
@@ -811,8 +841,7 @@
           return;
         }
 
-        sessionId = data.sessionId;
-        sessionStorage.setItem('cbt_active_session_id', String(sessionId));
+        setStudentSession(data.sessionId, data.sessionToken);
         selectedStudent = data.student;
 
         document.getElementById('confStudentName').textContent = selectedStudent.full_name;
@@ -873,8 +902,6 @@
       if (chk) chk.checked = false;
       const box = document.getElementById('boxRevealedToken');
       if (box) box.style.display = 'none';
-      const tokVal = document.getElementById('revealedTokenVal');
-      if (tokVal) tokVal.textContent = '------';
     }
 
     function closeModalRulesAndToken() {
@@ -889,40 +916,17 @@
         if (box) box.style.display = 'none';
         return;
       }
-      if (tokVal) tokVal.textContent = 'MEMUAT...';
+      // Token ujian TIDAK lagi ditampilkan ke siswa: token hanya dibacakan / ditulis oleh Pengawas Ruangan
       if (box) box.style.display = 'block';
-
-      try {
-        const cls = selectedStudent && selectedStudent.class_name ? encodeURIComponent(selectedStudent.class_name) : '';
-        const sId = sessionId ? encodeURIComponent(sessionId) : '';
-        const res = await fetch(`/api/ujian/active-token?sessionId=${sId}&class_name=${cls}`);
-        const data = await res.json();
-        if (res.ok && data.token) {
-          if (tokVal) tokVal.textContent = data.token;
-        } else {
-          if (tokVal) tokVal.textContent = 'GAGAL';
-          alert(data.error || 'Gagal mengambil token ujian aktif.');
-        }
-      } catch (err) {
-        if (tokVal) tokVal.textContent = 'ERROR';
-        alert('Gagal menghubungi server untuk mengambil token: ' + err.message);
-      }
     }
 
     function applyRevealedToken() {
-      const tokVal = document.getElementById('revealedTokenVal');
-      const token = tokVal ? tokVal.textContent.trim() : '';
-      if (!token || token === '------' || token === 'MEMUAT...' || token === 'GAGAL' || token === 'ERROR') {
-        alert('Token belum tersedia. Silakan centang persetujuan tata tertib.');
-        return;
-      }
-      const inpTok = document.getElementById('inpSubtestToken');
-      if (inpTok) inpTok.value = token;
       const chk = document.getElementById('chkAgreement');
       if (chk) chk.checked = true;
       toggleAgreeButton();
       closeModalRulesAndToken();
-      openModalConfirmStartTest();
+      const inpTok = document.getElementById('inpSubtestToken');
+      if (inpTok) inpTok.focus();
     }
 
     function openModalConfirmStartTest() {
@@ -1020,8 +1024,7 @@
         return;
       }
 
-      sessionId = data.sessionId;
-      sessionStorage.setItem('cbt_active_session_id', String(sessionId));
+      setStudentSession(data.sessionId, data.sessionToken);
       if (window.AndroidExambro && typeof window.AndroidExambro.enterLockMode === 'function') {
         window.AndroidExambro.enterLockMode();
       } else if (document.documentElement.requestFullscreen) {
@@ -1113,7 +1116,7 @@
               <div style="font-size:46px;margin-bottom:12px;">⚠️</div>
               <div style="font-size:18px;font-weight:800;color:#92400e;margin-bottom:8px;">Paket Ujian Ini Belum Memiliki Butir Soal</div>
               <p style="font-size:14px;color:#78350f;max-width:540px;margin:0 auto 16px;line-height:1.6;">
-                Paket soal untuk ujian <b>${subj}</b> belum diunggah atau paket yang diaktifkan oleh sekolah masih kosong (0 butir soal).
+                Paket soal untuk ujian <b>${esc(subj)}</b> belum diunggah atau paket yang diaktifkan oleh sekolah masih kosong (0 butir soal).
               </p>
               <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:10px;padding:14px;font-size:13px;color:#92400e;display:inline-block;max-width:480px;line-height:1.5;">
                 📢 Silakan laporkan hal ini kepada <b>Pengawas Ruangan</b> atau <b>Operator CBT</b> agar paket bank soal yang benar diaktifkan.
@@ -1150,17 +1153,17 @@
         ${q.audio_data ? `
           <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:14px;">
             <div style="font-size:11px;font-weight:700;color:#334155;margin-bottom:6px;">Audio Soal (Listening)</div>
-            <audio controls preload="metadata" controlsList="nodownload" src="${q.audio_data}" style="width:100%;height:36px;"></audio>
+            <audio controls preload="metadata" controlsList="nodownload" src="${esc(q.audio_data)}" style="width:100%;height:36px;"></audio>
           </div>
         ` : ''}
-        ${q.image_data ? `<img src="${q.image_data}" style="max-width:100%;border-radius:8px;margin-bottom:14px;border:1px solid #e2e8f0;display:block;">` : ''}
+        ${q.image_data ? `<img src="${esc(q.image_data)}" style="max-width:100%;border-radius:8px;margin-bottom:14px;border:1px solid #e2e8f0;display:block;">` : ''}
       `;
 
       if (q.type === 'ESAI') {
         const photoUrl = essayPhotos[q.id] || '';
         card.innerHTML = `
           <span style="display:inline-block;background:#fffbeb;color:#b45309;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-bottom:12px;">Soal Esai • Nomor ${q.number}</span>
-          <div class="q-body-text" style="line-height:1.7;margin-bottom:18px;white-space:pre-line;">${q.question_text}</div>
+          <div class="q-body-text" style="line-height:1.7;margin-bottom:18px;white-space:pre-line;">${esc(q.question_text)}</div>
           ${mediaHtml}
           <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:16px;margin-top:14px;">
             <div style="font-weight:800;font-size:13px;color:#166534;margin-bottom:6px;">
@@ -1173,8 +1176,8 @@
             <input type="file" id="inpEssayPhoto_${q.id}" accept="image/*" capture="environment" style="display:none;" onchange="handleEssayPhotoChosen(event, ${q.id}, ${q.number})">
 
             <div id="essayPhotoBox_${q.id}" style="${photoUrl ? 'display:block;' : 'display:none;'}margin-bottom:12px;text-align:center;">
-              <a href="${photoUrl}" target="_blank" title="Klik untuk perbesar foto">
-                <img id="essayPhotoImg_${q.id}" src="${photoUrl}" style="max-width:100%;max-height:260px;border-radius:8px;border:2px solid #16a34a;box-shadow:0 4px 12px rgba(22,163,74,0.15);display:inline-block;object-fit:contain;">
+              <a href="${esc(photoUrl)}" target="_blank" title="Klik untuk perbesar foto">
+                <img id="essayPhotoImg_${q.id}" src="${esc(photoUrl)}" style="max-width:100%;max-height:260px;border-radius:8px;border:2px solid #16a34a;box-shadow:0 4px 12px rgba(22,163,74,0.15);display:inline-block;object-fit:contain;">
               </a>
               <div style="font-size:12px;color:#15803d;font-weight:700;margin-top:6px;">✓ Foto lembar jawaban telah terunggah & tersimpan di server sekolah</div>
             </div>
@@ -1199,7 +1202,7 @@
         ].filter(([, text]) => text !== null && text !== '');
 
         card.innerHTML = `
-          <div class="q-body-text" style="line-height:1.7;font-weight:500;margin-bottom:20px;white-space:pre-line;">${q.question_text}</div>
+          <div class="q-body-text" style="line-height:1.7;font-weight:500;margin-bottom:20px;white-space:pre-line;">${esc(q.question_text)}</div>
           ${mediaHtml}
           <div>
             ${opts.map(([letter, text]) => `
@@ -1208,7 +1211,7 @@
                   <div class="exambppp-radio-dot"></div>
                 </div>
                 <div style="flex:1;font-size:14px;color:#1e293b;line-height:1.5;">
-                  <b style="color:#0f2d2a;margin-right:6px;">${letter}.</b> ${text}
+                  <b style="color:#0f2d2a;margin-right:6px;">${letter}.</b> ${esc(text)}
                 </div>
               </div>
             `).join('')}
@@ -1508,17 +1511,25 @@
       document.getElementById('lockedRedOverlay').style.display = 'none';
     }
 
+    // Cek apakah pengawas sudah membuka kunci. Siswa tidak dapat membuka kunci sendiri.
     async function selfResumeExam() {
       if (!sessionId) return;
+      const msgEl = document.getElementById('lockedStillMsg');
+      if (msgEl) msgEl.style.display = 'none';
       try {
-        await fetch('/api/ujian/self-resume', {
+        const res = await fetch('/api/ujian/self-resume', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId })
         });
+        if (res.status === 423) {
+          if (msgEl) {
+            msgEl.textContent = 'Kunci belum dibuka oleh Pengawas Ruangan. Silakan angkat tangan dan tunggu.';
+            msgEl.style.display = 'block';
+          }
+          return;
+        }
       } catch {}
-      hideLockedScreen();
-      document.getElementById('reverifyTokenOverlay').style.display = 'none';
       await loadExamSession();
     }
 

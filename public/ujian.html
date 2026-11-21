@@ -1144,8 +1144,7 @@
         }).catch(() => {});
       }
 
-      const card = document.getElementById('activeQuestionCard');
-      card.className = 'exambppp-data-card q-font-' + currentFontScale;
+      if (card) card.className = 'exambppp-data-card q-font-' + currentFontScale;
 
       const mediaHtml = `
         ${q.audio_data ? `

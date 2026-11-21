@@ -16,6 +16,15 @@ test('All 5 web interfaces load with 200 OK and contain zero external CDN links 
     const html = await res.text();
     assert.ok(!html.includes('https://fonts.googleapis.com'), `${page} must not depend on external fonts`);
     assert.ok(!html.includes('https://cdn.'), `${page} must not depend on external CDN`);
+
+    // Verify all inline <script> tags have 100% valid JavaScript syntax
+    const scripts = html.match(/<script[\s\S]*?<\/script>/gi) || [];
+    for (const s of scripts) {
+      const code = s.replace(/<script[\s\S]*?>/i, '').replace(/<\/script>/i, '');
+      assert.doesNotThrow(() => {
+        new Function(code);
+      }, `SyntaxError in script tag of ${page}`);
+    }
     if (page === '/') {
       assert.ok(html.includes('SMA NEGERI 3 BURU'), '/ must include SMA NEGERI 3 BURU branding');
       assert.ok(html.includes('MONITORING'), '/ must match Monitoring layout');

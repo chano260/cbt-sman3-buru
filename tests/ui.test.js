@@ -21,6 +21,19 @@ test('All 5 web interfaces load with 200 OK and contain zero external CDN links 
       assert.ok(html.includes('MONITORING'), '/ must match Monitoring layout');
       assert.ok(html.includes('Token'), '/ must include Token monitoring box');
     }
+    if (page === '/operator.html') {
+      assert.ok(html.includes('id="modalConfirmDelete"'), 'operator.html must have delete confirmation modal');
+      assert.ok(html.includes('showConfirmDelete'), 'operator.html must have showConfirmDelete function');
+      assert.ok(html.includes('confirmDeleteStudent'), 'operator.html must have confirmDeleteStudent');
+      assert.ok(html.includes('confirmDeleteExam'), 'operator.html must have confirmDeleteExam');
+      assert.ok(html.includes('confirmDeleteStaff'), 'operator.html must have confirmDeleteStaff');
+    }
+    if (page === '/guru.html') {
+      assert.ok(html.includes('id="modalConfirmDelete"'), 'guru.html must have delete confirmation modal');
+      assert.ok(html.includes('showConfirmDelete'), 'guru.html must have showConfirmDelete function');
+      assert.ok(html.includes('confirmDeleteQuestion'), 'guru.html must have confirmDeleteQuestion');
+      assert.ok(html.includes('deleteCurrentBankSoal'), 'guru.html must have deleteCurrentBankSoal');
+    }
     if (page === '/ujian.html') {
       assert.ok(!html.includes('value="26-03-001"'), 'ujian.html must not hardcode Student #1 exam_number');
       assert.ok(html.includes('sessionStorage'), 'ujian.html must persist active session in sessionStorage');

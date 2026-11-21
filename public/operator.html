@@ -612,11 +612,47 @@
     </div>
   </div>
 
+  <!-- MODAL POP-UP KONFIRMASI HAPUS (ANTI SALAH KLIK) -->
+  <div id="modalConfirmDelete" style="position:fixed;inset:0;background:rgba(15,23,42,0.72);z-index:9999;display:none;align-items:center;justify-content:center;padding:16px;">
+    <div class="card" style="max-width:440px;width:100%;margin:0;padding:24px;border-radius:14px;box-shadow:var(--shadow-lg);text-align:center;">
+      <div style="width:52px;height:52px;background:#fee2e2;color:#dc2626;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 14px auto;">
+        🗑️
+      </div>
+      <div id="delModalTitle" style="font-size:16px;font-weight:800;color:#1e293b;margin-bottom:8px;">Konfirmasi Hapus</div>
+      <div id="delModalDesc" style="font-size:13.5px;color:#475569;line-height:1.6;margin-bottom:20px;">
+        Apakah Anda yakin ingin menghapus data ini?
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button class="btn btn-outline" style="min-width:105px;" type="button" onclick="closeConfirmDeleteModal()">Batal</button>
+        <button class="btn" style="background:#dc2626;color:#ffffff;border:none;min-width:125px;font-weight:700;" type="button" onclick="executeConfirmDelete()">Ya, Hapus</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let currentOverview = null;
     let currentPrintData = null;
     let currentMonitoringList = [];
     let staffToken = sessionStorage.getItem('cbt_operator_token') || '';
+    let onConfirmDeleteCallback = null;
+
+    function showConfirmDelete(title, desc, onConfirm) {
+      document.getElementById('delModalTitle').textContent = title;
+      document.getElementById('delModalDesc').innerHTML = desc;
+      onConfirmDeleteCallback = onConfirm;
+      document.getElementById('modalConfirmDelete').style.display = 'flex';
+    }
+
+    function closeConfirmDeleteModal() {
+      document.getElementById('modalConfirmDelete').style.display = 'none';
+      onConfirmDeleteCallback = null;
+    }
+
+    async function executeConfirmDelete() {
+      const cb = onConfirmDeleteCallback;
+      closeConfirmDeleteModal();
+      if (cb) await cb();
+    }
 
     function authHeaders(extra = {}) {
       return { ...extra, 'Authorization': `Bearer ${staffToken}` };
@@ -759,7 +795,7 @@
           </td>
           <td>${s.room}</td>
           <td><code>${s.password}</code></td>
-          <td><button class="btn btn-sm btn-outline" onclick="deleteStudent(${s.id})">Hapus</button></td>
+          <td><button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;padding:2px 7px;font-size:11px;" onclick="confirmDeleteStudent(${s.id}, '${safeName}', '${s.exam_number}')">🗑️ Hapus</button></td>
         </tr>
       `;
       }).join('');
@@ -805,7 +841,7 @@
           <td>
             <div style="display:flex;gap:4px;flex-wrap:wrap;">
               ${!e.is_active ? `<button class="btn btn-sm ${totalQ > 0 ? 'btn-primary' : 'btn-outline'}" onclick="activateExam(${e.id}, ${totalQ})">${totalQ > 0 ? '⚡ Aktifkan' : 'Aktifkan (0 Soal)'}</button>` : ''}
-              <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;font-size:11px;padding:3px 8px;" onclick="deleteExam(${e.id}, '${safeSubject}', ${totalQ})">🗑️ Hapus</button>
+              <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;font-size:11px;padding:3px 8px;" onclick="confirmDeleteExam(${e.id}, '${safeSubject}', ${totalQ})">🗑️ Hapus</button>
               <a href="/guru.html" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px;padding:3px 8px;" title="Kelola butir soal di Panel Guru">Panel Guru ↗</a>
             </div>
           </td>
@@ -822,7 +858,7 @@
           <td>${u.subject || u.room || '-'}</td>
           <td>
             <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;margin-right:4px;" onclick="openEditStaffModal(${u.id}, '${(u.full_name || '').replace(/'/g, "\\'")}', '${(u.username || '').replace(/'/g, "\\'")}', '${u.role}', '${(u.subject || u.room || '').replace(/'/g, "\\'")}')">✏️ Edit</button>
-            ${u.role !== 'operator' ? `<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;padding:2px 8px;font-size:11px;" onclick="deleteStaffAccount(${u.id}, '${(u.full_name || '').replace(/'/g, "\\'")}')">Hapus</button>` : ''}
+            ${u.role !== 'operator' ? `<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;padding:2px 8px;font-size:11px;" onclick="confirmDeleteStaff(${u.id}, '${(u.full_name || '').replace(/'/g, "\\'")}', '${u.role}')">Hapus</button>` : ''}
           </td>
         </tr>
       `).join('');
@@ -1064,9 +1100,19 @@
       }
     }
 
+    function confirmDeleteStudent(id, name, examNo) {
+      showConfirmDelete(
+        'Hapus Data Siswa Peserta',
+        `Apakah Anda yakin ingin menghapus siswa:<br><b style="font-size:15px;color:var(--dark);">${name}</b><br><span style="font-size:12px;color:var(--muted);">No. Peserta: ${examNo || '-'}</span><br><br><span style="font-size:12px;color:#dc2626;font-weight:600;">⚠️ Riwayat jawaban dan sesi login siswa ini akan dihapus permanen.</span>`,
+        async () => {
+          await fetch(`/api/operator/students/${id}`, { method: 'DELETE', headers: authHeaders() });
+          loadOverview();
+        }
+      );
+    }
+
     async function deleteStudent(id) {
-      await fetch(`/api/operator/students/${id}`, { method: 'DELETE', headers: authHeaders() });
-      loadOverview();
+      confirmDeleteStudent(id, 'siswa ini', '');
     }
 
     async function createExam() {
@@ -1148,26 +1194,32 @@
       }
     }
 
-    async function deleteExam(id, subject, totalQ) {
-      const msg = totalQ > 0
-        ? `⚠️ PERINGATAN: Paket ujian "${subject}" memiliki ${totalQ} butir soal.\n\nYakin ingin MENGHAPUS jadwal ujian ini beserta seluruh butir soalnya agar tidak menumpuk?`
-        : `Yakin ingin menghapus paket jadwal "${subject}" ini dari daftar?`;
-      if (!confirm(msg)) return;
+    function confirmDeleteExam(id, subject, totalQ) {
+      const warnSoal = totalQ > 0
+        ? `<br><br><span style="font-size:12.5px;color:#dc2626;font-weight:700;background:#fef2f2;padding:6px 10px;border-radius:6px;display:inline-block;border:1px solid #fecaca;">⚠️ PERINGATAN: Paket ini berisi ${totalQ} butir soal! Seluruh butir soal dan data nilai siswa akan ikut terhapus permanen.</span>`
+        : `<br><span style="font-size:12px;color:var(--muted);">(Paket ini masih 0 soal / kosong)</span>`;
 
-      try {
-        const res = await fetch(`/api/operator/exams/${id}`, {
-          method: 'DELETE',
-          headers: authHeaders()
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          alert(data.error || 'Gagal menghapus jadwal ujian');
-          return;
+      showConfirmDelete(
+        'Hapus Jadwal Ujian',
+        `Apakah Anda yakin ingin menghapus jadwal ujian:<br><b style="font-size:15px;color:var(--dark);">${subject}</b>${warnSoal}`,
+        async () => {
+          try {
+            const res = await fetch(`/api/operator/exams/${id}`, {
+              method: 'DELETE',
+              headers: authHeaders()
+            });
+            const data = await res.json();
+            if (!res.ok) alert(data.error || 'Gagal menghapus jadwal ujian');
+            loadOverview();
+          } catch (err) {
+            alert('Terjadi kesalahan: ' + err.message);
+          }
         }
-        await loadOverview();
-      } catch (err) {
-        alert('Terjadi kesalahan: ' + err.message);
-      }
+      );
+    }
+
+    async function deleteExam(id, subject, totalQ) {
+      confirmDeleteExam(id, subject, totalQ);
     }
 
     let currentClassesList = [];
@@ -1478,15 +1530,24 @@
       }
     }
 
+    function confirmDeleteStaff(id, name, role) {
+      showConfirmDelete(
+        'Hapus Akun Staf',
+        `Apakah Anda yakin ingin menghapus akun ${(role || '').toUpperCase()} atas nama:<br><b style="font-size:15px;color:var(--dark);">${name}</b>?`,
+        async () => {
+          const res = await fetch(`/api/operator/staff/${id}`, { method: 'DELETE', headers: authHeaders() });
+          if (res.ok) {
+            loadOverview();
+          } else {
+            const err = await res.json();
+            alert(err.error || 'Gagal menghapus akun staf');
+          }
+        }
+      );
+    }
+
     async function deleteStaffAccount(id, name) {
-      if (!confirm(`Hapus akun staf "${name}"?`)) return;
-      const res = await fetch(`/api/operator/staff/${id}`, { method: 'DELETE', headers: authHeaders() });
-      if (res.ok) {
-        loadOverview();
-      } else {
-        const err = await res.json();
-        alert(err.error || 'Gagal menghapus akun staf');
-      }
+      confirmDeleteStaff(id, name, 'staf');
     }
 
     function openEditStaffModal(id, name, user, role, meta) {

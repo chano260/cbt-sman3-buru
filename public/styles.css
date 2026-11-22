@@ -1596,9 +1596,7 @@ tr:last-child td {
   .nav-btn,
   .exambppp-nav-arrow-btn,
   .exambppp-btn-teal,
-  .bp3-nav-item,
-  #tabBtnActivate,
-  #tabBtnLogin {
+  .bp3-nav-item {
     min-height: 44px;
   }
 

@@ -57,18 +57,12 @@ test('P0-1: token ujian tidak bocor ke publik tanpa login staf', async (t) => {
   assert.equal(tokForged.status, 401);
 });
 
-test('P0-2: aktivasi akun wajib NISN lengkap + tanggal lahir yang tepat', async (t) => {
+test('P0-2: kata sandi siswa tidak bisa diambil lewat NISN + tanggal lahir (fitur aktivasi dihapus)', async (t) => {
   const ctx = setup(t);
   const st = ctx.db.prepare('SELECT * FROM students LIMIT 1').get(); // Namlea, 14 Januari 2008
-
-  assert.equal((await ctx.post('/api/ujian/activate-account', { nisn: st.nisn })).status, 400);
-  assert.equal((await ctx.post('/api/ujian/activate-account', { nisn: st.nisn.slice(-4), birth_date: '2008-01-14' })).status, 404);
-  assert.equal((await ctx.post('/api/ujian/activate-account', { nisn: st.nisn, birth_date: '2008-01-15' })).status, 401);
-  assert.equal((await ctx.post('/api/ujian/activate-account', { nisn: st.nisn, birth_date: '2008-02-14' })).status, 401);
-
-  const ok = await ctx.post('/api/ujian/activate-account', { nisn: st.nisn, birth_date: '2008-01-14' });
-  assert.equal(ok.status, 200);
-  assert.equal(ok.body.student.full_name, st.full_name);
+  const res = await ctx.post('/api/ujian/activate-account', { nisn: st.nisn, birth_date: '2008-01-14' });
+  assert.equal(res.status, 404);
+  assert.equal(res.body.student, undefined);
 });
 
 test('P0-3: sesi baru tidak bisa menjawab sebelum token ujian diverifikasi', async (t) => {

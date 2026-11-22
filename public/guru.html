@@ -257,6 +257,7 @@
   </div>
 
   <script src="/dialog.js"></script>
+  <script src="/password-gate.js"></script>
   <script>
 
     // Escape teks dari server sebelum dimasukkan ke innerHTML (mencegah XSS)
@@ -393,6 +394,11 @@
       }
       staffToken = data.staffToken;
       sessionStorage.setItem('cbt_guru_token', staffToken);
+      if (data.mustChangePassword) {
+        document.getElementById('loginOverlay').style.display = 'none';
+        cbtPasswordGate.require(staffToken, password);
+        return;
+      }
       document.getElementById('loginOverlay').style.display = 'none';
       loadExams();
     }

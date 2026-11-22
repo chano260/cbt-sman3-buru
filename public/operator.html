@@ -643,6 +643,7 @@
   </div>
 
   <script src="/dialog.js"></script>
+  <script src="/password-gate.js"></script>
   <script>
 
     // Escape teks dari server sebelum dimasukkan ke innerHTML (mencegah XSS)
@@ -700,6 +701,11 @@
       }
       staffToken = data.staffToken;
       sessionStorage.setItem('cbt_operator_token', staffToken);
+      if (data.mustChangePassword) {
+        document.getElementById('loginOverlay').style.display = 'none';
+        cbtPasswordGate.require(staffToken, password);
+        return;
+      }
       document.getElementById('loginOverlay').style.display = 'none';
       loadOverview();
       loadPrintData();
@@ -762,6 +768,7 @@
         document.getElementById('loginOverlay').style.display = 'flex';
         return;
       }
+      if (!res.ok) return; // mis. 403 wajib ganti password: pop-up ditangani password-gate.js
       // Token tersimpan masih berlaku: tutup kotak login (sebelumnya hanya tombol Masuk yang menutupnya)
       if (res.ok) document.getElementById('loginOverlay').style.display = 'none';
       const data = await res.json();

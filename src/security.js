@@ -30,4 +30,10 @@ function randomToken(bytes = 24) {
   return crypto.randomBytes(bytes).toString('hex');
 }
 
-module.exports = { hashPassword, isHashed, verifyPassword, safeEqual, randomToken };
+// Password bawaan akun staf (tercatat di kode & panduan) — wajib diganti saat dipakai login
+const DEFAULT_STAFF_PASSWORDS = ['admin123', 'guru123', 'pengawas123'];
+function isDefaultStaffPassword(pw) {
+  return DEFAULT_STAFF_PASSWORDS.includes(String(pw || '').trim());
+}
+
+module.exports = { hashPassword, isHashed, verifyPassword, safeEqual, randomToken, DEFAULT_STAFF_PASSWORDS, isDefaultStaffPassword };

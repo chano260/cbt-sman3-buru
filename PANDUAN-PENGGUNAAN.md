@@ -54,6 +54,12 @@ docker compose up -d --build
 
 *(Token ujian berganti otomatis setiap **15 menit** dan tampil di layar Operator & Pengawas).*
 
+> **🔐 Wajib ganti password:** password bawaan akun staf (`admin123`, `guru123`, `pengawas123`) hanya
+> untuk **login pertama**. Setelah login, panel menampilkan pop-up **"Ganti Password Dulu"** dan semua menu
+> terkunci sampai password baru disimpan (minimal 8 karakter, bukan password bawaan, tidak sama dengan username).
+> Password yang dibuat operator untuk guru/pengawas lewat menu **Akun Guru & Pengawas** tidak perlu diganti,
+> kecuali operator mengisinya dengan salah satu password bawaan.
+
 ---
 
 ## 3. Fitur Utama Per Panel

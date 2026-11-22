@@ -7,7 +7,7 @@ const multer = require('multer');
 const XLSX = require('xlsx');
 const QRCode = require('qrcode');
 const { parseDocxBuffer, parseQuestionsFromText, generateWordTemplateBuffer } = require('./wordParser');
-const { hashPassword, verifyPassword, safeEqual, randomToken } = require('./security');
+const { hashPassword, verifyPassword, safeEqual, randomToken, isDefaultStaffPassword } = require('./security');
 const { createBackup, backupStatus } = require('./backup');
 
 const STAFF_TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // Token login staf berlaku 12 jam
@@ -377,7 +377,7 @@ function calculateExamScores(db, examId) {
   return { exam, pgCount, esaiCount, scores };
 }
 
-function createApp(db, { backupDir = path.join(__dirname, '..', 'backups') } = {}) {
+function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enforceDefaultPasswordChange = true } = {}) {
   const app = express();
   app.use(express.json({ limit: '15mb' }));
   app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -493,10 +493,21 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups') } = {
 
   // Ambil akun staf dari token. Data akun selalu dibaca ulang dari DB, sehingga akun yang
   // dihapus / diubah perannya langsung kehilangan akses. Token query string hanya untuk unduhan GET.
-  function getStaffFromReq(req) {
+  function staffTokenFromReq(req) {
     const authHeader = req.headers.authorization || '';
     let token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
     if (!token && req.method === 'GET') token = String(req.query.staffToken || '');
+    return token;
+  }
+
+  // Staf yang masih wajib ganti password bawaan diperlakukan seperti belum login (kecuali di requireStaffAuth)
+  function getStaffFromReq(req) {
+    const user = getStaffSessionFromReq(req);
+    return user && !user.mustChangePassword ? user : null;
+  }
+
+  function getStaffSessionFromReq(req) {
+    const token = staffTokenFromReq(req);
     if (!token) return null;
     const entry = staffTokens.get(token);
     if (!entry) return null;
@@ -509,7 +520,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups') } = {
       staffTokens.delete(token);
       return null;
     }
-    return user;
+    return { ...user, mustChangePassword: !!entry.mustChangePassword };
   }
 
   // Verifikasi bahwa request siswa membawa token sesi milik sesi ujian yang dimaksud (anti-IDOR)
@@ -534,9 +545,12 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups') } = {
 
   function requireStaffAuth(allowedRoles) {
     return (req, res, next) => {
-      const staffUser = getStaffFromReq(req);
+      const staffUser = getStaffSessionFromReq(req);
       if (!staffUser) {
         return res.status(401).json({ error: 'Akses ditolak: Silakan login staf terlebih dahulu.' });
+      }
+      if (staffUser.mustChangePassword) {
+        return res.status(403).json({ code: 'PASSWORD_CHANGE_REQUIRED', error: 'Akun ini masih memakai password bawaan. Ganti password terlebih dahulu.' });
       }
       if (allowedRoles && !allowedRoles.includes(staffUser.role) && staffUser.role !== 'operator') {
         return res.status(403).json({ error: 'Peran akun tidak memiliki akses ke menu ini.' });
@@ -617,9 +631,35 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups') } = {
     if (role && user.role !== role && user.role !== 'operator') {
       return res.status(403).json({ error: `Akun ini bukan untuk panel ${role.toUpperCase()}` });
     }
+    const mustChangePassword = enforceDefaultPasswordChange && isDefaultStaffPassword(password);
     const staffToken = randomToken(24);
-    staffTokens.set(staffToken, { userId: user.id, expiresAt: Date.now() + STAFF_TOKEN_TTL_MS });
-    res.json({ user, staffToken });
+    staffTokens.set(staffToken, { userId: user.id, expiresAt: Date.now() + STAFF_TOKEN_TTL_MS, mustChangePassword });
+    res.json({ user, staffToken, mustChangePassword });
+  });
+
+  // Ganti password sendiri (wajib bila login memakai password bawaan)
+  app.post('/api/staff/change-password', (req, res) => {
+    const token = staffTokenFromReq(req);
+    const entry = token && staffTokens.get(token);
+    const user = getStaffSessionFromReq(req);
+    if (!user || !entry) return res.status(401).json({ error: 'Silakan login staf terlebih dahulu.' });
+
+    const oldPw = String((req.body || {}).old_password || '').trim();
+    const newPw = String((req.body || {}).new_password || '').trim();
+    const row = db.prepare('SELECT password FROM users WHERE id = ?').get(user.id);
+    if (!verifyPassword(oldPw, row.password)) {
+      return res.status(401).json({ error: 'Password lama salah.' });
+    }
+    if (newPw.length < 8) return res.status(400).json({ error: 'Password baru minimal 8 karakter.' });
+    if (isDefaultStaffPassword(newPw)) return res.status(400).json({ error: 'Password baru tidak boleh memakai password bawaan.' });
+    if (newPw.toLowerCase() === String(user.username).toLowerCase()) {
+      return res.status(400).json({ error: 'Password baru tidak boleh sama dengan username.' });
+    }
+    if (newPw === oldPw) return res.status(400).json({ error: 'Password baru harus berbeda dari password lama.' });
+
+    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(newPw), user.id);
+    entry.mustChangePassword = false;
+    res.json({ ok: true });
   });
 
   app.post('/api/staff/logout', (req, res) => {

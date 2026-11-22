@@ -152,6 +152,7 @@
   </div>
 
   <script src="/dialog.js"></script>
+  <script src="/password-gate.js"></script>
   <script>
 
     // Escape teks dari server sebelum dimasukkan ke innerHTML (mencegah XSS)
@@ -187,6 +188,11 @@
       }
       staffToken = data.staffToken;
       sessionStorage.setItem('cbt_pengawas_token', staffToken);
+      if (data.mustChangePassword) {
+        document.getElementById('loginOverlay').style.display = 'none';
+        cbtPasswordGate.require(staffToken, password);
+        return;
+      }
       document.getElementById('pengawasSub').textContent = `${data.user.full_name} • ${data.user.room || 'Ruang 01'}`;
       document.getElementById('repPengawas').value = data.user.full_name;
       if (data.user.room) {

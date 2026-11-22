@@ -5,7 +5,7 @@ const { createApp } = require('../src/app');
 
 function setup(t) {
   const db = initDb(':memory:');
-  const server = createApp(db).listen(0);
+  const server = createApp(db, { enforceDefaultPasswordChange: false }).listen(0);
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
   const call = async (method, url, body, headers = {}) => {

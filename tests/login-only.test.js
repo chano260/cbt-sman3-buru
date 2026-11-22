@@ -12,7 +12,7 @@ const ujian = () => fs.readFileSync(path.join(__dirname, '..', 'public', 'ujian.
 
 test('Endpoint aktivasi akun sudah dihapus (tidak lagi bisa mengambil kata sandi dari NISN + tanggal lahir)', async (t) => {
   const db = initDb(':memory:');
-  const server = createApp(db).listen(0);
+  const server = createApp(db, { enforceDefaultPasswordChange: false }).listen(0);
   t.after(() => server.close());
   const st = db.prepare('SELECT * FROM students LIMIT 1').get(); // Namlea, 14 Januari 2008
   const res = await fetch(`http://127.0.0.1:${server.address().port}/api/ujian/activate-account`, {

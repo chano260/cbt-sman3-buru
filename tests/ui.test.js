@@ -5,7 +5,7 @@ const { createApp } = require('../src/app');
 
 test('All 5 web interfaces load with 200 OK and contain zero external CDN links (100% offline-ready)', async (t) => {
   const db = initDb(':memory:');
-  const app = createApp(db);
+  const app = createApp(db, { enforceDefaultPasswordChange: false });
   const server = app.listen(0);
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;

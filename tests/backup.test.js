@@ -77,7 +77,7 @@ async function serve(t) {
   const { createApp } = require('../src/app');
   const dir = tmpDir(t);
   const db = initDb(':memory:');
-  const server = createApp(db, { backupDir: dir }).listen(0);
+  const server = createApp(db, { backupDir: dir, enforceDefaultPasswordChange: false }).listen(0);
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
   const login = async (username, password) => {

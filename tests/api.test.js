@@ -6,7 +6,7 @@ require('./helpers/studentSessionFetch');
 
 test('Student exam lifecycle: login, auto-save PG, no key/score leak, lock on violation, unlock by pengawas, accurate PG-only score for guru', async (t) => {
   const db = initDb(':memory:');
-  const app = createApp(db);
+  const app = createApp(db, { enforceDefaultPasswordChange: false });
   const server = app.listen(0);
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -116,7 +116,7 @@ test('Student exam lifecycle: login, auto-save PG, no key/score leak, lock on vi
 
 test('15-minute token rotation, Excel student bulk import, and live student work monitoring for Operator & Pengawas', async (t) => {
   const db = initDb(':memory:');
-  const app = createApp(db);
+  const app = createApp(db, { enforceDefaultPasswordChange: false });
   const server = app.listen(0);
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -210,7 +210,7 @@ test('15-minute token rotation, Excel student bulk import, and live student work
 
 test('VPS Public URL QR Code generation and 500 concurrent students load test', async (t) => {
   const db = initDb(':memory:');
-  const app = createApp(db);
+  const app = createApp(db, { enforceDefaultPasswordChange: false });
   const server = app.listen(0);
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -284,7 +284,7 @@ test('VPS Public URL QR Code generation and 500 concurrent students load test', 
 
 test('Guru can attach Image and Audio (Listening MP3) to any question and students receive media URLs', async (t) => {
   const db = initDb(':memory:');
-  const app = createApp(db);
+  const app = createApp(db, { enforceDefaultPasswordChange: false });
   const server = app.listen(0);
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -326,7 +326,7 @@ test('Guru can attach Image and Audio (Listening MP3) to any question and studen
 
 test('Direct student name search, confirmation with TTL & NISN, direct exam start with token, and self-resume', async (t) => {
   const db = initDb(':memory:');
-  const app = createApp(db);
+  const app = createApp(db, { enforceDefaultPasswordChange: false });
   const server = app.listen(0);
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -440,7 +440,7 @@ test('Direct student name search, confirmation with TTL & NISN, direct exam star
 
 test('ExamBPPP flow: login with exam card credentials and subtest token entry', async (t) => {
   const db = initDb(':memory:');
-  const app = createApp(db);
+  const app = createApp(db, { enforceDefaultPasswordChange: false });
   const server = app.listen(0);
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -487,7 +487,7 @@ test('ExamBPPP flow: login with exam card credentials and subtest token entry', 
 
 test('Multi-teacher class targeting, active token retrieval modal, and operator quick class transfer', async (t) => {
   const db = initDb(':memory:');
-  const app = createApp(db);
+  const app = createApp(db, { enforceDefaultPasswordChange: false });
   const server = app.listen(0);
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -567,7 +567,7 @@ test('Multi-teacher class targeting, active token retrieval modal, and operator 
 
 test('Teacher can create Bank Soal in guru panel, and Operator can select from drop box and activate schedule without typing twice', async (t) => {
   const db = initDb(':memory:');
-  const app = createApp(db);
+  const app = createApp(db, { enforceDefaultPasswordChange: false });
   const server = app.listen(0);
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -668,7 +668,7 @@ test('Teacher can create Bank Soal in guru panel, and Operator can select from d
 
 test('Teacher account subject isolation: teachers only see/edit their own subjects, multi-subject teachers manage both, cross-access is 403 Forbidden', async (t) => {
   const db = initDb(':memory:');
-  const app = createApp(db);
+  const app = createApp(db, { enforceDefaultPasswordChange: false });
   const server = app.listen(0);
   t.after(() => server.close());
   const port = server.address().port;
@@ -841,7 +841,7 @@ test('Teacher account subject isolation: teachers only see/edit their own subjec
 
 test('Operator can copy questions between exam packages, auto-copies questions when activating empty packages, and live monitoring tracks students across all exams', async (t) => {
   const db = initDb(':memory:');
-  const app = createApp(db);
+  const app = createApp(db, { enforceDefaultPasswordChange: false });
   const server = app.listen(0);
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;

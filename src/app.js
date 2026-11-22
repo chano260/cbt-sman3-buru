@@ -8,6 +8,7 @@ const XLSX = require('xlsx');
 const QRCode = require('qrcode');
 const { parseDocxBuffer, parseQuestionsFromText, generateWordTemplateBuffer } = require('./wordParser');
 const { hashPassword, verifyPassword, safeEqual, randomToken } = require('./security');
+const { createBackup, backupStatus } = require('./backup');
 
 const STAFF_TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // Token login staf berlaku 12 jam
 const LOGIN_MAX_FAILS = 5;
@@ -376,7 +377,7 @@ function calculateExamScores(db, examId) {
   return { exam, pgCount, esaiCount, scores };
 }
 
-function createApp(db) {
+function createApp(db, { backupDir = path.join(__dirname, '..', 'backups') } = {}) {
   const app = express();
   app.use(express.json({ limit: '15mb' }));
   app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -1205,6 +1206,22 @@ function createApp(db) {
     } catch {
       res.status(400).json({ error: 'Username sudah digunakan oleh akun lain' });
     }
+  });
+
+  // Backup database: status backup otomatis & unduh salinan baru (hanya operator)
+  app.get('/api/operator/backup/status', requireStaffAuth(['operator']), (req, res) => {
+    res.json(backupStatus(backupDir));
+  });
+
+  app.get('/api/operator/backup/download', requireStaffAuth(['operator']), (req, res) => {
+    let file;
+    try {
+      file = createBackup(db, backupDir);
+    } catch (err) {
+      console.error('[backup] GAGAL unduh:', err.message);
+      return res.status(500).json({ error: 'Gagal membuat backup: ' + err.message });
+    }
+    res.download(file, path.basename(file));
   });
 
   app.get('/api/operator/print-data', requireStaffAuth(['operator']), async (req, res) => {

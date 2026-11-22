@@ -80,6 +80,18 @@
           </div>
         </div>
 
+        <!-- BACKUP DATABASE -->
+        <div class="card" id="backupCard">
+          <div style="display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+            <div style="min-width:0;">
+              <div style="font-weight:800;">💾 Backup Database</div>
+              <div class="stat-sub" id="backupStatusText">Memuat status backup...</div>
+              <div class="stat-sub">Server menyalin data otomatis tiap 10 menit (36 salinan terakhir). Unduh juga ke laptop/flashdisk sebelum & sesudah ujian.</div>
+            </div>
+            <button class="btn btn-primary" id="btnBackupDownload" onclick="downloadBackup()">⬇️ Unduh Backup Sekarang</button>
+          </div>
+        </div>
+
         <!-- PANEL QR CODE EXAMBRO SEKOLAH & SETTING DOMAIN/IP VPS PUBLIK -->
         <div class="card" style="background:linear-gradient(135deg,#f8fafc,#eff6ff);border:1.5px solid #bfdbfe;">
           <div style="display:flex;gap:20px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
@@ -702,8 +714,47 @@
       if (tabId === 'tab-dashboard') loadOverview();
     }
 
+    async function loadBackupStatus() {
+      const el = document.getElementById('backupStatusText');
+      try {
+        const res = await fetch('/api/operator/backup/status', { headers: authHeaders() });
+        if (!res.ok) return;
+        const st = await res.json();
+        el.textContent = st.last
+          ? `Backup otomatis terakhir: ${new Date(st.last).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })} (${st.count} salinan tersimpan)`
+          : 'Belum ada backup otomatis (backup pertama dibuat 1 menit setelah server menyala).';
+      } catch { el.textContent = 'Status backup tidak bisa dimuat.'; }
+    }
+
+    async function downloadBackup() {
+      const btn = document.getElementById('btnBackupDownload');
+      btn.disabled = true;
+      btn.textContent = '⏳ Menyiapkan...';
+      try {
+        const res = await fetch('/api/operator/backup/download', { headers: authHeaders() });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          await cbtAlert(err.error || 'Gagal mengunduh backup.', 'error');
+          return;
+        }
+        const name = ((res.headers.get('Content-Disposition') || '').match(/filename="?([^";]+)"?/) || [])[1] || 'cbt-backup.db';
+        const url = URL.createObjectURL(await res.blob());
+        const a = document.createElement('a');
+        a.href = url; a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        loadBackupStatus();
+      } catch {
+        await cbtAlert('Gagal mengunduh backup. Periksa koneksi ke server.', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '⬇️ Unduh Backup Sekarang';
+      }
+    }
+
     async function loadOverview() {
       if (!staffToken) return;
+      loadBackupStatus();
       const monExamSel = document.getElementById('monExamFilter');
       const examQuery = (monExamSel && monExamSel.value && monExamSel.value !== 'ALL') ? `?exam_id=${monExamSel.value}` : '';
       const res = await fetch(`/api/operator/overview${examQuery}`, { headers: authHeaders() });

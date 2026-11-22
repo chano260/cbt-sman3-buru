@@ -76,3 +76,30 @@ docker compose up -d --build
 ### C. Panel Pengawas Ruangan (`/pengawas.html`)
 - Menampilkan **QR Code Exambro** dan **Token 15-Menit Aktif** di kelas.
 - Notifikasi merah otomatis jika siswa keluar dari Exambro (`TERKUNCI`), lengkap dengan tombol **🔓 Buka Kunci**, **🔄 Reset Login**, dan **👁️ Pantau Kerja**.
+
+---
+
+## 4. Backup & Pemulihan Database
+
+Semua data (siswa, soal, jawaban, nilai) ada di satu file database: `cbt-sman3-buru.db`
+(di folder aplikasi; jika memakai Docker: `data/cbt-sman3-buru.db`).
+
+**Backup otomatis:** server menyalin database **tiap 10 menit** ke folder `backups/` di samping file
+database, dengan nama `cbt-backup-TANGGAL-JAM.db`. Hanya **36 salinan terakhir** (±6 jam) yang disimpan.
+
+**Unduh ke laptop/flashdisk:** Panel Operator → tab **Pantauan & Token** → kotak **💾 Backup Database**
+→ **⬇️ Unduh Backup Sekarang**. Lakukan sebelum dan sesudah setiap sesi ujian, karena backup di VPS
+tidak menolong bila VPS-nya sendiri rusak.
+
+**Memulihkan (hanya bila database rusak/terhapus):**
+1. Hentikan server: `pm2 stop cbt-sman3-buru` (Docker: `docker compose stop`).
+2. Simpan dulu file lama: ganti nama `cbt-sman3-buru.db` menjadi `cbt-sman3-buru.db.rusak`,
+   dan hapus file `cbt-sman3-buru.db-wal` serta `cbt-sman3-buru.db-shm` bila ada.
+3. Salin file backup yang dipilih (dari `backups/` atau hasil unduhan) ke folder yang sama,
+   lalu beri nama `cbt-sman3-buru.db`.
+4. Jalankan lagi server: `pm2 start cbt-sman3-buru` (Docker: `docker compose start`).
+5. Data kembali ke kondisi saat backup itu dibuat; jawaban setelah jam backup tersebut tidak ikut.
+
+> Catatan Docker: mulai versi ini database disimpan di folder `data/` agar tidak hilang saat container
+> dibuat ulang. Jika sebelumnya server sudah berjalan lewat Docker, salin dulu database lama dari container
+> (`docker cp cbt-sman3-buru:/app/cbt-sman3-buru.db ./data/`) sebelum `docker compose up -d --build`.

@@ -1,9 +1,14 @@
-const { initDb } = require('./src/db');
+const path = require('node:path');
+const { initDb, DEFAULT_DB_PATH } = require('./src/db');
 const { createApp, getLocalLanIp } = require('./src/app');
+const { startBackupSchedule } = require('./src/backup');
 
 const PORT = process.env.PORT || 8080;
-const db = initDb();
-const app = createApp(db);
+const db = initDb(DEFAULT_DB_PATH);
+// Backup otomatis tiap 10 menit ke folder backups/ di samping file database (36 salinan terakhir)
+const BACKUP_DIR = process.env.BACKUP_DIR || path.join(path.dirname(DEFAULT_DB_PATH), 'backups');
+const app = createApp(db, { backupDir: BACKUP_DIR });
+startBackupSchedule(db, BACKUP_DIR);
 
 // Peringatan keras jika akun staf masih memakai password bawaan
 const { verifyPassword } = require('./src/security');
@@ -29,6 +34,7 @@ const server = app.listen(PORT, '0.0.0.0', 2048, () => {
   console.log(`   * Panel Guru     : http://${ip}:${PORT}/guru.html`);
   console.log(`   * Panel Pengawas : http://${ip}:${PORT}/pengawas.html`);
   console.log(`   * Ujian Exambro  : http://${ip}:${PORT}/ujian.html`);
+  console.log(`-> Backup otomatis tiap 10 menit: ${BACKUP_DIR}`);
   console.log('==============================================================');
 });
 server.keepAliveTimeout = 65000;

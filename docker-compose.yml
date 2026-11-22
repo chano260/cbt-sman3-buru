@@ -10,3 +10,5 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=8080
+      # Database & backup disimpan di ./data agar tidak hilang saat container dibuat ulang
+      - DB_PATH=/app/data/cbt-sman3-buru.db

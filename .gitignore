@@ -18,3 +18,7 @@ android-exambro/build-out/
 
 # Knowledge graph lokal (graphify)
 graphify-out/
+
+# Backup database otomatis
+backups/
+data/

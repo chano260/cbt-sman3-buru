@@ -47,7 +47,9 @@ function createSqliteConnection(dbPath) {
   }
 }
 
-function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
+const DEFAULT_DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'cbt-sman3-buru.db');
+
+function initDb(dbPath = DEFAULT_DB_PATH) {
   const db = createSqliteConnection(dbPath);
 
   db.exec(`
@@ -293,4 +295,4 @@ function initDb(dbPath = path.join(__dirname, '..', 'cbt-sman3-buru.db')) {
   return db;
 }
 
-module.exports = { initDb };
+module.exports = { initDb, DEFAULT_DB_PATH };

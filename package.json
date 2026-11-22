@@ -4,6 +4,7 @@
   "description": "Sistem Server CBT Lokal & Exambro Android SMA Negeri 3 Buru",
   "main": "server.js",
   "scripts": {
+    "uji-beban": "node scripts/uji-beban.js",
     "start": "node server.js",
     "test": "node --test"
   },

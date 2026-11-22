@@ -109,3 +109,37 @@ tidak menolong bila VPS-nya sendiri rusak.
 > Catatan Docker: mulai versi ini database disimpan di folder `data/` agar tidak hilang saat container
 > dibuat ulang. Jika sebelumnya server sudah berjalan lewat Docker, salin dulu database lama dari container
 > (`docker cp cbt-sman3-buru:/app/cbt-sman3-buru.db ./data/`) sebelum `docker compose up -d --build`.
+
+---
+
+## 5. Uji Beban (Simulasi Siswa Serentak)
+
+Gunakan sebelum hari ujian untuk memastikan VPS sanggup melayani seluruh siswa yang mengerjakan bersamaan.
+Skrip menyalakan **server tes terpisah** (port 8199) dengan **database sementara**, jadi data asli dan
+ujian yang sedang berjalan **tidak tersentuh**; semua data tes dihapus setelah selesai.
+
+> ⚠️ Jalankan **di luar jam ujian** — uji ini memakai tenaga (CPU) VPS yang sama dengan server asli.
+
+```bash
+cd folder-aplikasi-cbt
+node scripts/uji-beban.js --siswa 500 --pengawas 15 --menit 5
+```
+
+| Opsi | Arti | Bawaan |
+|---|---|---|
+| `--siswa` | jumlah siswa tes yang mengerjakan bersamaan | 500 |
+| `--pengawas` | jumlah pengawas tes (= jumlah ruang) | 15 |
+| `--menit` | lama uji | 5 |
+| `--datang` | siswa datang bertahap selama N detik pertama | 60 |
+| `--port` | port server tes | 8199 |
+
+Siswa tes meniru siswa sungguhan: login + token, buka soal, cek sesi tiap 6 detik, menjawab satu soal tiap
+20–40 detik, lalu menandai esai dan menekan Selesai. Pengawas tes memantau ruang tiap 2,5 detik.
+
+Di akhir tampil tabel waktu tunggu per jenis permintaan dan kesimpulan:
+- ✅ **SANGGUP** — 95% permintaan selesai di bawah 1 detik dan gagal di bawah 1%.
+- ⚠️ **BERAT** — 95% permintaan butuh 1–3 detik; siswa akan merasakan jeda.
+- ❌ **TIDAK SANGGUP** — lebih lambat/banyak gagal; bagi siswa ke beberapa sesi atau tingkatkan VPS.
+
+Skrip tidak bisa diarahkan ke alamat luar (termasuk domain sekolah), sehingga tidak mungkin mengisi
+database asli dengan siswa palsu. Tekan **Ctrl+C** untuk berhenti; server tes ikut dimatikan.

@@ -1203,6 +1203,94 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     });
   });
 
+  // ---------- Impor akun guru & pengawas dari Excel ----------
+  const STAFF_TEMPLATE_COLUMNS = ['Peran', 'Nama Lengkap', 'Username', 'Password', 'Mapel / Ruang'];
+
+  app.get('/api/operator/template-staff-excel', requireStaffAuth(['operator']), (req, res) => {
+    const rows = [
+      ['guru', 'Ibu Dra. Siti Aminah, S.Pd.', 'guru_kimia', 'Kimia#2026', 'Kimia'],
+      ['guru', 'Bpk. Ahmad Lessy, S.Pd.', 'guru_mtk', 'Mtk#2026', 'Matematika, Fisika'],
+      ['pengawas', 'Bpk. La Ode Hidayat, S.Pd.', 'pengawas_r01', 'Ruang01#2026', 'Ruang 01']
+    ];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([STAFF_TEMPLATE_COLUMNS, ...rows]);
+    ws['!cols'] = [{ wch: 10 }, { wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 22 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Akun Guru & Pengawas');
+    const help = XLSX.utils.aoa_to_sheet([
+      ['Petunjuk pengisian'],
+      ['Peran: isi "guru" atau "pengawas". Akun operator tidak bisa dibuat lewat impor.'],
+      ['Username: tanpa spasi. Bila username sudah ada, datanya diperbarui.'],
+      ['Password: minimal 8 karakter disarankan. Kosongkan untuk akun lama bila password tidak diubah.'],
+      ['Mapel / Ruang: guru = nama mapel (dua mapel dipisah koma), pengawas = nama ruang, misal Ruang 01.']
+    ]);
+    help['!cols'] = [{ wch: 100 }];
+    XLSX.utils.book_append_sheet(wb, help, 'Petunjuk');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="Template-Import-Akun-Guru-Pengawas.xlsx"');
+    res.send(buf);
+  });
+
+  app.post('/api/operator/staff/import-excel', requireStaffAuth(['operator']), excelUpload.single('file'), (req, res) => {
+    if (!req.file || !req.file.buffer) return res.status(400).json({ error: 'File Excel (.xlsx) tidak ditemukan' });
+    const ext = path.extname(String(req.file.originalname || '')).toLowerCase();
+    if (ext !== '.xlsx' && ext !== '.xls') return res.status(400).json({ error: 'Format file harus Excel (.xlsx atau .xls).' });
+
+    let rows;
+    try {
+      // Hasil rumus tetap terbaca dari nilai tersimpan; teks rumus, HTML, gaya & makro tidak diproses
+      const wb = XLSX.read(req.file.buffer, { type: 'buffer', cellFormula: false, cellHTML: false, cellStyles: false, bookVBA: false, sheets: 0 });
+      rows = safeSheetRows(wb.Sheets[wb.SheetNames[0]]);
+    } catch (err) {
+      return res.status(400).json({ error: 'File Excel tidak bisa dibaca: ' + err.message });
+    }
+    if (!rows.length) return res.status(400).json({ error: 'File Excel kosong' });
+
+    const pick = (r, keys) => { for (const k of keys) if (r[k] !== undefined) return String(r[k]).trim(); return ''; };
+    const findUser = db.prepare('SELECT id, role FROM users WHERE username = ?');
+    const insertUser = db.prepare('INSERT INTO users (username, password, full_name, role, subject, room) VALUES (?, ?, ?, ?, ?, ?)');
+    const updateUser = db.prepare(`UPDATE users SET full_name = ?, role = ?, subject = ?, room = ?,
+      password = COALESCE(?, password) WHERE id = ?`);
+
+    let created = 0;
+    let updated = 0;
+    const skipped = [];
+    const run = db.transaction(() => {
+      rows.forEach((r, i) => {
+        const rowNo = i + 2; // baris 1 = judul kolom
+        const roleRaw = pick(r, ['Peran', 'Role', 'role']).toLowerCase();
+        const role = /guru/.test(roleRaw) ? 'guru' : /pengawas/.test(roleRaw) ? 'pengawas' : '';
+        const fullName = pick(r, ['Nama Lengkap', 'Nama', 'full_name']);
+        const username = pick(r, ['Username', 'username']);
+        const password = pick(r, ['Password', 'password']);
+        const meta = pick(r, ['Mapel / Ruang', 'Mapel', 'Ruang', 'Mata Pelajaran']);
+
+        if (!role) return skipped.push({ row: rowNo, reason: roleRaw ? `peran "${roleRaw}" tidak didukung (hanya guru/pengawas)` : 'peran kosong' });
+        if (!fullName) return skipped.push({ row: rowNo, reason: 'nama lengkap kosong' });
+        if (!username || /\s/.test(username)) return skipped.push({ row: rowNo, reason: 'username kosong atau berisi spasi' });
+
+        const subject = role === 'guru' ? (meta || null) : null;
+        const room = role === 'pengawas' ? (meta || null) : null;
+        const existing = findUser.get(username);
+        if (existing) {
+          if (existing.role === 'operator') return skipped.push({ row: rowNo, reason: `username "${username}" milik akun operator` });
+          updateUser.run(fullName, role, subject, room, password ? hashPassword(password) : null, existing.id);
+          updated++;
+        } else {
+          if (!password) return skipped.push({ row: rowNo, reason: 'password kosong untuk akun baru' });
+          insertUser.run(username, hashPassword(password), fullName, role, subject, room);
+          created++;
+        }
+      });
+    });
+    try {
+      run();
+    } catch (err) {
+      return res.status(500).json({ error: 'Gagal mengimpor akun: ' + err.message });
+    }
+    res.json({ created, updated, skipped });
+  });
+
   app.post('/api/operator/staff', requireStaffAuth(['operator']), (req, res) => {
     const { username, password, full_name, role, subject, room } = req.body || {};
     if (!username || !password || !full_name || !role) {

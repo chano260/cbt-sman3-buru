@@ -143,3 +143,28 @@ Di akhir tampil tabel waktu tunggu per jenis permintaan dan kesimpulan:
 
 Skrip tidak bisa diarahkan ke alamat luar (termasuk domain sekolah), sehingga tidak mungkin mengisi
 database asli dengan siswa palsu. Tekan **Ctrl+C** untuk berhenti; server tes ikut dimatikan.
+
+---
+
+## 6. Impor Akun Guru & Pengawas dari Excel
+
+Panel Operator → **Akun guru & pengawas** → kotak **Impor akun guru & pengawas dari Excel**.
+
+1. Klik **Unduh template Excel**. File berisi contoh baris dan lembar **Petunjuk**.
+2. Isi satu baris per akun:
+
+| Kolom | Isi |
+|---|---|
+| Peran | `guru` atau `pengawas` |
+| Nama Lengkap | nama dan gelar, misal `Ibu Dra. Siti Aminah, S.Pd.` |
+| Username | tanpa spasi, misal `guru_kimia` |
+| Password | password login (disarankan minimal 8 karakter) |
+| Mapel / Ruang | guru: nama mapel (dua mapel dipisah koma); pengawas: nama ruang, misal `Ruang 01` |
+
+3. Pilih file lalu klik **Unggah & impor**. Hasilnya menampilkan jumlah akun baru, akun yang diperbarui,
+   dan nomor baris yang dilewati beserta alasannya.
+
+Catatan:
+- Username yang sudah ada akan **diperbarui**; bila kolom Password dikosongkan, password lama tetap dipakai.
+- Akun **operator** tidak bisa dibuat atau diubah lewat impor (demi keamanan).
+- Password disimpan terenkripsi. Bila diisi `guru123`/`pengawas123`, pemilik akun wajib menggantinya saat login pertama.

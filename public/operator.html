@@ -401,6 +401,22 @@
       <section id="tab-staff" class="tab-pane" style="display:none;">
         <div class="card">
           <div class="card-header">
+            <div>
+              <div class="card-title">Impor akun guru & pengawas dari Excel</div>
+              <p class="card-sub">Isi template, lalu unggah sekaligus supaya tidak perlu menambah akun satu per satu</p>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="downloadStaffExcelTemplate()"><svg class="icon"><use href="#i-download"></use></svg>Unduh template Excel</button>
+          </div>
+          <div class="row" style="gap:12px;">
+            <input type="file" id="staffExcelInput" accept=".xlsx,.xls" class="input" style="max-width:340px;">
+            <button class="btn btn-primary" id="btnImportStaff" onclick="importStaffExcel()"><svg class="icon"><use href="#i-upload"></use></svg>Unggah & impor</button>
+          </div>
+          <div class="hint">Kolom: Peran (guru/pengawas), Nama Lengkap, Username, Password, Mapel / Ruang. Username yang sudah ada akan diperbarui; password kosong = password lama tetap. Akun operator tidak bisa diubah lewat impor.</div>
+          <div id="staffImportMsg" style="display:none;margin-top:12px;"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
             <div class="card-title">Tambah akun guru / pengawas</div>
           </div>
           <div class="form-grid">
@@ -1157,6 +1173,49 @@
         examId = actives[0].id;
       }
       window.location.href = `/api/guru/exams/${encodeURIComponent(examId)}/export-excel?staffToken=${encodeURIComponent(staffToken)}`;
+    }
+
+    function downloadStaffExcelTemplate() {
+      if (!staffToken) return;
+      window.location.href = `/api/operator/template-staff-excel?staffToken=${encodeURIComponent(staffToken)}`;
+    }
+
+    async function importStaffExcel() {
+      const inp = document.getElementById('staffExcelInput');
+      const msg = document.getElementById('staffImportMsg');
+      if (!inp.files || !inp.files[0]) {
+        cbtAlert('Pilih file Excel (.xlsx) daftar akun guru & pengawas terlebih dahulu.');
+        return;
+      }
+      const btn = document.getElementById('btnImportStaff');
+      btn.disabled = true;
+      const fd = new FormData();
+      fd.append('file', inp.files[0]);
+      try {
+        const res = await fetch('/api/operator/staff/import-excel', { method: 'POST', headers: authHeaders(), body: fd });
+        const data = await res.json().catch(() => ({}));
+        msg.style.display = 'flex';
+        if (!res.ok) {
+          msg.className = 'notice notice-danger';
+          msg.innerHTML = cbtIcon('alert') + `<span>${esc(data.error || 'Gagal mengimpor akun')}</span>`;
+          return;
+        }
+        const skipped = data.skipped || [];
+        msg.className = skipped.length ? 'notice notice-warn' : 'notice notice-info';
+        msg.innerHTML = (skipped.length ? cbtIcon('alert') : cbtIcon('check')) + `<div>
+          <b>${data.created} akun baru dibuat, ${data.updated} akun diperbarui.</b>
+          ${skipped.length ? `<div style="margin-top:4px;">${skipped.length} baris dilewati:</div>
+            <ul style="margin:4px 0 0 18px;">${skipped.map(x => `<li>Baris ${x.row}: ${esc(x.reason)}</li>`).join('')}</ul>` : ''}
+        </div>`;
+        inp.value = '';
+        loadOverview();
+      } catch {
+        msg.style.display = 'flex';
+        msg.className = 'notice notice-danger';
+        msg.innerHTML = cbtIcon('alert') + '<span>Gagal mengimpor akun. Periksa koneksi ke server.</span>';
+      } finally {
+        btn.disabled = false;
+      }
     }
 
     function downloadStudentExcelTemplate() {

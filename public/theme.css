@@ -887,3 +887,34 @@
   /* Isi halaman tidak tertutup bar bawah */
   .ui-v2 .main-content { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ---------- Header: kelompok info (chip) & tombol (Menu utama, Keluar) ---------- */
+.ui-v2 .topbar-chips,
+.ui-v2 .topbar-actions { display: flex; align-items: center; gap: 8px; }
+.ui-v2 .topbar-chips { flex-wrap: wrap; min-width: 0; }
+.ui-v2 .topbar-actions { flex-shrink: 0; }
+.ui-v2 .topbar-btn { white-space: nowrap; }
+
+/* Layar sedang & HP: baris 1 = logo + tombol, baris 2 = Server & Token */
+@media (max-width: 900px) {
+  .ui-v2 .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "brand actions" "chips chips";
+    align-items: center;
+    gap: 12px 12px;
+  }
+  .ui-v2 .topbar > .brand { grid-area: brand; min-width: 0; }
+  .ui-v2 .topbar > .topbar-right { display: contents; }
+  .ui-v2 .topbar-actions { grid-area: actions; }
+  .ui-v2 .topbar-chips { grid-area: chips; }
+  .ui-v2 .topbar-chips:empty { display: none; }
+}
+
+/* HP sempit: tombol tinggal ikon (rumah & keluar) */
+@media (max-width: 600px) {
+  .ui-v2 .topbar-btn .btn-label { display: none; }
+  .ui-v2 .topbar-btn { width: 40px; min-width: 40px; padding: 0; }
+  .ui-v2 .topbar-btn svg.icon { width: 18px; height: 18px; }
+  .ui-v2 .topbar-chips .chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}

@@ -75,8 +75,13 @@
       </div>
     </div>
     <div class="topbar-right">
-      <span class="chip chip-token" id="pengawasToken">TOKEN: -</span>
-      <a href="/" class="btn btn-sm btn-outline"><svg class="icon"><use href="#i-arrowLeft"></use></svg>Menu</a>
+      <div class="topbar-chips">
+        <span class="chip chip-token" id="pengawasToken">TOKEN: -</span>
+      </div>
+      <div class="topbar-actions">
+        <a href="/" class="btn btn-sm btn-outline topbar-btn" title="Menu utama" aria-label="Menu utama"><svg class="icon"><use href="#i-home"></use></svg><span class="btn-label">Menu utama</span></a>
+        <button class="btn btn-sm btn-outline topbar-btn" onclick="doPengawasLogout()" title="Keluar" aria-label="Keluar"><svg class="icon"><use href="#i-logout"></use></svg><span class="btn-label">Keluar</span></button>
+      </div>
     </div>
   </div>
 
@@ -225,6 +230,13 @@
       }
       document.getElementById('loginOverlay').style.display = 'none';
       loadRoomData();
+    }
+
+    async function doPengawasLogout() {
+      try { await fetch('/api/staff/logout', { method: 'POST', headers: authHeaders() }); } catch (e) { /* tetap keluar di perangkat ini */ }
+      sessionStorage.removeItem('cbt_pengawas_token');
+      staffToken = '';
+      document.getElementById('loginOverlay').style.display = 'flex';
     }
 
     async function loadRoomData() {

@@ -38,9 +38,13 @@
       </div>
     </div>
     <div class="topbar-right">
-      <span class="chip" id="guruNameChip">Guru mapel</span>
-      <button class="btn btn-sm btn-ghost mobile-only" onclick="doGuruLogout()"><svg class="icon"><use href="#i-logout"></use></svg>Keluar</button>
-      <a href="/" class="btn btn-sm btn-outline"><svg class="icon"><use href="#i-arrowLeft"></use></svg>Menu utama</a>
+      <div class="topbar-chips">
+        <span class="chip" id="guruNameChip">Guru mapel</span>
+      </div>
+      <div class="topbar-actions">
+        <a href="/" class="btn btn-sm btn-outline topbar-btn" title="Menu utama" aria-label="Menu utama"><svg class="icon"><use href="#i-home"></use></svg><span class="btn-label">Menu utama</span></a>
+        <button class="btn btn-sm btn-outline topbar-btn mobile-only" onclick="doGuruLogout()" title="Keluar" aria-label="Keluar"><svg class="icon"><use href="#i-logout"></use></svg><span class="btn-label">Keluar</span></button>
+      </div>
     </div>
   </div>
 

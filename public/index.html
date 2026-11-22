@@ -40,14 +40,14 @@
     <!-- SIDEBAR KIRI -->
     <aside class="bp3-sidebar-left">
       <div class="bp3-menu-section-label">Monitoring CBT</div>
-      <button class="bp3-nav-item active">
+      <button class="bp3-nav-item active" data-view="pengumuman" onclick="showBerandaView('pengumuman')">
         <svg class="icon" viewBox="0 0 24 24"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
         <span>Pengumuman</span>
       </button>
-      <a href="/operator.html" class="bp3-nav-item">
+      <button class="bp3-nav-item" data-view="jadwal" onclick="showBerandaView('jadwal')">
         <svg class="icon" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
         <span>Penjadwalan & Sesi</span>
-      </a>
+      </button>
 
       <div class="bp3-nav-divider"></div>
       <div class="bp3-menu-section-label">Modul pengelolaan</div>
@@ -72,6 +72,7 @@
 
     <!-- KONTEN TENGAH: PENGUMUMAN CBT SMAN 3 BURU -->
     <main class="bp3-main-content">
+      <section id="viewPengumuman">
       <h2 class="bp3-section-title">Pengumuman & Petunjuk Ujian</h2>
       <div class="bp3-card bp3-announcement-card">
         <!-- ITEM 1 -->
@@ -109,6 +110,16 @@
           </div>
         </div>
       </div>
+      </section>
+
+      <!-- PENJADWALAN & SESI (dibaca dari server, tanpa token & tanpa soal) -->
+      <section id="viewJadwal" style="display:none;">
+        <h2 class="bp3-section-title">Penjadwalan & Sesi</h2>
+        <p class="jadwal-sub">Jadwal ujian yang sudah disiapkan sekolah. Token dibacakan pengawas di ruang ujian.</p>
+        <div id="jadwalList" class="jadwal-list">
+          <div class="bp3-card jadwal-empty">Memuat jadwal...</div>
+        </div>
+      </section>
     </main>
 
     <!-- SIDEBAR KANAN: TOKEN & DOKUMEN -->
@@ -164,6 +175,55 @@
 
   <script src="/dialog.js"></script>
   <script>
+    function esc(v) {
+      return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function formatTanggal(iso) {
+      const d = new Date(String(iso || '') + 'T00:00:00');
+      if (isNaN(d)) return esc(iso || '-');
+      return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    async function loadJadwal() {
+      const box = document.getElementById('jadwalList');
+      try {
+        const res = await fetch('/api/jadwal-ujian');
+        if (!res.ok) throw new Error();
+        const { jadwal } = await res.json();
+        if (!jadwal.length) {
+          box.innerHTML = '<div class="bp3-card jadwal-empty">Belum ada jadwal ujian</div>';
+          return;
+        }
+        box.innerHTML = jadwal.map(j => `
+          <div class="bp3-card jadwal-item${j.is_active ? ' is-active' : ''}">
+            <div class="jadwal-date">
+              <div class="jadwal-day">${esc(formatTanggal(j.exam_date))}</div>
+              <div class="jadwal-time">${esc(j.session_name)} · ${esc(j.start_time)}</div>
+            </div>
+            <div class="jadwal-main">
+              <div class="jadwal-subject">${esc(j.subject)}</div>
+              <div class="jadwal-meta">${esc(j.title)} · kelas ${esc(j.class_target || 'Semua Kelas')} · ${Number(j.duration_minutes) || 90} menit</div>
+            </div>
+            <span class="jadwal-badge${j.is_active ? ' is-active' : ''}">${j.is_active ? '<span class="jadwal-dot"></span>Sedang berlangsung' : 'Terjadwal'}</span>
+          </div>
+        `).join('');
+      } catch {
+        box.innerHTML = '<div class="bp3-card jadwal-empty">Jadwal belum bisa dimuat. Periksa koneksi ke server.</div>';
+      }
+    }
+
+    function showBerandaView(view) {
+      document.getElementById('viewPengumuman').style.display = view === 'pengumuman' ? '' : 'none';
+      document.getElementById('viewJadwal').style.display = view === 'jadwal' ? '' : 'none';
+      document.querySelectorAll('.bp3-sidebar-left .bp3-nav-item[data-view]').forEach(b => {
+        b.classList.toggle('active', b.dataset.view === view);
+      });
+      if (view === 'jadwal') loadJadwal();
+    }
+
     let remainingSeconds = 0;
     let countdownTimer = null;
 

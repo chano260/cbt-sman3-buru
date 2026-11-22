@@ -610,6 +610,19 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     });
   });
 
+  // Jadwal ujian untuk Beranda (publik): hanya informasi jadwal, tanpa token & tanpa soal.
+  // Draf bank soal yang masih kosong tidak ditampilkan. Ujian aktif di urutan teratas.
+  app.get('/api/jadwal-ujian', (req, res) => {
+    const jadwal = db.prepare(`
+      SELECT e.id, e.subject, e.title, e.class_target, e.exam_date, e.start_time, e.session_name,
+             e.duration_minutes, e.is_active
+      FROM exams e
+      WHERE e.is_active = 1 OR EXISTS (SELECT 1 FROM questions q WHERE q.exam_id = e.id)
+      ORDER BY e.is_active DESC, e.exam_date ASC, e.start_time ASC, e.id ASC
+    `).all();
+    res.json({ jadwal });
+  });
+
   app.post('/api/staff/login', (req, res) => {
     const { username, password, role } = req.body || {};
     const key = loginKey(req, username);

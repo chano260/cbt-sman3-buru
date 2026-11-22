@@ -1877,3 +1877,43 @@ tr:last-child td {
 .bp3-body select {
   font-family: inherit;
 }
+
+/* Beranda: Penjadwalan & Sesi */
+.jadwal-sub { font-size: 13px; color: #64748b; margin: -8px 0 16px; }
+.jadwal-list { display: flex; flex-direction: column; gap: 12px; }
+.jadwal-empty { padding: 24px; text-align: center; font-size: 13px; color: #64748b; }
+.jadwal-item {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 20px;
+}
+.jadwal-item.is-active { border-color: rgba(39, 68, 155, 0.35); box-shadow: inset 3px 0 0 #27449b; }
+.jadwal-day { font-size: 13px; font-weight: 600; color: #172033; }
+.jadwal-time { font-size: 12px; color: #64748b; margin-top: 2px; font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; }
+.jadwal-subject { font-size: 15px; font-weight: 600; color: #172033; }
+.jadwal-meta { font-size: 13px; color: #475569; margin-top: 2px; }
+.jadwal-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 8px; border-radius: 6px;
+  font-size: 12px; font-weight: 500; white-space: nowrap;
+  background: #f1f3f5; color: #475569;
+}
+.jadwal-badge.is-active { background: #eaf5ec; color: #23793a; }
+.jadwal-dot { width: 6px; height: 6px; border-radius: 3px; background: currentColor; }
+
+@media (max-width: 700px) {
+  .jadwal-item { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .jadwal-badge { justify-self: start; }
+}
+
+/* Beranda di HP: header satu baris, tanpa teks yang terlipat */
+@media (max-width: 700px) {
+  .bp3-topbar { padding: 0 16px; gap: 12px; }
+  .bp3-topbar-left { min-width: 0; }
+  .bp3-topbar-left .school-logo { height: 36px !important; }
+  .bp3-topbar-left > div > div:last-child > div:last-child { display: none; }
+  .bp3-topbar-right { gap: 4px; }
+  .bp3-user-pill > span { display: none; }
+}

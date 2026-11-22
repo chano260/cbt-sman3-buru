@@ -1959,3 +1959,59 @@ tr:last-child td {
   }
   .bp3-sidebar-left .bp3-nav-item.active { border-color: transparent; background: #eef2fa; }
 }
+
+/* Beranda di HP & layar sedang: bar menu di bawah layar (gaya aplikasi) */
+@media (max-width: 768px) {
+  .bp3-sidebar-left {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 70;
+    flex-direction: row;
+    justify-content: space-around;
+    gap: 0;
+    margin: 0;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+    overflow: visible;
+    background: #ffffff;
+    border-top: 1px solid rgba(21, 24, 28, 0.08);
+    box-shadow: 0 -4px 16px rgba(16, 24, 40, 0.06);
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .bp3-sidebar-left .bp3-nav-item {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    min-height: 52px;
+    padding: 4px 2px;
+    border: 0;
+    border-radius: 12px;
+    background: none;
+    color: #6b7280;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .bp3-sidebar-left .bp3-nav-item > span { display: none; }
+  .bp3-sidebar-left .bp3-nav-item::after { content: attr(data-short); }
+  .bp3-sidebar-left .bp3-nav-item svg.icon {
+    width: 52px;
+    height: 28px;
+    padding: 4px 16px;
+    box-sizing: border-box;
+    border-radius: 14px;
+    transition: background-color 150ms ease;
+  }
+  .bp3-sidebar-left .bp3-nav-item:hover { background: none; color: #15181c; }
+  .bp3-sidebar-left .bp3-nav-item.active { background: none; border: 0; color: #27449b; font-weight: 600; }
+  .bp3-sidebar-left .bp3-nav-item.active svg.icon { background: #eef2fa; }
+  .bp3-sidebar-left a.bp3-nav-item[style] { color: #6b7280 !important; font-weight: 500 !important; }
+  .bp3-dashboard-grid { padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+  .bp3-footer { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important; }
+}

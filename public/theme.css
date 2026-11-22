@@ -823,3 +823,67 @@
 
 .ui-v2 .sidebar-foot-role { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ui-v2 .token-row .btn { white-space: nowrap; flex-shrink: 0; }
+
+/* ---------- HP & layar sedang: bar menu di bawah layar (gaya aplikasi) ---------- */
+@media (max-width: 900px) {
+  .ui-v2 .app-shell > .sidebar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    height: auto;
+    z-index: 70;
+    flex-direction: row;
+    justify-content: space-around;
+    gap: 0;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface);
+    border-top: 1px solid var(--hairline);
+    border-bottom: 0;
+    box-shadow: 0 -4px 16px rgba(16, 24, 40, 0.06);
+    overflow: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .ui-v2 .app-shell > .sidebar .nav-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    min-height: 52px;
+    padding: 4px 2px;
+    border-radius: 12px;
+    background: none;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .ui-v2 .app-shell > .sidebar .nav-btn > span:not(.nav-icon) { display: none; }
+  .ui-v2 .app-shell > .sidebar .nav-btn::after { content: attr(data-short); }
+
+  .ui-v2 .app-shell > .sidebar .nav-btn .nav-icon {
+    width: auto;
+    height: 28px;
+    padding: 0 16px;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 150ms var(--ease);
+  }
+
+  .ui-v2 .app-shell > .sidebar .nav-btn .nav-icon svg.icon { width: 20px; height: 20px; }
+  .ui-v2 .app-shell > .sidebar .nav-btn:hover { background: none; color: var(--dark); }
+  .ui-v2 .app-shell > .sidebar .nav-btn.active { background: none; color: var(--primary); font-weight: 600; }
+  .ui-v2 .app-shell > .sidebar .nav-btn.active .nav-icon { background: var(--primary-soft); }
+
+  /* Isi halaman tidak tertutup bar bawah */
+  .ui-v2 .main-content { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+}

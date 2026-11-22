@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cek Keluar Aplikasi</title>
+  <style>
+    :root { --bg:#f1f5f9; --card:#fff; --ink:#0f172a; --muted:#475569; --ok:#15803d; --okbg:#dcfce7; --bad:#b91c1c; --badbg:#fee2e2; --wait:#b45309; --waitbg:#fef3c7; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; padding:16px; }
+    .wrap { max-width:560px; margin:0 auto; }
+    h1 { font-size:19px; margin:4px 0; }
+    .lead { color:var(--muted); font-size:13.5px; margin:0 0 14px; }
+    .card { background:var(--card); border-radius:12px; padding:14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+    .card h2 { font-size:15px; margin:0 0 8px; }
+    ol { margin:0; padding-left:20px; font-size:14px; }
+    ol li { margin-bottom:4px; }
+    .res { padding:12px; border-radius:9px; font-weight:700; font-size:14px; white-space:pre-line; }
+    .ok { background:var(--okbg); color:var(--ok); } .bad { background:var(--badbg); color:var(--bad); } .wait { background:var(--waitbg); color:var(--wait); }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    td { padding:6px 4px; border-bottom:1px solid #e2e8f0; }
+    td:last-child { text-align:right; font-weight:700; }
+    #log { font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:#0f172a; color:#e2e8f0; border-radius:8px; padding:10px; max-height:260px; overflow-y:auto; margin:0; white-space:pre-wrap; word-break:break-word; }
+    button { width:100%; min-height:44px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:var(--ink); font-size:14px; font-weight:700; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Cek Deteksi Keluar Aplikasi</h1>
+    <p class="lead">Buka halaman ini <b>di dalam aplikasi SMANTRI CBT</b> untuk melihat apakah sistem bisa mengetahui ketika siswa keluar dari aplikasi ujian.</p>
+
+    <div class="card">
+      <h2>Cara menguji</h2>
+      <ol>
+        <li>Tunggu sampai tulisan di bawah berubah menjadi <b>"Siap diuji"</b>.</li>
+        <li>Tekan tombol <b>Home</b> (atau buka aplikasi lain) dan tunggu <b>±10 detik</b>.</li>
+        <li>Kembali ke SMANTRI CBT.</li>
+        <li>Ulangi sekali dengan cara lain: tarik panel notifikasi, atau matikan layar sebentar.</li>
+        <li>Screenshot seluruh halaman dan kirim ke teknisi/operator.</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2>Hasil</h2>
+      <div id="verdict" class="res wait">Menyiapkan…</div>
+    </div>
+
+    <div class="card">
+      <h2>Sinyal yang tertangkap</h2>
+      <table>
+        <tbody>
+          <tr><td>Halaman disembunyikan (visibilitychange)</td><td id="c-hidden">0×</td></tr>
+          <tr><td>Kehilangan fokus (blur)</td><td id="c-blur">0×</td></tr>
+          <tr><td>Halaman dibekukan (freeze / pagehide)</td><td id="c-freeze">0×</td></tr>
+          <tr><td>Waktu melompat ≥ 3 detik (halaman berhenti)</td><td id="c-gap">0×</td></tr>
+          <tr><td>Lompatan waktu terpanjang</td><td id="c-maxgap">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Catatan kejadian</h2>
+      <pre id="log"></pre>
+      <div style="height:10px"></div>
+      <button type="button" id="btnReset">Hapus catatan & mulai ulang</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var KEY = 'cbt_cek_keluar_v1';
+      var state = { counts: { hidden: 0, blur: 0, freeze: 0, gap: 0 }, maxGap: 0, log: [] };
+      try { var saved = sessionStorage.getItem(KEY); if (saved) state = JSON.parse(saved); } catch (e) {}
+
+      function save() { try { sessionStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+      function time() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2); }
+
+      function add(kind, text) {
+        if (kind) state.counts[kind] = (state.counts[kind] || 0) + 1;
+        state.log.push(time() + '  ' + text);
+        if (state.log.length > 200) state.log.shift();
+        save();
+        render();
+      }
+
+      function render() {
+        document.getElementById('c-hidden').textContent = state.counts.hidden + '×';
+        document.getElementById('c-blur').textContent = state.counts.blur + '×';
+        document.getElementById('c-freeze').textContent = state.counts.freeze + '×';
+        document.getElementById('c-gap').textContent = state.counts.gap + '×';
+        document.getElementById('c-maxgap').textContent = state.maxGap ? Math.round(state.maxGap / 1000) + ' detik' : '-';
+        var log = document.getElementById('log');
+        log.textContent = state.log.length ? state.log.join('\n') : '(belum ada kejadian)';
+        log.scrollTop = log.scrollHeight;
+
+        var v = document.getElementById('verdict');
+        var c = state.counts;
+        var any = c.hidden + c.blur + c.freeze + c.gap;
+        if (!any) {
+          v.className = 'res wait';
+          v.textContent = 'Siap diuji.\nSekarang keluar dari aplikasi (tombol Home) ±10 detik, lalu kembali.';
+        } else if (c.hidden || c.blur) {
+          v.className = 'res ok';
+          v.textContent = 'TERDETEKSI — aplikasi mengirim sinyal saat siswa keluar.\nDeteksi keluar aplikasi di halaman ujian BERFUNGSI.' +
+            (c.gap ? '\n(Lompatan waktu juga terlihat.)' : '');
+        } else if (c.gap || c.freeze) {
+          v.className = 'res wait';
+          v.textContent = 'HANYA lompatan waktu / pembekuan yang terlihat.\nDeteksi biasa TIDAK berfungsi, tetapi deteksi "waktu terhenti" bisa dipakai.';
+        }
+      }
+
+      // Saat halaman sendiri dimuat ulang / ditutup, browser juga mengirim pagehide & "hidden".
+      // Itu BUKAN siswa keluar aplikasi, jadi hanya dicatat dan tidak dihitung.
+      var unloading = false;
+      window.addEventListener('beforeunload', function () { unloading = true; });
+      window.addEventListener('pagehide', function (ev) {
+        if (ev.persisted) { add('freeze', 'Halaman ditinggalkan & disimpan sementara (pagehide)'); return; }
+        unloading = true;
+        add(null, 'Halaman dimuat ulang / ditutup (tidak dihitung)');
+      });
+
+      document.addEventListener('visibilitychange', function () {
+        if (unloading) return;
+        if (document.visibilityState === 'hidden') add('hidden', 'Halaman DISEMBUNYIKAN (visibilitychange: hidden)');
+        else add(null, 'Halaman tampil lagi (visibilitychange: visible)');
+      });
+      window.addEventListener('blur', function () { if (!unloading) add('blur', 'Kehilangan fokus (blur)'); });
+      window.addEventListener('focus', function () { add(null, 'Fokus kembali (focus)'); });
+      document.addEventListener('freeze', function () { add('freeze', 'Halaman DIBEKUKAN (freeze)'); });
+      document.addEventListener('resume', function () { add(null, 'Halaman dilanjutkan (resume)'); });
+
+      // Lompatan waktu: penghitung 1 detik yang tiba-tiba terlambat = halaman berhenti berjalan
+      var last = Date.now();
+      setInterval(function () {
+        var now = Date.now();
+        var gap = now - last;
+        last = now;
+        if (gap >= 3000) {
+          if (gap > state.maxGap) state.maxGap = gap;
+          add('gap', 'Waktu MELOMPAT ' + Math.round(gap / 1000) + ' detik (halaman sempat berhenti)');
+        }
+      }, 1000);
+
+      document.getElementById('btnReset').addEventListener('click', function () {
+        state = { counts: { hidden: 0, blur: 0, freeze: 0, gap: 0 }, maxGap: 0, log: [] };
+        save();
+        add(null, 'Catatan dihapus, mulai ulang');
+        state.log = [];
+        save();
+        render();
+      });
+
+      add(null, 'Halaman dibuka — ' + (navigator.userAgent.indexOf('; wv)') >= 0 ? 'di dalam aplikasi (WebView)' : 'di browser biasa'));
+      render();
+    })();
+  </script>
+</body>
+</html>

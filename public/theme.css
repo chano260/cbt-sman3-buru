@@ -768,3 +768,58 @@
 @media (pointer: coarse), (max-width: 900px) {
   .ui-v2 .btn-xs { min-height: 36px; }
 }
+
+/* ---------- Menu samping: tombol ciut & kotak akun di bawah ---------- */
+.ui-v2 .sidebar-toggle { margin-top: auto; margin-bottom: 0; }
+
+.ui-v2 .sidebar-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 12px 8px 4px;
+  border-top: 1px solid var(--hairline);
+}
+
+.ui-v2 .sidebar-foot-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ui-v2 .sidebar-foot-text { min-width: 0; flex: 1; }
+.ui-v2 .sidebar-foot-name { font-size: 13px; font-weight: 500; color: var(--dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ui-v2 .sidebar-foot-role { font-size: 12px; color: var(--muted); }
+.ui-v2 .sidebar-foot-btn { flex-shrink: 0; }
+
+.ui-v2 .mobile-only { display: none; }
+
+@media (min-width: 901px) {
+  .sidebar-collapsed .ui-v2 .sidebar-foot,
+  .sidebar-collapsed.ui-v2 .sidebar-foot { flex-direction: column; padding-left: 0; padding-right: 0; }
+  .sidebar-collapsed .sidebar-foot-text,
+  .sidebar-collapsed .sidebar-foot-btn > span { display: none; }
+}
+
+/* Di HP: menu = satu baris yang digeser, tanpa batang gulir, dengan tepi pudar */
+@media (max-width: 900px) {
+  .ui-v2 .mobile-only { display: inline-flex; }
+  .ui-v2 .sidebar-foot { display: none; }
+  .ui-v2 .app-shell > .sidebar {
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+    padding-right: 32px;
+  }
+  .ui-v2 .app-shell > .sidebar::-webkit-scrollbar { display: none; }
+  .ui-v2 .app-shell > .sidebar .nav-btn { min-height: 40px; }
+}
+
+.ui-v2 .sidebar-foot-role { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ui-v2 .token-row .btn { white-space: nowrap; flex-shrink: 0; }

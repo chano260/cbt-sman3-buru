@@ -1917,3 +1917,45 @@ tr:last-child td {
   .bp3-topbar-right { gap: 4px; }
   .bp3-user-pill > span { display: none; }
 }
+
+/* Beranda: menu aktif sama dengan panel (biru lembut), tanpa bayangan */
+.bp3-nav-item {
+  font-weight: 500;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.bp3-nav-item:hover { background: #f1f3f5; color: #15181c; }
+.bp3-nav-item.active {
+  background: #eef2fa;
+  color: #27449b;
+  font-weight: 600;
+  box-shadow: none;
+}
+.bp3-sidebar-left .sidebar-toggle { margin-top: 8px; }
+
+/* Beranda di HP: menu jadi satu baris yang digeser, bukan daftar panjang di atas konten */
+@media (max-width: 768px) {
+  .bp3-sidebar-left {
+    flex-direction: row;
+    gap: 4px;
+    overflow-x: auto;
+    margin: 0 -16px;
+    padding: 0 48px 4px 16px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  }
+  .bp3-sidebar-left::-webkit-scrollbar { display: none; }
+  .bp3-sidebar-left .bp3-menu-section-label,
+  .bp3-sidebar-left .bp3-nav-divider { display: none; }
+  .bp3-sidebar-left .bp3-nav-item {
+    width: auto;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    min-height: 40px;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+  }
+  .bp3-sidebar-left .bp3-nav-item.active { border-color: transparent; background: #eef2fa; }
+}

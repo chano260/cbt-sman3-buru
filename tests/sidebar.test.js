@@ -93,7 +93,7 @@ function makeDom({ stored, storageThrows } = {}) {
 test('sidebar.js menambah tombol ciut, mengubah kelas, dan mengingat pilihan', () => {
   const { html, aside, toggle, store } = makeDom();
   assert.ok(toggle, 'tombol ciutkan menu harus ditambahkan');
-  assert.equal(aside.children[0], toggle, 'tombol ada di bagian atas sidebar');
+  assert.equal(aside.children[aside.children.length - 1], toggle, 'tombol ada di bagian bawah sidebar, setelah semua menu');
   assert.equal(html.classList.contains('sidebar-collapsed'), false);
   assert.equal(toggle.getAttribute('aria-expanded'), 'true');
 

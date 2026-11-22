@@ -39,7 +39,7 @@
     </div>
     <div class="topbar-right">
       <span class="chip" id="guruNameChip">Guru mapel</span>
-      <button class="btn btn-sm btn-ghost" onclick="doGuruLogout()"><svg class="icon"><use href="#i-logout"></use></svg>Ganti akun</button>
+      <button class="btn btn-sm btn-ghost mobile-only" onclick="doGuruLogout()"><svg class="icon"><use href="#i-logout"></use></svg>Keluar</button>
       <a href="/" class="btn btn-sm btn-outline"><svg class="icon"><use href="#i-arrowLeft"></use></svg>Menu utama</a>
     </div>
   </div>
@@ -67,6 +67,14 @@
     <aside class="sidebar">
       <button class="nav-btn active" onclick="switchGuruTab('tab-bank', this)"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-file"></use></svg></span><span>Bank soal & impor Word</span></button>
       <button class="nav-btn" onclick="switchGuruTab('tab-scores', this)"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-chart"></use></svg></span><span>Rekap nilai peserta</span></button>
+      <div class="sidebar-foot">
+        <span class="sidebar-foot-avatar" aria-hidden="true"><svg class="icon"><use href="#i-shield"></use></svg></span>
+        <div class="sidebar-foot-text">
+          <div class="sidebar-foot-name" id="sideAccountName">Guru mapel</div>
+          <div class="sidebar-foot-role">Sedang masuk</div>
+        </div>
+        <button class="btn btn-xs btn-ghost sidebar-foot-btn" onclick="doGuruLogout()" title="Keluar dari akun"><svg class="icon"><use href="#i-logout"></use></svg><span>Keluar</span></button>
+      </div>
     </aside>
     <script src="/sidebar.js"></script>
 
@@ -405,11 +413,13 @@
     }
 
     function doGuruLogout() {
+      if (staffToken) fetch('/api/staff/logout', { method: 'POST', headers: authHeaders() }).catch(() => {});
       sessionStorage.removeItem('cbt_guru_token');
       staffToken = '';
       currentExamId = null;
       currentTeacherProfile = null;
       document.getElementById('guruNameChip').textContent = 'Guru Mapel';
+      document.getElementById('sideAccountName').textContent = 'Guru mapel';
       document.getElementById('loginOverlay').style.display = 'flex';
     }
 
@@ -440,6 +450,7 @@
       const data = await res.json();
       currentTeacherProfile = data.teacher || null;
       if (currentTeacherProfile) {
+        document.getElementById('sideAccountName').textContent = currentTeacherProfile.full_name;
         const subjs = currentTeacherProfile.subjects && currentTeacherProfile.subjects.length > 0
           ? currentTeacherProfile.subjects.join(', ')
           : (currentTeacherProfile.subject || 'Semua Mapel');

@@ -23,6 +23,7 @@
     <div class="topbar-right">
       <span class="chip" id="opIpChip">IP: -</span>
       <span class="chip chip-token" id="opTokenChip">TOKEN: -</span>
+      <button class="btn btn-sm btn-ghost mobile-only" onclick="doOperatorLogout()"><svg class="icon"><use href="#i-logout"></use></svg>Keluar</button>
       <a href="/" class="btn btn-sm btn-outline"><svg class="icon"><use href="#i-arrowLeft"></use></svg>Menu utama</a>
     </div>
   </div>
@@ -53,6 +54,14 @@
       <button class="nav-btn" onclick="switchTab('tab-students', this)"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-users"></use></svg></span><span>Data siswa & kelas</span></button>
       <button class="nav-btn" onclick="switchTab('tab-exams', this)"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-calendar"></use></svg></span><span>Jadwal & sesi ujian</span></button>
       <button class="nav-btn" onclick="switchTab('tab-staff', this)"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-shield"></use></svg></span><span>Akun guru & pengawas</span></button>
+      <div class="sidebar-foot">
+        <span class="sidebar-foot-avatar" aria-hidden="true"><svg class="icon"><use href="#i-shield"></use></svg></span>
+        <div class="sidebar-foot-text">
+          <div class="sidebar-foot-name" id="sideAccountName">Operator</div>
+          <div class="sidebar-foot-role">Sedang masuk</div>
+        </div>
+        <button class="btn btn-xs btn-ghost sidebar-foot-btn" onclick="doOperatorLogout()" title="Keluar dari akun"><svg class="icon"><use href="#i-logout"></use></svg><span>Keluar</span></button>
+      </div>
     </aside>
     <script src="/sidebar.js"></script>
 
@@ -683,6 +692,7 @@
       }
       staffToken = data.staffToken;
       sessionStorage.setItem('cbt_operator_token', staffToken);
+      document.getElementById('sideAccountName').textContent = data.user.full_name || 'Operator';
       if (data.mustChangePassword) {
         document.getElementById('loginOverlay').style.display = 'none';
         cbtPasswordGate.require(staffToken, password);
@@ -691,6 +701,13 @@
       document.getElementById('loginOverlay').style.display = 'none';
       loadOverview();
       loadPrintData();
+    }
+
+    async function doOperatorLogout() {
+      try { await fetch('/api/staff/logout', { method: 'POST', headers: authHeaders() }); } catch (e) { /* tetap keluar di perangkat ini */ }
+      sessionStorage.removeItem('cbt_operator_token');
+      staffToken = '';
+      document.getElementById('loginOverlay').style.display = 'flex';
     }
 
     function switchTab(tabId, btn) {

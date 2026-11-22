@@ -37,7 +37,21 @@
   text2.setAttribute('class', 'sidebar-toggle-label');
   btn.appendChild(icon);
   btn.appendChild(text2);
-  sidebar.insertBefore(btn, sidebar.firstChild);
+  // Tombol ciut di bagian bawah menu (sebelum kotak akun bila ada), supaya posisi teratas dipakai menu utama
+  var foot = sidebar.querySelector('.sidebar-foot');
+  if (foot) sidebar.insertBefore(btn, foot);
+  else sidebar.appendChild(btn);
+
+  // Di HP menu berupa satu baris yang digeser: geser menu yang dipilih ke tengah supaya tidak terpotong
+  function revealInRow(el) {
+    if (!el || typeof el.scrollIntoView !== 'function') return;
+    if (typeof window === 'undefined' || !window.innerWidth || window.innerWidth > 900) return;
+    try { el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); } catch (e) { /* browser lama */ }
+  }
+  for (var j = 0; j < items.length; j++) {
+    items[j].addEventListener('click', function () { revealInRow(this); });
+  }
+  revealInRow(sidebar.querySelector('.nav-btn.active, .bp3-nav-item.active'));
 
   function apply(collapsed) {
     root.classList.toggle('sidebar-collapsed', collapsed);

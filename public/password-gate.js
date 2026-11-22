@@ -50,7 +50,8 @@
     card.setAttribute('aria-modal', 'true');
     card.setAttribute('aria-labelledby', 'cbtPwTitle');
 
-    var icon = el('div', 'cbt-dialog-icon', '🔐');
+    var icon = el('div', 'cbt-dialog-icon', typeof window.cbtIcon === 'function' ? null : '🔐');
+    if (typeof window.cbtIcon === 'function') icon.innerHTML = window.cbtIcon('lock');
     icon.style.background = '#fef3c7';
     icon.style.color = '#b45309';
     var title = el('div', 'cbt-dialog-title', 'Ganti Password Dulu');

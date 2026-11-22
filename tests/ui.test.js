@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { initDb } = require('../src/db');
 const { createApp } = require('../src/app');
 
-test('All 5 web interfaces load with 200 OK and contain zero external CDN links (100% offline-ready)', async (t) => {
+test('All 5 web interfaces load with 200 OK and no external scripts/CDN (Google Fonts allowed with system fallback)', async (t) => {
   const db = initDb(':memory:');
   const app = createApp(db, { enforceDefaultPasswordChange: false });
   const server = app.listen(0);
@@ -14,8 +14,14 @@ test('All 5 web interfaces load with 200 OK and contain zero external CDN links 
     const res = await fetch(`${base}${page}`);
     assert.equal(res.status, 200);
     const html = await res.text();
-    assert.ok(!html.includes('https://fonts.googleapis.com'), `${page} must not depend on external fonts`);
+    // Keputusan pengguna (2026-11-22): server berjalan online, jadi font boleh dari Google Fonts,
+    // asalkan halaman tetap berfungsi tanpa internet (font cadangan bawaan perangkat, tanpa script luar).
     assert.ok(!html.includes('https://cdn.'), `${page} must not depend on external CDN`);
+    const externalScripts = (html.match(/<script[^>]+src="https?:\/\/[^"]+"/gi) || []);
+    assert.deepEqual(externalScripts, [], `${page} must not load external scripts`);
+    const externalCss = (html.match(/<link[^>]+href="https?:\/\/[^"]+"/gi) || [])
+      .filter(tag => !/fonts\.(googleapis|gstatic)\.com/.test(tag));
+    assert.deepEqual(externalCss, [], `${page}: only Google Fonts may be loaded from outside`);
 
     // Verify all inline <script> tags have 100% valid JavaScript syntax
     const scripts = html.match(/<script[\s\S]*?<\/script>/gi) || [];
@@ -27,7 +33,7 @@ test('All 5 web interfaces load with 200 OK and contain zero external CDN links 
     }
     if (page === '/') {
       assert.ok(html.includes('SMA NEGERI 3 BURU'), '/ must include SMA NEGERI 3 BURU branding');
-      assert.ok(html.includes('MONITORING'), '/ must match Monitoring layout');
+      assert.ok(/monitoring/i.test(html), '/ must match Monitoring layout');
       assert.ok(html.includes('Token'), '/ must include Token monitoring box');
     }
     if (page === '/operator.html') {

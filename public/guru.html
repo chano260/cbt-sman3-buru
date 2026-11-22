@@ -4,81 +4,85 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panel Guru Mapel — CBT SMA Negeri 3 Buru</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/theme.css">
+  <style>
+    .ui-v2 .exam-bar { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px; }
+    .ui-v2 .exam-bar select { min-width: min(320px, 100%); max-width: 100%; }
+    .ui-v2 .q-item { border: 1px solid var(--hairline); border-radius: 12px; padding: 16px; background: var(--surface); }
+    .ui-v2 .q-item.is-essay { background: #fbfaf7; }
+    .ui-v2 .q-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+    .ui-v2 .q-body { font-size: 14px; color: var(--dark); line-height: 1.6; margin-bottom: 10px; }
+    .ui-v2 .q-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 4px 12px; font-size: 13px; color: var(--slate); }
+    .ui-v2 .q-options b { font-family: var(--mono); font-weight: 500; color: var(--muted); margin-right: 4px; }
+    .ui-v2 .q-media img { max-width: 280px; border-radius: 8px; border: 1px solid var(--hairline); display: block; }
+    .ui-v2 .q-audio { margin: 8px 0; padding: 8px 12px; border-radius: 10px; background: var(--raised); max-width: 380px; }
+    .ui-v2 .q-audio .field-label { margin-bottom: 4px; }
+    .ui-v2 .empty-state { text-align: center; padding: 40px 16px; border-radius: 12px; border: 1px dashed var(--border); }
+    .ui-v2 .empty-state .icon-tile { margin: 0 auto 12px; }
+    .ui-v2 .empty-title { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
+    .ui-v2 .empty-text { font-size: 13px; color: var(--muted); max-width: 440px; margin: 0 auto 16px; }
+  </style>
 </head>
-<body>
+<body class="ui-v2">
+  <script src="/icons.js"></script>
   <div class="topbar">
     <div class="brand">
-      <div class="brand-logo" style="background:linear-gradient(145deg,#059669,#047857);box-shadow:0 4px 10px rgba(5,150,105,0.22);">S3</div>
+      <div class="brand-logo"><svg class="icon"><use href="#i-book"></use></svg></div>
       <div class="brand-text">
-        <h1>Panel Guru Mata Pelajaran</h1>
-        <span>SMA Negeri 3 Buru • Manajemen Bank Soal & Rekap Nilai</span>
+        <h1>Panel Guru</h1>
+        <span>CBT SMA Negeri 3 Buru · bank soal & rekap nilai</span>
       </div>
     </div>
-    <div class="topbar-right" style="display:flex;gap:8px;align-items:center;">
-      <span class="chip" id="guruNameChip">Guru Mapel</span>
-      <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;" onclick="doGuruLogout()">Ganti Akun</button>
-      <a href="/" class="btn btn-sm btn-outline">Menu Utama</a>
+    <div class="topbar-right">
+      <span class="chip" id="guruNameChip">Guru mapel</span>
+      <button class="btn btn-sm btn-ghost" onclick="doGuruLogout()"><svg class="icon"><use href="#i-logout"></use></svg>Ganti akun</button>
+      <a href="/" class="btn btn-sm btn-outline"><svg class="icon"><use href="#i-arrowLeft"></use></svg>Menu utama</a>
     </div>
   </div>
 
   <!-- MODAL LOGIN GURU -->
-  <div id="loginOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(6px);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;">
-    <div class="card" style="max-width:400px;width:100%;margin:0;padding:28px;border-radius:16px;box-shadow:var(--shadow-lg);">
-      <h3 style="font-size:17px;font-weight:800;margin-bottom:4px;">Login Guru Mata Pelajaran</h3>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:18px;">Masuk untuk mengelola bank soal dan mengunduh rekap nilai.</p>
+  <div id="loginOverlay" class="modal-overlay" style="z-index:100;display:flex;">
+    <div class="card modal-card" style="max-width:400px;">
+      <div class="login-title">Masuk sebagai guru</div>
+      <p class="login-sub">Kelola bank soal dan unduh rekap nilai mata pelajaran Anda</p>
       <div class="form-group" style="margin-bottom:12px;">
-        <label>Username</label>
-        <input id="loginUser" class="input" value="guru">
+        <label for="loginUser">Username</label>
+        <input id="loginUser" class="input" autocomplete="username" placeholder="guru">
       </div>
-      <div class="form-group" style="margin-bottom:18px;">
-        <label>Password</label>
-        <input id="loginPass" type="password" class="input" value="guru123">
+      <div class="form-group" style="margin-bottom:16px;">
+        <label for="loginPass">Password</label>
+        <input id="loginPass" type="password" class="input" autocomplete="current-password">
       </div>
-      <div id="loginErr" style="color:var(--red);font-size:12.5px;margin-bottom:10px;display:none;"></div>
-      <button class="btn btn-green" style="width:100%;padding:11px;" onclick="doGuruLogin()">Masuk ke Panel Guru</button>
+      <div id="loginErr" class="login-err"></div>
+      <button class="btn btn-primary" style="width:100%;" onclick="doGuruLogin()">Masuk</button>
     </div>
   </div>
 
   <div class="app-shell">
     <aside class="sidebar">
-      <button class="nav-btn active" onclick="switchGuruTab('tab-bank', this)">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-        <span>Bank Soal & Impor Word</span>
-      </button>
-      <button class="nav-btn" onclick="switchGuruTab('tab-scores', this)">
-        <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        <span>Rekap Nilai Peserta</span>
-      </button>
+      <button class="nav-btn active" onclick="switchGuruTab('tab-bank', this)"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-file"></use></svg></span><span>Bank soal & impor Word</span></button>
+      <button class="nav-btn" onclick="switchGuruTab('tab-scores', this)"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-chart"></use></svg></span><span>Rekap nilai peserta</span></button>
     </aside>
     <script src="/sidebar.js"></script>
 
     <main class="main-content">
-      <!-- PILIH MATA PELAJARAN / JADWAL UJIAN -->
-      <div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;">
-        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+      <!-- PILIH MATA PELAJARAN / PAKET UJIAN -->
+      <div class="card exam-bar">
+        <div class="row" style="align-items:flex-end;gap:12px;">
           <div>
-            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;">Mata Pelajaran & Paket Ujian</span>
-            <div style="margin-top:5px;">
-              <select id="examSelector" class="input" style="min-width:min(310px, 100%);max-width:100%;font-weight:600;background:#fff;" onchange="onExamChange()"></select>
-            </div>
+            <label class="field-label" for="examSelector">Mata pelajaran & paket ujian</label>
+            <select id="examSelector" class="input" onchange="onExamChange()"></select>
           </div>
-          <button class="btn btn-primary" onclick="openCreateBankSoalModal()">
-            + Buat Bank Soal Baru
-          </button>
-          <button class="btn btn-outline" style="color:var(--red);border-color:#fca5a5;" onclick="deleteCurrentBankSoal()" title="Hapus paket bank soal yang sedang dipilih">
-            🗑️ Hapus Paket Ini
-          </button>
+          <button class="btn btn-primary" onclick="openCreateBankSoalModal()"><svg class="icon"><use href="#i-plus"></use></svg>Buat bank soal</button>
+          <button class="btn btn-danger-outline" onclick="deleteCurrentBankSoal()" title="Hapus paket bank soal yang sedang dipilih"><svg class="icon"><use href="#i-trash"></use></svg>Hapus paket</button>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <a href="/api/guru/template-word" class="btn btn-outline">
-            <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span>Template Word (.docx)</span>
-          </a>
-          <button class="btn btn-green" onclick="downloadExcel()">
-            <svg class="icon" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M14 13h2"/><path d="M14 17h2"/></svg>
-            <span>Ekspor Nilai (.xlsx)</span>
-          </button>
+        <div class="row">
+          <a href="/api/guru/template-word" class="btn btn-outline"><svg class="icon"><use href="#i-download"></use></svg>Template Word (.docx)</a>
+          <button class="btn btn-soft" onclick="downloadExcel()"><svg class="icon"><use href="#i-sheet"></use></svg>Ekspor nilai (.xlsx)</button>
         </div>
       </div>
 
@@ -87,84 +91,82 @@
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="card-title">Impor Naskah Soal dari Microsoft Word (.docx)</div>
-              <p style="font-size:12.5px;color:var(--muted);margin-top:2px;">
-                Format dokumen menggunakan penanda <code>[PG]</code> disertai <code>KUNCI: A/B/C/D/E</code> untuk Pilihan Ganda, atau <code>[ESAI]</code> untuk Soal Uraian.
-              </p>
+              <div class="card-title">Impor soal dari Word (.docx)</div>
+              <p class="card-sub">Tandai soal pilihan ganda dengan <code>[PG]</code> dan <code>KUNCI: A/B/C/D/E</code>, soal uraian dengan <code>[ESAI]</code></p>
             </div>
           </div>
 
-          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <div class="row" style="gap:12px;">
             <input type="file" id="wordFileInput" accept=".docx" class="input" style="max-width:340px;">
-            <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--slate);">
-              <input type="checkbox" id="replaceCheck"> Timpa soal lama pada paket ini
+            <label class="check-row" style="align-items:center;">
+              <input type="checkbox" id="replaceCheck" style="margin-top:0;"> Timpa soal lama pada paket ini
             </label>
-            <button class="btn btn-primary" onclick="uploadWordFile()">Unggah & Impor Soal (.docx)</button>
+            <button class="btn btn-primary" onclick="uploadWordFile()"><svg class="icon"><use href="#i-upload"></use></svg>Unggah & impor</button>
           </div>
-          <div id="importResultMsg" style="margin-top:10px;font-size:13px;font-weight:600;color:var(--green);display:none;"></div>
+          <div id="importResultMsg" style="margin-top:12px;font-size:13px;font-weight:500;color:var(--primary);display:none;"></div>
         </div>
 
-        <!-- TAMBAH SOAL MANUAL CEPAT -->
+        <!-- TAMBAH SOAL MANUAL -->
         <div class="card">
           <div class="card-header">
-            <div class="card-title">Input Soal Manual</div>
+            <div class="card-title">Tambah soal manual</div>
           </div>
           <div class="form-grid">
             <div class="form-group">
-              <label>Nomor Soal</label>
+              <label for="qNum">Nomor soal</label>
               <input id="qNum" type="number" class="input" value="1">
             </div>
             <div class="form-group">
-              <label>Jenis Soal</label>
+              <label for="qType">Jenis soal</label>
               <select id="qType" onchange="togglePgFields()">
-                <option value="PG">Pilihan Ganda</option>
-                <option value="ESAI">Soal Esai (Lembar Kertas)</option>
+                <option value="PG">Pilihan ganda</option>
+                <option value="ESAI">Esai (dijawab di kertas)</option>
               </select>
             </div>
             <div class="form-group" id="keyGroup">
-              <label>Kunci Jawaban PG</label>
+              <label for="qKey">Kunci jawaban</label>
               <select id="qKey">
-                <option value="A">Kunci: A</option>
-                <option value="B">Kunci: B</option>
-                <option value="C">Kunci: C</option>
-                <option value="D">Kunci: D</option>
-                <option value="E">Kunci: E</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
+                <option value="E">E</option>
               </select>
             </div>
           </div>
-          <div class="form-group" style="margin-bottom:12px;">
-            <label>Pertanyaan / Naskah Soal</label>
-            <textarea id="qText" rows="2" class="input" placeholder="Ketik naskah soal..."></textarea>
+          <div class="form-group" style="margin-bottom:16px;">
+            <label for="qText">Pertanyaan</label>
+            <textarea id="qText" rows="2" class="input" placeholder="Ketik naskah soal"></textarea>
           </div>
-          <div class="form-grid" style="margin-bottom:12px;">
+          <div class="form-grid">
             <div class="form-group">
-              <label>Lampiran Gambar Soal (Opsional)</label>
+              <label for="qImageInput">Gambar soal (opsional)</label>
               <input type="file" id="qImageInput" accept="image/*" class="input">
             </div>
             <div class="form-group">
-              <label>Lampiran Audio Listening .MP3/.WAV (Opsional)</label>
+              <label for="qAudioInput">Audio listening .mp3/.wav (opsional)</label>
               <input type="file" id="qAudioInput" accept="audio/*,.mp3,.wav,.ogg,.m4a" class="input">
             </div>
           </div>
           <div id="pgOptionsFields" class="form-grid">
-            <div class="form-group"><label>Pilihan A</label><input id="optA" class="input"></div>
-            <div class="form-group"><label>Pilihan B</label><input id="optB" class="input"></div>
-            <div class="form-group"><label>Pilihan C</label><input id="optC" class="input"></div>
-            <div class="form-group"><label>Pilihan D</label><input id="optD" class="input"></div>
-            <div class="form-group"><label>Pilihan E</label><input id="optE" class="input"></div>
+            <div class="form-group"><label for="optA">Pilihan A</label><input id="optA" class="input"></div>
+            <div class="form-group"><label for="optB">Pilihan B</label><input id="optB" class="input"></div>
+            <div class="form-group"><label for="optC">Pilihan C</label><input id="optC" class="input"></div>
+            <div class="form-group"><label for="optD">Pilihan D</label><input id="optD" class="input"></div>
+            <div class="form-group"><label for="optE">Pilihan E</label><input id="optE" class="input"></div>
           </div>
-          <button class="btn btn-primary" onclick="addManualQuestion()">Simpan Soal</button>
+          <button class="btn btn-primary" onclick="addManualQuestion()"><svg class="icon"><use href="#i-plus"></use></svg>Simpan soal</button>
         </div>
 
         <!-- DAFTAR BANK SOAL -->
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="card-title">Daftar Bank Soal (<span id="totalQBadge">0 Soal</span>)</div>
-              <p style="font-size:12px;color:var(--muted);margin-top:2px;">Pratinjau naskah soal yang tampil pada perangkat peserta</p>
+              <div class="card-title">Bank soal <span class="badge badge-neutral" id="totalQBadge">0 soal</span></div>
+              <p class="card-sub">Pratinjau soal seperti yang tampil di perangkat peserta</p>
             </div>
           </div>
-          <div id="questionsListContainer" style="display:flex;flex-direction:column;gap:10px;"></div>
+          <div id="questionsListContainer" style="display:flex;flex-direction:column;gap:12px;"></div>
         </div>
       </section>
 
@@ -173,25 +175,25 @@
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="card-title">Rekap Nilai Pilihan Ganda Peserta</div>
-              <p style="font-size:12.5px;color:var(--muted);margin-top:2px;">Skor Pilihan Ganda dihitung otomatis (skala 0–100).</p>
+              <div class="card-title">Rekap nilai pilihan ganda</div>
+              <p class="card-sub">Skor PG dihitung otomatis dengan skala 0–100</p>
             </div>
-            <button class="btn btn-green" onclick="downloadExcel()">Ekspor ke Excel (.xlsx)</button>
+            <button class="btn btn-soft" onclick="downloadExcel()"><svg class="icon"><use href="#i-sheet"></use></svg>Ekspor ke Excel (.xlsx)</button>
           </div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>No. Peserta</th>
-                  <th>Nama Siswa</th>
-                  <th>Kelas / Ruang</th>
-                  <th>Status Ujian</th>
+                  <th>No. peserta</th>
+                  <th>Nama siswa</th>
+                  <th>Kelas / ruang</th>
+                  <th>Status</th>
                   <th>Pelanggaran</th>
-                  <th>PG Dijawab</th>
-                  <th>PG Benar</th>
-                  <th>PG Salah</th>
-                  <th>Skor PG (0-100)</th>
-                  <th>Esai Dijawab</th>
+                  <th>PG dijawab</th>
+                  <th>Benar</th>
+                  <th>Salah</th>
+                  <th>Skor PG</th>
+                  <th>Esai dijawab</th>
                 </tr>
               </thead>
               <tbody id="guruScoresBody"></tbody>
@@ -202,56 +204,54 @@
     </main>
   </div>
 
-  <!-- MODAL BUAT BANK SOAL BARU DARI GURU -->
-  <div id="modalCreateBankSoal" style="position:fixed;inset:0;background:rgba(15,23,42,0.78);z-index:125;display:none;align-items:center;justify-content:center;padding:16px;">
-    <div class="card" style="max-width:480px;width:100%;margin:0;">
+  <!-- MODAL BUAT BANK SOAL BARU -->
+  <div id="modalCreateBankSoal" class="modal-overlay" style="z-index:125;">
+    <div class="card modal-card" style="max-width:480px;">
       <div class="card-header">
         <div>
-          <div class="card-title">📚 Buat Bank Soal / Mata Pelajaran Baru</div>
-          <p style="font-size:12px;color:var(--muted);margin-top:2px;">Bank soal ini akan langsung muncul di Panel Operator untuk dijadwalkan.</p>
+          <div class="card-title">Buat bank soal baru</div>
+          <p class="card-sub">Bank soal ini langsung muncul di panel operator untuk dijadwalkan</p>
         </div>
-        <button class="btn btn-sm btn-outline" onclick="closeCreateBankSoalModal()">✕ Tutup</button>
+        <button class="btn btn-sm btn-ghost" onclick="closeCreateBankSoalModal()" aria-label="Tutup"><svg class="icon"><use href="#i-x"></use></svg></button>
       </div>
-      <div style="padding:16px;">
-        <div class="form-group" style="margin-bottom:12px;">
-          <label style="font-size:12px;font-weight:700;">Mata Pelajaran *</label>
-          <div id="newBkSubjectContainer">
-            <input id="newBkSubject" class="input" placeholder="Misal: Matematika / Kimia / Bahasa Inggris">
-          </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label for="newBkSubject">Mata pelajaran</label>
+        <div id="newBkSubjectContainer">
+          <input id="newBkSubject" class="input" placeholder="Matematika, Kimia, Bahasa Inggris">
         </div>
-        <div class="form-group" style="margin-bottom:12px;">
-          <label style="font-size:12px;font-weight:700;">Nama Paket Ujian *</label>
-          <input id="newBkTitle" class="input" value="Penilaian Akhir Semester (PAS)" placeholder="Misal: PAS Ganjil / Ulangan Harian">
-        </div>
-        <div class="form-group" style="margin-bottom:12px;">
-          <label style="font-size:12px;font-weight:700;">Target Kelas</label>
-          <input id="newBkClass" class="input" value="Semua Kelas" placeholder="Misal: X 1, X 2 atau Semua Kelas">
-        </div>
-        <div class="form-group" style="margin-bottom:18px;">
-          <label style="font-size:12px;font-weight:700;">Durasi Pengerjaan (Menit)</label>
-          <input id="newBkDuration" type="number" class="input" value="90">
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:8px;">
-          <button class="btn btn-outline" type="button" onclick="closeCreateBankSoalModal()">Batal</button>
-          <button class="btn btn-primary" type="button" onclick="submitCreateBankSoal()">Simpan & Mulai Buat Soal</button>
-        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label for="newBkTitle">Nama paket ujian</label>
+        <input id="newBkTitle" class="input" value="Penilaian Akhir Semester (PAS)" placeholder="PAS Ganjil atau Ulangan Harian">
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label for="newBkClass">Kelas</label>
+        <input id="newBkClass" class="input" value="Semua Kelas" placeholder="X 1, X 2 atau Semua Kelas">
+      </div>
+      <div class="form-group">
+        <label for="newBkDuration">Durasi pengerjaan (menit)</label>
+        <input id="newBkDuration" type="number" class="input" value="90">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" type="button" onclick="closeCreateBankSoalModal()">Batal</button>
+        <button class="btn btn-primary" type="button" onclick="submitCreateBankSoal()">Simpan & mulai buat soal</button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL POP-UP KONFIRMASI HAPUS (ANTI SALAH KLIK) -->
-  <div id="modalConfirmDelete" style="position:fixed;inset:0;background:rgba(15,23,42,0.72);z-index:9999;display:none;align-items:center;justify-content:center;padding:16px;">
-    <div class="card" style="max-width:440px;width:100%;margin:0;padding:24px;border-radius:14px;box-shadow:var(--shadow-lg);text-align:center;">
-      <div style="width:52px;height:52px;background:#fee2e2;color:#dc2626;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 14px auto;">
-        🗑️
+  <!-- MODAL KONFIRMASI HAPUS -->
+  <div id="modalConfirmDelete" class="modal-overlay" style="z-index:9999;">
+    <div class="card modal-card" style="max-width:420px;text-align:center;">
+      <div class="icon-tile" style="width:48px;height:48px;border-radius:24px;background:var(--red-soft);color:var(--red);margin:0 auto 16px;">
+        <svg class="icon" style="width:22px;height:22px;"><use href="#i-trash"></use></svg>
       </div>
-      <div id="delModalTitle" style="font-size:16px;font-weight:800;color:#1e293b;margin-bottom:8px;">Konfirmasi Hapus</div>
-      <div id="delModalDesc" style="font-size:13.5px;color:#475569;line-height:1.6;margin-bottom:20px;">
-        Apakah Anda yakin ingin menghapus data ini?
+      <div id="delModalTitle" style="font-size:16px;font-weight:600;margin-bottom:8px;">Konfirmasi hapus</div>
+      <div id="delModalDesc" style="font-size:14px;color:var(--slate);line-height:1.6;margin-bottom:20px;">
+        Yakin ingin menghapus data ini?
       </div>
-      <div style="display:flex;gap:10px;justify-content:center;">
-        <button class="btn btn-outline" style="min-width:105px;" type="button" onclick="closeConfirmDeleteModal()">Batal</button>
-        <button class="btn" style="background:#dc2626;color:#ffffff;border:none;min-width:125px;font-weight:700;" type="button" onclick="executeConfirmDelete()">Ya, Hapus</button>
+      <div class="row" style="justify-content:center;">
+        <button class="btn btn-outline" style="min-width:104px;" type="button" onclick="closeConfirmDeleteModal()">Batal</button>
+        <button class="btn btn-red" style="min-width:124px;" type="button" onclick="executeConfirmDelete()">Ya, hapus</button>
       </div>
     </div>
   </div>
@@ -306,21 +306,21 @@
       if (subjects.length > 1) {
         // Jika guru mengampu 2 mapel atau lebih: sediakan dropdown mapel pengampu
         container.innerHTML = `
-          <select id="newBkSubject" class="input" style="font-weight:600;background:#fff;" onchange="onBkSubjectSelectChange(this)">
-            ${subjects.map(s => `<option value="${esc(s)}">Mapel Pengampu: ${esc(s)}</option>`).join('')}
-            <option value="__CUSTOM__">+ Ketik Mata Pelajaran Lain...</option>
+          <select id="newBkSubject" class="input" onchange="onBkSubjectSelectChange(this)">
+            ${subjects.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+            <option value="__CUSTOM__">Ketik mata pelajaran lain</option>
           </select>
-          <input id="newBkSubjectCustom" class="input" placeholder="Ketik nama mata pelajaran..." style="display:none;margin-top:6px;">
+          <input id="newBkSubjectCustom" class="input" placeholder="Nama mata pelajaran" style="display:none;margin-top:8px;">
         `;
       } else if (subjects.length === 1) {
         // Jika guru mengampu 1 mapel: kunci mapel tersebut agar praktis & tidak salah ketik
         container.innerHTML = `
-          <input id="newBkSubject" class="input" value="${esc(subjects[0])}" readonly style="background:#f1f5f9;font-weight:600;color:#0f172a;">
-          <small style="color:var(--muted);font-size:11.5px;margin-top:3px;display:block;">Mapel pengampu akun Anda: <b>${subjects[0]}</b></small>
+          <input id="newBkSubject" class="input" value="${esc(subjects[0])}" readonly style="background:var(--raised);">
+          <div class="hint">Mapel pengampu akun Anda: <b>${esc(subjects[0])}</b></div>
         `;
       } else {
         container.innerHTML = `
-          <input id="newBkSubject" class="input" placeholder="Misal: Matematika / Kimia / Fisika">
+          <input id="newBkSubject" class="input" placeholder="Matematika, Kimia, Fisika">
         `;
       }
 
@@ -371,7 +371,7 @@
         closeCreateBankSoalModal();
         currentExamId = data.id;
         await loadExams();
-        cbtAlert(`✓ Bank Soal "${subject}" berhasil dibuat! Silakan upload naskah Word (.docx) atau input soal di bawah.`);
+        cbtAlert(`Bank soal "${subject}" berhasil dibuat. Unggah naskah Word (.docx) atau tambah soal manual di bawah.`, 'success');
       } else {
         cbtAlert(data.error || 'Gagal membuat Bank Soal');
       }
@@ -435,31 +435,30 @@
       }
       // Token tersimpan masih berlaku: tutup kotak login (sebelumnya hanya tombol Masuk yang menutupnya)
       if (res.ok) document.getElementById('loginOverlay').style.display = 'none';
+      if (!res.ok) return; // mis. 403 wajib ganti password: pop-up ditangani password-gate.js
       const data = await res.json();
       currentTeacherProfile = data.teacher || null;
       if (currentTeacherProfile) {
         const subjs = currentTeacherProfile.subjects && currentTeacherProfile.subjects.length > 0
           ? currentTeacherProfile.subjects.join(', ')
           : (currentTeacherProfile.subject || 'Semua Mapel');
-        document.getElementById('guruNameChip').innerHTML = `👤 <b>${esc(currentTeacherProfile.full_name)}</b> <span style="font-size:11px;opacity:0.88;background:rgba(255,255,255,0.22);padding:2px 7px;border-radius:4px;margin-left:5px;">Mapel: ${subjs}</span>`;
+        document.getElementById('guruNameChip').innerHTML = `<b>${esc(currentTeacherProfile.full_name)}</b><span class="text-muted">· ${esc(subjs)}</span>`;
       }
 
       const sel = document.getElementById('examSelector');
       if (!data.exams || data.exams.length === 0) {
-        sel.innerHTML = '<option value="">-- Belum ada Bank Soal. Klik "+ Buat Bank Soal Baru" --</option>';
+        sel.innerHTML = '<option value="">Belum ada bank soal</option>';
         currentExamId = null;
         document.getElementById('questionsListContainer').innerHTML = `
-          <div style="text-align:center;padding:36px 16px;background:#f8fafc;border-radius:12px;border:1.5px dashed #cbd5e1;">
-            <div style="font-size:32px;margin-bottom:8px;">📦</div>
-            <div style="font-weight:700;font-size:15px;color:#1e293b;margin-bottom:4px;">Belum Ada Bank Soal untuk Akun Anda</div>
-            <p style="font-size:13px;color:var(--muted);max-width:440px;margin:0 auto 16px auto;">
-              Akun Anda belum memiliki paket soal. Silakan klik tombol <b>"+ Buat Bank Soal Baru"</b> di atas untuk membuat paket soal baru.
-            </p>
-            <button class="btn btn-primary" onclick="openCreateBankSoalModal()">+ Buat Bank Soal Baru</button>
+          <div class="empty-state">
+            <span class="icon-tile">${cbtIcon('book')}</span>
+            <div class="empty-title">Belum ada bank soal</div>
+            <p class="empty-text">Akun Anda belum memiliki paket soal. Buat bank soal untuk mata pelajaran Anda, lalu unggah naskah Word atau tambah soal manual.</p>
+            <button class="btn btn-primary" onclick="openCreateBankSoalModal()">${cbtIcon('plus')}Buat bank soal</button>
           </div>
         `;
-        document.getElementById('totalQBadge').textContent = '0 Soal';
-        document.getElementById('guruScoresBody').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted);">Belum ada paket ujian yang dipilih.</td></tr>';
+        document.getElementById('totalQBadge').textContent = '0 soal';
+        document.getElementById('guruScoresBody').innerHTML = '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:24px;">Belum ada paket ujian yang dipilih</td></tr>';
         return;
       }
 
@@ -490,7 +489,7 @@
       const selectedText = sel?.options[sel.selectedIndex]?.text || 'paket ini';
       showConfirmDelete(
         'Hapus Bank Soal Guru',
-        `Apakah Anda yakin ingin menghapus bank soal:<br><b style="font-size:15px;color:var(--dark);">${selectedText}</b>?<br><br><span style="font-size:12px;color:#dc2626;font-weight:600;">⚠️ Seluruh butir soal dalam paket ini akan dihapus permanen.</span>`,
+        `Yakin ingin menghapus bank soal <b>${esc(selectedText)}</b>?<div class="notice notice-danger" style="margin-top:12px;text-align:left;">Seluruh butir soal dalam paket ini akan dihapus permanen.</div>`,
         async () => {
           try {
             const res = await fetch(`/api/guru/exams/${currentExamId}`, {
@@ -519,63 +518,60 @@
       const qs = data.questions || [];
       const pgCount = qs.filter(q => q.type === 'PG').length;
       const esaiCount = qs.filter(q => q.type === 'ESAI').length;
-      document.getElementById('totalQBadge').textContent = `${pgCount} Pilihan Ganda & ${esaiCount} Esai`;
+      document.getElementById('totalQBadge').textContent = `${pgCount} PG · ${esaiCount} esai`;
 
       const container = document.getElementById('questionsListContainer');
       container.innerHTML = qs.map(q => {
         const mediaActionBtns = `
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-            <label class="btn btn-sm btn-outline" style="cursor:pointer;margin:0;">
-              ${q.image_data ? 'Ganti Gambar' : '+ Gambar'}
+          <div class="cell-actions">
+            <label class="btn btn-xs btn-outline" style="cursor:pointer;margin:0;">
+              ${q.image_data ? 'Ganti gambar' : cbtIcon('plus') + 'Gambar'}
               <input type="file" accept="image/*" style="display:none;" onchange="uploadQuestionMedia(${q.id}, 'image', this)">
             </label>
-            <label class="btn btn-sm btn-outline" style="cursor:pointer;margin:0;">
-              ${q.audio_data ? 'Ganti Audio (.mp3)' : '+ Audio (.mp3)'}
+            <label class="btn btn-xs btn-outline" style="cursor:pointer;margin:0;">
+              ${q.audio_data ? 'Ganti audio' : cbtIcon('plus') + 'Audio (.mp3)'}
               <input type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a" style="display:none;" onchange="uploadQuestionMedia(${q.id}, 'audio', this)">
             </label>
-            <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;" onclick="confirmDeleteQuestion(${q.id}, ${q.number})">🗑️ Hapus</button>
+            <button class="btn btn-xs btn-danger-outline" onclick="confirmDeleteQuestion(${q.id}, ${q.number})">${cbtIcon('trash')}Hapus</button>
           </div>
         `;
         const mediaPreview = `
           ${q.image_data ? `
-            <div style="margin:8px 0;">
-              <img src="${q.image_data}" style="max-width:280px;border-radius:4px;border:1px solid var(--border-subtle);display:block;">
-              <button class="btn btn-sm btn-outline" style="margin-top:4px;font-size:11px;padding:3px 8px;" onclick="confirmClearMedia(${q.id}, 'image')">Hapus Gambar</button>
+            <div class="q-media" style="margin:8px 0;">
+              <img src="${esc(q.image_data)}" alt="Gambar soal ${q.number}">
+              <button class="btn btn-xs btn-ghost" style="margin-top:6px;" onclick="confirmClearMedia(${q.id}, 'image')">${cbtIcon('trash')}Hapus gambar</button>
             </div>
           ` : ''}
           ${q.audio_data ? `
-            <div style="margin:8px 0;background:#f9fafb;border:1px solid var(--border-subtle);padding:8px 12px;border-radius:4px;max-width:380px;">
-              <div style="font-size:11px;font-weight:600;color:var(--slate);text-transform:uppercase;margin-bottom:4px;">Audio Listening:</div>
-              <audio controls preload="metadata" src="${q.audio_data}" style="width:100%;height:36px;"></audio>
-              <button class="btn btn-sm btn-outline" style="margin-top:4px;font-size:11px;padding:3px 8px;" onclick="confirmClearMedia(${q.id}, 'audio')">Hapus Audio</button>
+            <div class="q-audio">
+              <div class="field-label">Audio listening</div>
+              <audio controls preload="metadata" src="${esc(q.audio_data)}" style="width:100%;height:36px;"></audio>
+              <button class="btn btn-xs btn-ghost" style="margin-top:6px;" onclick="confirmClearMedia(${q.id}, 'audio')">${cbtIcon('trash')}Hapus audio</button>
             </div>
           ` : ''}
         `;
 
         if (q.type === 'ESAI') {
           return `
-            <div style="border:1px solid #fcd34d;background:#fffbeb;border-radius:6px;padding:14px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
-                <span class="badge" style="background:#fef3c7;color:#b45309;border-color:#fde68a;">SOAL ESAI NO. ${q.number} • Lembar Kertas</span>
+            <div class="q-item is-essay">
+              <div class="q-head">
+                <span class="row"><span class="tag-mono">${q.number}</span><span class="badge badge-warn">Esai · dijawab di kertas</span></span>
                 ${mediaActionBtns}
               </div>
-              <p style="font-size:14px;font-weight:500;color:#78350f;">${esc(q.question_text)}</p>
+              <p class="q-body" style="margin-bottom:0;">${esc(q.question_text)}</p>
               ${mediaPreview}
             </div>
           `;
         }
         return `
-          <div style="border:1px solid var(--border-subtle);background:#fff;border-radius:6px;padding:14px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
-              <div>
-                <span class="badge badge-working">PILIHAN GANDA NO. ${q.number}</span>
-                <span class="badge badge-finished" style="margin-left:6px;">Kunci: ${q.answer_key}</span>
-              </div>
+          <div class="q-item">
+            <div class="q-head">
+              <span class="row"><span class="tag-mono">${q.number}</span><span class="badge badge-neutral">Pilihan ganda</span><span class="badge badge-working">Kunci ${esc(q.answer_key)}</span></span>
               ${mediaActionBtns}
             </div>
-            <p style="font-size:14px;font-weight:500;margin-bottom:10px;">${esc(q.question_text)}</p>
+            <p class="q-body">${esc(q.question_text)}</p>
             ${mediaPreview}
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px;font-size:12.5px;color:var(--slate);">
+            <div class="q-options">
               <div><b>A.</b> ${esc(q.option_a || '-')}</div>
               <div><b>B.</b> ${esc(q.option_b || '-')}</div>
               <div><b>C.</b> ${esc(q.option_c || '-')}</div>
@@ -654,13 +650,13 @@
       const msg = document.getElementById('importResultMsg');
       msg.style.display = 'block';
       if (res.ok) {
-        msg.style.color = '#065f46';
-        msg.textContent = `✓ Berhasil mengimpor ${data.importedCount} soal (${data.pgCount} Pilihan Ganda & ${data.esaiCount} Soal Esai)!`;
+        msg.style.color = 'var(--primary)';
+        msg.textContent = `${data.importedCount} soal berhasil diimpor (${data.pgCount} pilihan ganda, ${data.esaiCount} esai)`;
         fileInput.value = '';
         loadExams();
       } else {
-        msg.style.color = '#dc2626';
-        msg.textContent = `⚠️ ${data.error || 'Gagal mengimpor file Word'}`;
+        msg.style.color = 'var(--red)';
+        msg.textContent = data.error || 'Gagal mengimpor file Word';
       }
     }
 
@@ -731,16 +727,16 @@
       const data = await res.json();
       document.getElementById('guruScoresBody').innerHTML = (data.scores || []).map(s => `
         <tr>
-          <td><b>${esc(s.exam_number)}</b></td>
-          <td><b>${esc(s.full_name)}</b></td>
-          <td>${esc(s.class_name)} • ${esc(s.room)}</td>
-          <td>${s.status === 'FINISHED' ? '<span class="badge badge-finished">✓ Selesai</span>' : s.status === 'WORKING' ? '<span class="badge badge-working">● Mengerjakan</span>' : s.status === 'LOCKED' ? '<span class="badge badge-locked">🔒 Terkunci</span>' : '<span class="badge badge-idle">Belum Login</span>'}</td>
-          <td>${s.violation_count > 0 ? `<span class="badge badge-locked">⚠️ ${s.violation_count}x</span>` : '<span style="color:var(--green);font-weight:700;">Aman (0)</span>'}</td>
-          <td>${s.answered_pg} / ${s.total_pg}</td>
-          <td style="color:var(--green);font-weight:700;">${s.correct_pg}</td>
-          <td style="color:var(--red);font-weight:700;">${s.wrong_pg}</td>
-          <td><b style="font-size:15px;color:#065f46;">${s.score}</b></td>
-          <td>${s.total_esai ? `<span class="badge ${s.esai_answered === s.total_esai ? 'badge-finished' : 'badge-idle'}" title="Soal esai yang ditandai siswa sudah dijawab di kertas">${s.esai_answered} / ${s.total_esai}</span>` : '-'}</td>
+          <td><span class="tag-mono">${esc(s.exam_number)}</span></td>
+          <td class="cell-name">${esc(s.full_name)}</td>
+          <td class="nowrap">${esc(s.class_name)}<div class="cell-sub">${esc(s.room)}</div></td>
+          <td>${s.status === 'FINISHED' ? '<span class="badge badge-finished">Selesai</span>' : s.status === 'WORKING' ? '<span class="badge badge-working"><span class="live-dot"></span>Mengerjakan</span>' : s.status === 'LOCKED' ? `<span class="badge badge-locked">${cbtIcon('lock')}Terkunci</span>` : '<span class="badge badge-idle">Belum login</span>'}</td>
+          <td class="nowrap ${s.violation_count > 0 ? 'text-red' : 'text-muted'}">${s.violation_count > 0 ? `${s.violation_count}× keluar` : 'Aman'}</td>
+          <td class="mono">${s.answered_pg} / ${s.total_pg}</td>
+          <td class="mono">${s.correct_pg}</td>
+          <td class="mono">${s.wrong_pg}</td>
+          <td class="mono text-strong">${s.score}</td>
+          <td>${s.total_esai ? `<span class="badge ${s.esai_answered === s.total_esai ? 'badge-working' : 'badge-idle'} mono" title="Soal esai yang ditandai siswa sudah dijawab di kertas">${s.esai_answered} / ${s.total_esai}</span>` : '-'}</td>
         </tr>
       `).join('');
     }

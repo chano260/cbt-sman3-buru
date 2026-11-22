@@ -1,0 +1,754 @@
+/*
+ * Tema tampilan baru panel CBT SMA Negeri 3 Buru (aktif bila <body class="ui-v2">).
+ * Arah: tertib, tenang, mudah dibaca. Abu-abu netral + satu aksen hijau zamrud.
+ * Momen: papan token hijau tua. Ciri khas: nomor peserta & meja dalam label mono.
+ * Muat SETELAH styles.css. Halaman tanpa kelas ui-v2 tidak terpengaruh.
+ */
+.ui-v2 {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --raised: #f1f3f5;
+  --dark: #15181c;
+  --slate: #474e58;
+  --muted: #6b7280;
+  --hairline: rgba(21, 24, 28, 0.08);
+  --border: rgba(21, 24, 28, 0.14);
+  --border-subtle: rgba(21, 24, 28, 0.08);
+  --primary: #047857;
+  --primary-hover: #065f46;
+  --primary-soft: #ecf8f3;
+  --green: #047857;
+  --green-soft: #ecf8f3;
+  --red: #c8262d;
+  --red-soft: #fdf0f0;
+  --amber: #a15c07;
+  --amber-soft: #fdf6e9;
+  --orange: #a15c07;
+  --orange-soft: #fdf6e9;
+  --board: #0d3b2f;
+  --radius: 16px;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 4px 16px rgba(16, 24, 40, 0.04);
+  --shadow-lg: 0 16px 40px rgba(16, 24, 40, 0.12);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --font: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  font-family: var(--font);
+  background: var(--bg);
+  background-image: none;
+  color: var(--dark);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ui-v2 button,
+.ui-v2 input,
+.ui-v2 select,
+.ui-v2 textarea {
+  font-family: inherit;
+}
+
+.ui-v2 b,
+.ui-v2 strong { font-weight: 600; }
+
+.ui-v2 code,
+.ui-v2 .mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 svg.icon {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.5;
+  flex-shrink: 0;
+}
+
+/* ---------- Header ---------- */
+.ui-v2 .topbar {
+  background: var(--surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  min-height: 64px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.ui-v2 .brand { gap: 12px; }
+
+.ui-v2 .brand-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--primary);
+  box-shadow: none;
+  color: #fff;
+}
+
+.ui-v2 .brand-logo svg.icon { width: 18px; height: 18px; }
+
+.ui-v2 .brand-text h1 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.ui-v2 .brand-text span { font-size: 12px; color: var(--muted); }
+
+.ui-v2 .topbar-right { gap: 8px; }
+
+.ui-v2 .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: var(--raised);
+  border: 1px solid transparent;
+  color: var(--slate);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ui-v2 .chip-token {
+  font-family: var(--mono);
+  background: var(--primary-soft);
+  color: var(--primary);
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+
+/* ---------- Kerangka & menu ---------- */
+.ui-v2 .app-shell {
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: calc(100vh - 64px);
+}
+
+.ui-v2 .sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--hairline);
+  padding: 16px 12px;
+  gap: 2px;
+}
+
+@media (min-width: 901px) {
+  .ui-v2 .topbar { position: sticky; top: 0; }
+  .ui-v2 .app-shell > .sidebar {
+    position: sticky;
+    top: 64px;
+    align-self: start;
+    height: calc(100vh - 64px);
+    overflow-y: auto;
+  }
+}
+
+.ui-v2 .nav-btn {
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--slate);
+  gap: 10px;
+  transition: background-color 150ms var(--ease), color 150ms var(--ease);
+}
+
+.ui-v2 .nav-btn:hover { background: var(--raised); color: var(--dark); }
+
+.ui-v2 .nav-btn.active {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.ui-v2 .nav-icon { width: 18px; }
+.ui-v2 .nav-icon svg.icon { width: 18px; height: 18px; }
+
+.ui-v2 .sidebar-toggle {
+  min-height: 32px;
+  padding: 6px 12px;
+  margin-bottom: 8px;
+  border: 0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  transition: background-color 150ms var(--ease), color 150ms var(--ease);
+}
+
+.ui-v2 .sidebar-toggle:hover { background: var(--raised); color: var(--dark); }
+.ui-v2 .sidebar-toggle-icon { font-weight: 500; }
+
+.ui-v2 .main-content {
+  padding: 32px;
+  max-width: 1440px;
+}
+
+.ui-v2 .page-head { margin-bottom: 24px; }
+.ui-v2 .page-title { font-size: 24px; font-weight: 600; line-height: 1.2; letter-spacing: -0.01em; }
+.ui-v2 .page-sub { font-size: 14px; color: var(--muted); margin-top: 4px; }
+
+/* ---------- Kartu & angka ---------- */
+.ui-v2 .stats-grid {
+  grid-template-columns: minmax(300px, 1.4fr) repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.ui-v2 .stat-card {
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+}
+
+.ui-v2 .stat-label {
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--slate);
+  margin-bottom: 8px;
+}
+
+.ui-v2 .stat-value {
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.ui-v2 .stat-value.is-alert { color: var(--red); }
+.ui-v2 .stat-sub { font-size: 13px; color: var(--muted); margin-top: auto; padding-top: 8px; }
+
+.ui-v2 .card {
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
+}
+
+.ui-v2 .card-header {
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 0;
+  border-bottom: 0;
+  flex-wrap: wrap;
+}
+
+.ui-v2 .card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--dark);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ui-v2 .card-title svg.icon { color: var(--muted); }
+.ui-v2 .card-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+/* ---------- Papan token (momen utama) ---------- */
+.ui-v2 .token-board {
+  background: var(--board);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(13, 59, 47, 0.18);
+}
+
+.ui-v2 .token-board .stat-label { color: rgba(255, 255, 255, 0.72); }
+
+.ui-v2 .token-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ui-v2 .token-value {
+  font-family: var(--mono);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: #fff;
+}
+
+.ui-v2 .token-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+  margin-top: 16px;
+}
+
+.ui-v2 .token-exam { font-size: 13px; color: rgba(255, 255, 255, 0.86); margin-top: 4px; }
+
+.ui-v2 .btn.btn-on-board {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.ui-v2 .btn.btn-on-board:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
+
+/* ---------- Tombol ---------- */
+.ui-v2 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  box-shadow: none;
+  transition: background-color 150ms var(--ease), border-color 150ms var(--ease), color 150ms var(--ease), transform 120ms var(--ease);
+}
+
+.ui-v2 .btn:active:not(:disabled) { transform: scale(0.98); }
+.ui-v2 .btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+.ui-v2 .btn-sm {
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+.ui-v2 .btn-xs {
+  min-height: 28px;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+  gap: 6px;
+}
+
+.ui-v2 .btn-xs svg.icon { width: 14px; height: 14px; }
+
+.ui-v2 .btn-primary { background: var(--primary); color: #fff; border: 1px solid transparent; }
+.ui-v2 .btn-primary:hover:not(:disabled) { background: var(--primary-hover); box-shadow: none; transform: none; }
+
+.ui-v2 .btn-green,
+.ui-v2 .btn-soft { background: var(--primary-soft); color: var(--primary); border: 1px solid transparent; }
+.ui-v2 .btn-green:hover:not(:disabled),
+.ui-v2 .btn-soft:hover:not(:disabled) { background: #dcf1e8; box-shadow: none; transform: none; }
+
+.ui-v2 .btn-red { background: var(--red); color: #fff; border: 1px solid transparent; }
+.ui-v2 .btn-red:hover:not(:disabled) { background: #a91f25; box-shadow: none; transform: none; }
+
+.ui-v2 .btn-outline {
+  background: var(--surface);
+  color: var(--dark);
+  border: 1px solid var(--border);
+}
+
+.ui-v2 .btn-outline:hover:not(:disabled) {
+  background: var(--raised);
+  border-color: var(--border);
+  color: var(--dark);
+  box-shadow: none;
+  transform: none;
+}
+
+.ui-v2 .btn-danger-outline {
+  background: var(--surface);
+  color: var(--red);
+  border: 1px solid rgba(200, 38, 45, 0.28);
+}
+
+.ui-v2 .btn-danger-outline:hover:not(:disabled) { background: var(--red-soft); }
+
+.ui-v2 .btn-ghost {
+  background: transparent;
+  color: var(--slate);
+  border: 1px solid transparent;
+}
+
+.ui-v2 .btn-ghost:hover:not(:disabled) { background: var(--raised); color: var(--dark); }
+
+/* ---------- Formulir ---------- */
+.ui-v2 .input,
+.ui-v2 select,
+.ui-v2 textarea {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 14px;
+  color: var(--dark);
+  box-shadow: none;
+  transition: border-color 150ms var(--ease), box-shadow 150ms var(--ease);
+}
+
+.ui-v2 .input:hover,
+.ui-v2 select:hover,
+.ui-v2 textarea:hover { border-color: rgba(21, 24, 28, 0.24); }
+
+.ui-v2 .input:focus,
+.ui-v2 select:focus,
+.ui-v2 textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.14);
+}
+
+.ui-v2 .input-sm,
+.ui-v2 select.input-sm { min-height: 32px; padding: 4px 10px; font-size: 13px; border-radius: 8px; }
+
+.ui-v2 .form-grid { gap: 16px 20px; margin-bottom: 20px; }
+
+.ui-v2 .form-group label,
+.ui-v2 .field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--slate);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-bottom: 6px;
+}
+
+.ui-v2 .span-2 { grid-column: span 2; }
+.ui-v2 .hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+
+.ui-v2 .check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--slate);
+  cursor: pointer;
+}
+
+.ui-v2 .check-row input { margin-top: 3px; accent-color: var(--primary); }
+
+/* ---------- Tabel ---------- */
+.ui-v2 .table-wrap {
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+}
+
+.ui-v2 table { font-size: 13px; }
+
+.ui-v2 th {
+  background: #f8f9fa;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 10px 16px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.ui-v2 td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hairline);
+  vertical-align: middle;
+}
+
+.ui-v2 tbody tr { transition: background-color 150ms var(--ease); }
+.ui-v2 tbody tr:hover td { background: #fafbfc; }
+
+.ui-v2 .cell-name { font-weight: 500; color: var(--dark); }
+.ui-v2 td.cell-name,
+.ui-v2 td > .cell-name { min-width: 148px; }
+.ui-v2 .cell-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.ui-v2 .cell-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.ui-v2 .nowrap { white-space: nowrap; }
+
+/* ---------- Label & status ---------- */
+.ui-v2 .badge {
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 0;
+  white-space: nowrap;
+}
+
+.ui-v2 .badge-idle { background: var(--raised); color: var(--muted); }
+.ui-v2 .badge-working { background: var(--primary-soft); color: var(--primary); }
+.ui-v2 .badge-finished { background: #eef1f4; color: var(--slate); }
+.ui-v2 .badge-locked { background: var(--red-soft); color: var(--red); }
+.ui-v2 .badge-warn { background: var(--amber-soft); color: var(--amber); }
+.ui-v2 .badge-neutral { background: var(--raised); color: var(--slate); }
+
+/* Titik "aktif" untuk siswa yang sedang mengerjakan */
+.ui-v2 .live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Ciri khas: nomor peserta & meja dalam label mono */
+.ui-v2 .tag-mono {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--raised);
+  border: 1px solid var(--hairline);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--slate);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ui-v2 .btn-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(4, 120, 87, 0.3);
+  text-underline-offset: 2px;
+}
+
+.ui-v2 .btn-link:hover { text-decoration-color: currentColor; }
+
+.ui-v2 .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.ui-v2 .text-red { color: var(--red); }
+.ui-v2 .text-muted { color: var(--muted); }
+.ui-v2 .text-strong { font-weight: 600; color: var(--dark); }
+
+/* ---------- Pemberitahuan ---------- */
+.ui-v2 .notice {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--raised);
+  color: var(--slate);
+}
+
+.ui-v2 .notice svg.icon { margin-top: 2px; }
+.ui-v2 .notice-info { background: var(--primary-soft); color: #145c46; }
+.ui-v2 .notice-warn { background: var(--amber-soft); color: #7a4605; }
+.ui-v2 .notice-danger { background: var(--red-soft); color: #8f1c21; }
+.ui-v2 .notice-title { font-weight: 600; font-size: 14px; }
+
+.ui-v2 .alert-banner {
+  align-items: center;
+  margin-bottom: 24px;
+  padding: 16px 20px;
+}
+
+.ui-v2 .alert-banner .notice-body { flex: 1; min-width: 0; }
+
+/* ---------- Bagian QR & alamat server ---------- */
+.ui-v2 .qr-panel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(280px, 400px);
+  gap: 24px;
+  align-items: center;
+}
+
+.ui-v2 .qr-frame {
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--hairline);
+  background: #fff;
+  text-align: center;
+}
+
+.ui-v2 .qr-frame img { width: 120px; height: 120px; display: block; }
+.ui-v2 .qr-caption { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.ui-v2 .qr-text p { font-size: 13px; color: var(--slate); margin-top: 6px; max-width: 52ch; }
+
+.ui-v2 .link-box {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--raised);
+  font-size: 12px;
+  color: var(--slate);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.ui-v2 .link-box code { color: var(--primary); font-size: 12px; }
+
+.ui-v2 .settings-box {
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--raised);
+}
+
+.ui-v2 .settings-row { display: flex; gap: 8px; align-items: center; }
+.ui-v2 .settings-row + .settings-row { margin-top: 8px; }
+.ui-v2 .settings-row .input,
+.ui-v2 .settings-row select { flex: 1; min-width: 0; }
+.ui-v2 .saved-msg { font-size: 12px; color: var(--primary); margin-top: 8px; display: none; }
+
+/* ---------- Kartu backup ---------- */
+.ui-v2 .row-between {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.ui-v2 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ui-v2 .grow { flex: 1; min-width: 0; }
+
+.ui-v2 .icon-tile {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--raised);
+  color: var(--slate);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ui-v2 .icon-tile svg.icon { width: 18px; height: 18px; }
+
+/* ---------- Pilihan kelas (chip) ---------- */
+.ui-v2 .class-chip {
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--slate);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 150ms var(--ease), color 150ms var(--ease), border-color 150ms var(--ease);
+}
+
+.ui-v2 .class-chip:hover { background: var(--raised); }
+.ui-v2 .class-chip.is-on { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* ---------- Jendela (modal) ---------- */
+.ui-v2 .modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.48);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.ui-v2 .modal-card {
+  width: 100%;
+  margin: 0;
+  max-height: 88vh;
+  overflow-y: auto;
+  border-radius: 20px;
+  box-shadow: var(--shadow-lg);
+  border: 0;
+}
+
+/* Judul jendela & tombol tutup tetap satu baris */
+.ui-v2 .modal-card > .card-header { flex-wrap: nowrap; align-items: flex-start; }
+.ui-v2 .modal-card > .card-header > :first-child { min-width: 0; }
+.ui-v2 .modal-card > .card-header > .btn { flex-shrink: 0; }
+
+.ui-v2 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.ui-v2 .info-box { padding: 12px 16px; border-radius: 12px; background: var(--raised); font-size: 13px; line-height: 1.6; margin-bottom: 16px; }
+
+.ui-v2 #loginOverlay { background: rgba(17, 24, 39, 0.56); }
+.ui-v2 .login-title { font-size: 20px; font-weight: 600; }
+.ui-v2 .login-sub { font-size: 13px; color: var(--muted); margin: 4px 0 20px; }
+.ui-v2 .login-err { color: var(--red); font-size: 13px; margin-bottom: 12px; display: none; }
+
+/* Pantau kerja: kotak nomor soal */
+.ui-v2 .wm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.ui-v2 .wm-cell { border: 1px solid var(--hairline); background: var(--surface); border-radius: 10px; padding: 8px 10px; font-size: 12px; }
+.ui-v2 .wm-cell.is-answered { background: var(--primary-soft); border-color: transparent; }
+.ui-v2 .wm-cell.is-current { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.ui-v2 .wm-no { font-family: var(--mono); font-weight: 600; color: var(--dark); }
+.ui-v2 .wm-ans { color: var(--muted); }
+.ui-v2 .wm-cell.is-answered .wm-ans { color: var(--primary); }
+.ui-v2 .wm-now { font-size: 11px; color: var(--primary); margin-top: 2px; }
+
+/* Intip soal */
+.ui-v2 .q-card { border: 1px solid var(--hairline); border-radius: 12px; padding: 12px 16px; }
+.ui-v2 .q-text { font-size: 13px; color: var(--dark); line-height: 1.6; margin: 8px 0; }
+.ui-v2 .q-opt { font-size: 13px; color: var(--slate); padding: 2px 6px; border-radius: 6px; }
+.ui-v2 .q-opt.is-key { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+
+/* ---------- Pop-up bersama (dialog.js) ---------- */
+.ui-v2 .cbt-dialog-card { border-radius: 20px; }
+.ui-v2 .cbt-dialog-title { font-weight: 600; }
+.ui-v2 .cbt-dialog-icon svg.icon { width: 22px; height: 22px; }
+
+/* ---------- Layar sempit ---------- */
+@media (max-width: 1180px) {
+  .ui-v2 .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ui-v2 .qr-panel { grid-template-columns: auto minmax(0, 1fr); }
+  .ui-v2 .qr-panel .settings-box { grid-column: 1 / -1; }
+}
+
+@media (max-width: 900px) {
+  .ui-v2 .app-shell { grid-template-columns: minmax(0, 1fr); }
+  .ui-v2 .main-content { padding: 16px; }
+  .ui-v2 .topbar { padding: 12px 16px; }
+  .ui-v2 .app-shell > .sidebar { padding: 8px 12px; gap: 4px; border-bottom: 1px solid var(--hairline); }
+  .ui-v2 .card { padding: 20px; margin-bottom: 16px; }
+  .ui-v2 .stats-grid { gap: 12px; margin-bottom: 16px; }
+  .ui-v2 .span-2 { grid-column: auto; }
+}
+
+@media (max-width: 900px) {
+  .ui-v2 .topbar { position: static; }
+}
+
+@media (max-width: 600px) {
+  .ui-v2 .alert-banner { flex-wrap: wrap; }
+  .ui-v2 .alert-banner > .btn { width: 100%; }
+  .ui-v2 .settings-row { flex-wrap: wrap; }
+  .ui-v2 .settings-row .input,
+  .ui-v2 .settings-row select { flex: 1 1 100%; }
+  .ui-v2 .stats-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ui-v2 .token-board { grid-column: 1 / -1; }
+  .ui-v2 .token-value { font-size: 34px; }
+  .ui-v2 .stat-value { font-size: 24px; }
+  .ui-v2 .qr-panel { grid-template-columns: minmax(0, 1fr); justify-items: start; }
+  .ui-v2 .brand-text span { display: none; }
+}
+
+@media (pointer: coarse), (max-width: 900px) {
+  .ui-v2 .btn-xs { min-height: 36px; }
+}

@@ -15,6 +15,19 @@
     error: { icon: '⛔', bg: '#fee2e2', fg: '#b91c1c', btn: '#dc2626' },
     danger: { icon: '⚠️', bg: '#fee2e2', fg: '#b91c1c', btn: '#dc2626' }
   };
+  // Tema baru (body.ui-v2): ikon garis dari icons.js + warna tema yang lebih tenang
+  var TONES_V2 = {
+    info: { svg: 'info', bg: '#ecf8f3', fg: '#047857', btn: '#047857' },
+    success: { svg: 'check', bg: '#ecf8f3', fg: '#047857', btn: '#047857' },
+    warning: { svg: 'alert', bg: '#fdf6e9', fg: '#a15c07', btn: '#15181c' },
+    error: { svg: 'alert', bg: '#fdf0f0', fg: '#c8262d', btn: '#15181c' },
+    danger: { svg: 'alert', bg: '#fdf0f0', fg: '#c8262d', btn: '#c8262d' }
+  };
+  function toneFor(name) {
+    var v2 = !!(document.body && document.body.classList && document.body.classList.contains('ui-v2') && typeof window.cbtIcon === 'function');
+    var set = v2 ? TONES_V2 : TONES;
+    return { tone: set[name] || set.info, v2: v2 };
+  }
   var TITLES = { info: 'Informasi', success: 'Berhasil', warning: 'Perhatian', error: 'Terjadi Kendala', danger: 'Konfirmasi' };
 
   // Tebak jenis pesan dari isinya bila pemanggil tidak menyebutkan tipe
@@ -42,14 +55,16 @@
 
   function open(opts) {
     return new Promise(function (resolve) {
-      var tone = TONES[opts.tone] || TONES.info;
+      var picked = toneFor(opts.tone);
+      var tone = picked.tone;
       var overlay = el('div', 'cbt-dialog-overlay');
       overlay.setAttribute('role', 'presentation');
       var card = el('div', 'cbt-dialog-card');
       card.setAttribute('role', opts.cancelText ? 'alertdialog' : 'dialog');
       card.setAttribute('aria-modal', 'true');
 
-      var icon = el('div', 'cbt-dialog-icon', opts.icon || tone.icon);
+      var icon = el('div', 'cbt-dialog-icon', picked.v2 ? null : (opts.icon || tone.icon));
+      if (picked.v2) icon.innerHTML = window.cbtIcon(tone.svg);
       icon.style.background = tone.bg;
       icon.style.color = tone.fg;
       var title = el('div', 'cbt-dialog-title', opts.title);

@@ -4,49 +4,54 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panel Operator — CBT SMA Negeri 3 Buru</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/theme.css">
 </head>
-<body>
+<body class="ui-v2">
+  <script src="/icons.js"></script>
   <div class="topbar">
     <div class="brand">
-      <div class="brand-logo">⚙️</div>
+      <div class="brand-logo"><svg class="icon"><use href="#i-server"></use></svg></div>
       <div class="brand-text">
-        <h1>PANEL OPERATOR SERVER CBT</h1>
-        <span>SMA Negeri 3 Buru • Pusat Kontrol Data, Token & Cetak Dokumen</span>
+        <h1>Panel Operator</h1>
+        <span>CBT SMA Negeri 3 Buru · token, data siswa & cetak dokumen</span>
       </div>
     </div>
     <div class="topbar-right">
       <span class="chip" id="opIpChip">IP: -</span>
       <span class="chip chip-token" id="opTokenChip">TOKEN: -</span>
-      <a href="/" class="btn btn-sm btn-outline">← Menu Utama</a>
+      <a href="/" class="btn btn-sm btn-outline"><svg class="icon"><use href="#i-arrowLeft"></use></svg>Menu utama</a>
     </div>
   </div>
 
   <!-- MODAL LOGIN OPERATOR -->
-  <div id="loginOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.82);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;">
-    <div class="card" style="max-width:400px;width:100%;margin:0;">
-      <h3 style="font-size:18px;font-weight:800;margin-bottom:4px;">Login Operator / Admin</h3>
-      <p style="font-size:12.5px;color:var(--muted);margin-bottom:16px;">Masukkan akun Operator Server CBT SMA Negeri 3 Buru</p>
+  <div id="loginOverlay" class="modal-overlay" style="z-index:100;display:flex;">
+    <div class="card modal-card" style="max-width:400px;">
+      <div class="login-title">Masuk sebagai operator</div>
+      <p class="login-sub">Akun operator server CBT SMA Negeri 3 Buru</p>
       <div class="form-group" style="margin-bottom:12px;">
-        <label>Username</label>
-        <input id="loginUser" class="input" value="operator">
+        <label for="loginUser">Username</label>
+        <input id="loginUser" class="input" autocomplete="username" placeholder="operator">
       </div>
       <div class="form-group" style="margin-bottom:16px;">
-        <label>Password</label>
-        <input id="loginPass" type="password" class="input" value="admin123">
+        <label for="loginPass">Password</label>
+        <input id="loginPass" type="password" class="input" autocomplete="current-password">
       </div>
-      <div id="loginErr" style="color:var(--red);font-size:12px;margin-bottom:10px;display:none;"></div>
-      <button class="btn btn-primary" style="width:100%;" onclick="doOperatorLogin()">Masuk ke Panel Operator →</button>
+      <div id="loginErr" class="login-err"></div>
+      <button class="btn btn-primary" style="width:100%;" onclick="doOperatorLogin()">Masuk</button>
     </div>
   </div>
 
   <div class="app-shell">
     <aside class="sidebar">
-      <button class="nav-btn active" onclick="switchTab('tab-dashboard', this)"><span class="nav-icon" aria-hidden="true">📊</span><span>Pantauan & Token</span></button>
-      <button class="nav-btn" onclick="switchTab('tab-print', this)"><span class="nav-icon" aria-hidden="true">🖨️</span><span>Cetak 4 Dokumen Ujian</span></button>
-      <button class="nav-btn" onclick="switchTab('tab-students', this)"><span class="nav-icon" aria-hidden="true">👥</span><span>Data Siswa & Kelas</span></button>
-      <button class="nav-btn" onclick="switchTab('tab-exams', this)"><span class="nav-icon" aria-hidden="true">📅</span><span>Jadwal & Sesi Ujian</span></button>
-      <button class="nav-btn" onclick="switchTab('tab-staff', this)"><span class="nav-icon" aria-hidden="true">🔐</span><span>Akun Guru & Pengawas</span></button>
+      <button class="nav-btn active" onclick="switchTab('tab-dashboard', this)"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-dashboard"></use></svg></span><span>Pantauan & token</span></button>
+      <button class="nav-btn" onclick="switchTab('tab-print', this)"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-printer"></use></svg></span><span>Cetak dokumen</span></button>
+      <button class="nav-btn" onclick="switchTab('tab-students', this)"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-users"></use></svg></span><span>Data siswa & kelas</span></button>
+      <button class="nav-btn" onclick="switchTab('tab-exams', this)"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-calendar"></use></svg></span><span>Jadwal & sesi ujian</span></button>
+      <button class="nav-btn" onclick="switchTab('tab-staff', this)"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-shield"></use></svg></span><span>Akun guru & pengawas</span></button>
     </aside>
     <script src="/sidebar.js"></script>
 
@@ -54,126 +59,117 @@
       <!-- TAB 1: DASHBOARD & TOKEN -->
       <section id="tab-dashboard" class="tab-pane">
         <div class="stats-grid">
-          <div class="stat-card" style="background:linear-gradient(135deg,#eff6ff,#ffffff);border-color:#bfdbfe;">
-            <div class="stat-label" style="color:#1e40af;">Token Ujian (Ganti Otomatis Tiap 15 Menit)</div>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-              <div class="stat-value" id="statToken" style="color:#1d4ed8;letter-spacing:0.12em;">-</div>
-              <button class="btn btn-sm btn-primary" onclick="refreshToken()">🔄 Acak Sekarang</button>
+          <div class="stat-card token-board">
+            <div class="stat-label">Token ujian</div>
+            <div class="token-row">
+              <div class="token-value" id="statToken">-</div>
+              <button class="btn btn-sm btn-on-board" onclick="refreshToken()"><svg class="icon"><use href="#i-refresh"></use></svg>Acak sekarang</button>
             </div>
-            <div class="stat-sub" id="statTokenTimer" style="color:#1e40af;font-weight:700;">⏱ Berganti otomatis dalam 15:00</div>
-            <div class="stat-sub" id="statExamTitle">Memuat jadwal aktif...</div>
+            <div class="token-meta"><svg class="icon"><use href="#i-clock"></use></svg><span id="statTokenTimer">Berganti otomatis tiap 15 menit</span></div>
+            <div class="token-exam" id="statExamTitle">Memuat jadwal aktif...</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Total Peserta Terdaftar</div>
+            <div class="stat-label">Peserta terdaftar</div>
             <div class="stat-value" id="statTotalStudents">0</div>
             <div class="stat-sub">Siap mengikuti ujian</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Sedang Mengerjakan / Selesai</div>
+            <div class="stat-label">Mengerjakan / selesai</div>
             <div class="stat-value" id="statActiveSessions">0 / 0</div>
-            <div class="stat-sub">Pantauan seluruh ruang</div>
+            <div class="stat-sub">Seluruh ruang</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Terdeteksi Keluar Aplikasi</div>
-            <div class="stat-value" id="statLockedCount" style="color:var(--red);">0</div>
-            <div class="stat-sub">Otomatis dikunci oleh sistem</div>
+            <div class="stat-label">Keluar aplikasi</div>
+            <div class="stat-value is-alert" id="statLockedCount">0</div>
+            <div class="stat-sub">Layar siswa dikunci otomatis</div>
           </div>
         </div>
 
         <!-- BACKUP DATABASE -->
         <div class="card" id="backupCard">
-          <div style="display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
-            <div style="min-width:0;">
-              <div style="font-weight:800;">💾 Backup Database</div>
-              <div class="stat-sub" id="backupStatusText">Memuat status backup...</div>
-              <div class="stat-sub">Server menyalin data otomatis tiap 10 menit (36 salinan terakhir). Unduh juga ke laptop/flashdisk sebelum & sesudah ujian.</div>
+          <div class="row-between">
+            <div class="row" style="gap:16px;flex-wrap:nowrap;flex:1 1 320px;min-width:0;">
+              <span class="icon-tile"><svg class="icon"><use href="#i-database"></use></svg></span>
+              <div class="grow">
+                <div class="card-title">Backup database</div>
+                <div class="card-sub" id="backupStatusText">Memuat status backup...</div>
+                <div class="hint" style="margin-top:2px;">Disalin otomatis tiap 10 menit (36 salinan terakhir). Unduh juga ke laptop atau flashdisk sebelum dan sesudah ujian.</div>
+              </div>
             </div>
-            <button class="btn btn-primary" id="btnBackupDownload" onclick="downloadBackup()">⬇️ Unduh Backup Sekarang</button>
+            <button class="btn btn-outline" id="btnBackupDownload" onclick="downloadBackup()"><svg class="icon"><use href="#i-download"></use></svg>Unduh backup</button>
           </div>
         </div>
-
-        <!-- PANEL QR CODE EXAMBRO SEKOLAH & SETTING DOMAIN/IP VPS PUBLIK -->
-        <div class="card" style="background:linear-gradient(135deg,#f8fafc,#eff6ff);border:1.5px solid #bfdbfe;">
-          <div style="display:flex;gap:20px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
-            <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
-              <div style="background:#fff;padding:10px;border-radius:14px;border:2px solid #1e3a8a;box-shadow:0 4px 12px rgba(15,23,42,0.08);text-align:center;">
-                <img id="opQrImg" src="" alt="QR Code Exambro" style="width:128px;height:128px;display:block;">
-                <div style="font-size:11.5px;font-weight:800;color:#1e3a8a;margin-top:4px;">SCAN DI EXAMBRO</div>
-              </div>
-              <div style="max-width:480px;">
-                <span class="badge badge-working" style="margin-bottom:6px;">📱 Kompatibel Exambro Scan QR & VPS Online (500+ Siswa)</span>
-                <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:4px;">QR Code Ujian Siswa & Alamat Server VPS / Lokal</h3>
-                <p style="font-size:12.5px;color:#334155;line-height:1.5;margin-bottom:8px;">
-                  Siswa cukup membuka aplikasi <b>Exambro</b> yang sudah ada di sekolah lalu <b>Scan QR Code</b> ini (juga otomatis tercetak di <b>Kartu Login</b> & <b>Kartu Meja</b>).
-                </p>
-                <div style="font-size:12px;background:#fff;border:1px solid #cbd5e1;padding:6px 10px;border-radius:8px;display:inline-block;">
-                  Link Aktif di QR: <code id="opExamUrlText" style="font-weight:800;color:#1d4ed8;">-</code>
-                </div>
-              </div>
+        <!-- QR CODE UJIAN & ALAMAT SERVER -->
+        <div class="card">
+          <div class="qr-panel">
+            <div class="qr-frame">
+              <img id="opQrImg" src="" alt="QR code ujian">
+              <div class="qr-caption">Pindai di aplikasi ujian</div>
             </div>
-
-            <div style="flex:1;min-width:280px;max-width:440px;background:#fff;padding:14px;border-radius:12px;border:1px solid #cbd5e1;">
-              <label style="display:block;font-size:12px;font-weight:800;color:#0f172a;margin-bottom:4px;">🌐 Alamat Domain / IP Publik VPS & Format QR Exambro</label>
-              <div style="display:flex;gap:8px;margin-bottom:8px;">
-                <input id="inpPublicUrl" class="input" placeholder="https://cbt.smanegeri3buru.my.id" style="font-size:12.5px;">
-                <button class="btn btn-primary btn-sm" onclick="savePublicUrl()" style="white-space:nowrap;">💾 Simpan & Buat QR</button>
+            <div class="qr-text">
+              <div class="card-title">QR code ujian & alamat server</div>
+              <p>Siswa membuka aplikasi ujian sekolah lalu memindai QR ini. QR yang sama otomatis tercetak di kartu login dan kartu meja.</p>
+              <div class="link-box">Alamat di QR: <code id="opExamUrlText">-</code></div>
+            </div>
+            <div class="settings-box">
+              <label class="field-label" for="inpPublicUrl">Alamat domain / IP server</label>
+              <div class="settings-row">
+                <input id="inpPublicUrl" class="input input-sm" placeholder="https://cbt.smanegeri3buru.my.id">
+                <button class="btn btn-primary btn-sm nowrap" onclick="savePublicUrl()"><svg class="icon"><use href="#i-save"></use></svg>Simpan & buat QR</button>
               </div>
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                <select id="selQrMode" class="input" style="font-size:12px;padding:6px 8px;flex:1;" onchange="savePublicUrl()">
-                  <option value="url_ujian">Format 1: URL Ujian Lengkap (https://.../ujian.html)</option>
-                  <option value="url_root">Format 2: Domain Utama Saja (https://...)</option>
-                  <option value="no_scheme">Format 3: Tanpa https:// (Otomatis dari Exambro)</option>
-                  <option value="base64">Format 4: Enkripsi Base64 (Exambro Play Store)</option>
-                  <option value="custom_image">Format 5: Gambar QR Bawaan Aplikasi Exambro</option>
+              <div class="settings-row">
+                <select id="selQrMode" class="input input-sm" onchange="savePublicUrl()">
+                  <option value="url_ujian">Format 1: URL ujian lengkap (https://.../ujian.html)</option>
+                  <option value="url_root">Format 2: domain utama saja (https://...)</option>
+                  <option value="no_scheme">Format 3: tanpa https://</option>
+                  <option value="base64">Format 4: enkripsi Base64 (Exambro Play Store)</option>
+                  <option value="custom_image">Format 5: gambar QR bawaan aplikasi Exambro</option>
                 </select>
-                <label class="btn btn-sm btn-outline" style="cursor:pointer;font-size:11.5px;white-space:nowrap;">
-                  📤 Upload QR Exambro
+                <label class="btn btn-sm btn-outline nowrap" style="cursor:pointer;">
+                  <svg class="icon"><use href="#i-upload"></use></svg>Unggah QR
                   <input type="file" accept="image/*" style="display:none;" onchange="uploadCustomQrImage(this)">
                 </label>
               </div>
-              <div id="publicUrlSavedMsg" style="font-size:11.5px;color:#059669;font-weight:700;margin-top:6px;display:none;">✓ Pengaturan QR Code diperbarui!</div>
+              <div id="publicUrlSavedMsg" class="saved-msg">Pengaturan QR code diperbarui</div>
             </div>
           </div>
         </div>
 
-        <div id="activeExamZeroWarning" style="display:none;background:#fef2f2;border:2px solid #ef4444;border-radius:10px;padding:14px 18px;margin-bottom:18px;">
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            <span style="font-size:28px;">⚠️</span>
-            <div style="flex:1;">
-              <div style="font-weight:800;color:#991b1b;font-size:15px;">PERINGATAN: Paket Ujian Aktif Saat Ini MASIH 0 SOAL (KOSONG)!</div>
-              <div style="font-size:13px;color:#7f1d1d;margin-top:2px;">
-                Paket <b id="warnExamSubject">-</b> tidak memiliki butir soal. Siswa yang login saat ini tidak akan dapat mengerjakan soal!
-              </div>
-            </div>
-            <button class="btn btn-primary" onclick="switchTab('tab-exams', document.querySelectorAll('.nav-btn')[3])">Buka Jadwal & Aktifkan Paket yang Ada Soal ↗</button>
+        <div id="activeExamZeroWarning" class="notice notice-danger alert-banner" style="display:none;">
+          <svg class="icon"><use href="#i-alert"></use></svg>
+          <div class="notice-body">
+            <div class="notice-title">Paket ujian aktif belum berisi soal</div>
+            <div>Paket <b id="warnExamSubject">-</b> masih 0 soal, jadi siswa yang login belum bisa mengerjakan.</div>
           </div>
+          <button class="btn btn-sm btn-red" onclick="switchTab('tab-exams', document.querySelectorAll('.nav-btn')[3])">Buka jadwal ujian</button>
         </div>
 
+        <!-- PEMANTAUAN SELURUH RUANG -->
         <div class="card">
-          <div class="card-header" style="flex-wrap:wrap;gap:10px;">
+          <div class="card-header">
             <div>
-              <div class="card-title">Pantauan Real-Time Seluruh Ruang & Nilai Sementara PG</div>
-              <p style="font-size:12.5px;color:var(--muted);">Nilai PG hanya tampil di layar Operator & Guru (tidak tampil di HP siswa)</p>
+              <div class="card-title">Pantauan langsung seluruh ruang</div>
+              <p class="card-sub">Nilai PG sementara hanya tampil di panel operator & guru, tidak di HP siswa</p>
             </div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <select id="monExamFilter" class="input" style="padding:5px 8px;font-size:12px;font-weight:700;max-width:280px;" onchange="loadOverview()">
-                <option value="ALL">🌐 Semua Ujian / Sesi Siswa</option>
+            <div class="row">
+              <select id="monExamFilter" class="input input-sm" style="max-width:280px;" onchange="loadOverview()">
+                <option value="ALL">Semua ujian / sesi</option>
               </select>
-              <select id="monClassFilter" class="input" style="padding:5px 8px;font-size:12px;width:auto;" onchange="renderMonitoringTable()">
-                <option value="ALL">Semua Kelas</option>
+              <select id="monClassFilter" class="input input-sm" style="width:auto;" onchange="renderMonitoringTable()">
+                <option value="ALL">Semua kelas</option>
               </select>
-              <button class="btn btn-sm btn-outline" onclick="loadOverview()">🔄 Segarkan</button>
-              <button class="btn btn-sm btn-green" onclick="exportActiveExamExcel()">📥 Export Nilai PG (.xlsx)</button>
+              <button class="btn btn-sm btn-outline" onclick="loadOverview()"><svg class="icon"><use href="#i-refresh"></use></svg>Segarkan</button>
+              <button class="btn btn-sm btn-soft" onclick="exportActiveExamExcel()"><svg class="icon"><use href="#i-sheet"></use></svg>Ekspor nilai PG (.xlsx)</button>
             </div>
           </div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>No. Peserta</th>
-                  <th>Nama Siswa</th>
-                  <th>Kelas / Ruang</th>
-                  <th>Status Ujian</th>
+                  <th>No. peserta</th>
+                  <th>Nama siswa</th>
+                  <th>Kelas / ruang</th>
+                  <th>Status</th>
                   <th>Progres PG</th>
                   <th>Pelanggaran</th>
                   <th>Skor PG</th>
@@ -184,40 +180,41 @@
             </table>
           </div>
         </div>
+
       </section>
 
-      <!-- TAB 2: PUSAT CETAK 4 DOKUMEN ADMINISTRASI UJIAN -->
+      <!-- TAB 2: PUSAT CETAK DOKUMEN ADMINISTRASI UJIAN -->
       <section id="tab-print" class="tab-pane" style="display:none;">
         <div class="card no-print">
           <div class="card-header">
             <div>
-              <div class="card-title">🖨️ Pusat Cetak Administrasi Ujian (Siap Print A4 / PDF)</div>
-              <p style="font-size:12.5px;color:var(--muted);">Pilih jenis dokumen: <b>Daftar Hadir, Kartu Peserta, Kartu Login, atau Kartu Meja</b> lengkap dengan Kop SMA Negeri 3 Buru</p>
+              <div class="card-title">Cetak dokumen ujian</div>
+              <p class="card-sub">Daftar hadir, kartu peserta, kartu login, dan kartu meja dengan kop SMA Negeri 3 Buru, siap cetak A4 atau PDF</p>
             </div>
-            <button class="btn btn-primary" onclick="window.print()">🖨️ Cetak / Simpan PDF Sekarang</button>
+            <button class="btn btn-primary" onclick="window.print()"><svg class="icon"><use href="#i-printer"></use></svg>Cetak / simpan PDF</button>
           </div>
 
-          <div class="form-grid">
+          <div class="form-grid" style="margin-bottom:0;">
             <div class="form-group">
-              <label>Jenis Dokumen yang Dicetak</label>
+              <label for="printDocType">Jenis dokumen</label>
               <select id="printDocType" onchange="renderPrintPreview()">
-                <option value="DAFTAR_HADIR">1. Daftar Hadir Peserta Ujian (Tanda Tangan Zig-Zag)</option>
-                <option value="KARTU_PESERTA">2. Kartu Peserta Ujian (Untuk Dibawa Siswa)</option>
-                <option value="KARTU_LOGIN">3. Kartu Login CBT (Username, Password & Info IP Server)</option>
-                <option value="KARTU_MEJA">4. Kartu Meja Ujian (Ukuran Besar Untuk Ditempel di Meja)</option>
+                <option value="DAFTAR_HADIR">1. Daftar hadir peserta (tanda tangan zig-zag)</option>
+                <option value="KARTU_PESERTA">2. Kartu peserta ujian (dibawa siswa)</option>
+                <option value="KARTU_LOGIN">3. Kartu login CBT (username, password & alamat server)</option>
+                <option value="KARTU_MEJA">4. Kartu meja ujian (ditempel di meja)</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Filter Ruang Ujian</label>
+              <label for="printRoomFilter">Ruang ujian</label>
               <select id="printRoomFilter" onchange="loadPrintData()">
-                <option value="ALL">Semua Ruang</option>
+                <option value="ALL">Semua ruang</option>
                 <option value="Ruang 01">Ruang 01</option>
                 <option value="Ruang 02">Ruang 02</option>
                 <option value="Ruang 03">Ruang 03</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Nama Kepala Sekolah / Ketua Panitia (Tanda Tangan Kartu)</label>
+              <label for="printKepsek">Penanda tangan kartu</label>
               <input id="printKepsek" class="input" value="Kepala SMA Negeri 3 Buru" oninput="renderPrintPreview()">
             </div>
           </div>
@@ -229,75 +226,74 @@
 
       <!-- TAB 3: DATA SISWA & KELAS -->
       <section id="tab-students" class="tab-pane" style="display:none;">
-        <!-- FITUR BARU: IMPORT PESERTA DARI EXCEL (.XLSX) -->
-        <div class="card" style="border:2px dashed #93c5fd;background:#eff6ff;">
+        <div class="card">
           <div class="card-header">
             <div>
-              <div class="card-title" style="color:#1e3a8a;">📤 Import Data Peserta Sekaligus dari Excel (.xlsx)</div>
-              <p style="font-size:12.5px;color:#1e40af;">Upload file Excel berisi daftar ratusan siswa SMA Negeri 3 Buru agar tidak perlu mengetik satu per satu.</p>
+              <div class="card-title">Impor peserta dari Excel</div>
+              <p class="card-sub">Unggah daftar siswa dalam satu file .xlsx supaya tidak perlu mengetik satu per satu</p>
             </div>
-            <button class="btn btn-sm btn-outline" onclick="downloadStudentExcelTemplate()">📥 Unduh Template Excel Siswa (.xlsx)</button>
+            <button class="btn btn-sm btn-outline" onclick="downloadStudentExcelTemplate()"><svg class="icon"><use href="#i-download"></use></svg>Unduh template Excel</button>
           </div>
-          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <div class="row" style="gap:12px;">
             <input type="file" id="studentExcelInput" accept=".xlsx,.xls" class="input" style="max-width:340px;">
-            <button class="btn btn-primary" onclick="importStudentsExcel()">🚀 Upload & Import Data Siswa (.xlsx)</button>
+            <button class="btn btn-primary" onclick="importStudentsExcel()"><svg class="icon"><use href="#i-upload"></use></svg>Unggah & impor</button>
           </div>
-          <div id="studentImportMsg" style="margin-top:8px;font-size:13px;font-weight:700;display:none;"></div>
+          <div id="studentImportMsg" style="margin-top:12px;font-size:13px;font-weight:500;display:none;"></div>
         </div>
 
         <div class="card">
           <div class="card-header">
-            <div class="card-title">Tambah Peserta Ujian Manual</div>
+            <div class="card-title">Tambah peserta manual</div>
           </div>
           <div class="form-grid">
             <div class="form-group">
-              <label>Nomor Peserta Ujian</label>
-              <input id="stExamNo" class="input" placeholder="Misal: 26-03-009">
+              <label for="stExamNo">Nomor peserta</label>
+              <input id="stExamNo" class="input" placeholder="26-03-009">
             </div>
             <div class="form-group">
-              <label>NISN</label>
+              <label for="stNisn">NISN</label>
               <input id="stNisn" class="input" placeholder="0081234509">
             </div>
             <div class="form-group">
-              <label>Nama Lengkap Siswa</label>
+              <label for="stName">Nama lengkap</label>
               <input id="stName" class="input" placeholder="Nama lengkap siswa">
             </div>
             <div class="form-group">
-              <label>Tempat, Tanggal Lahir (TTL)</label>
-              <input id="stBirthInfo" class="input" placeholder="Contoh: Namlea, 14 Januari 2008">
+              <label for="stBirthInfo">Tempat, tanggal lahir</label>
+              <input id="stBirthInfo" class="input" placeholder="Namlea, 14 Januari 2008">
             </div>
             <div class="form-group">
-              <label>Kelas</label>
+              <label for="stClass">Kelas</label>
               <input id="stClass" class="input" value="XII IPA 1">
             </div>
             <div class="form-group">
-              <label>Ruang Ujian</label>
+              <label for="stRoom">Ruang ujian</label>
               <input id="stRoom" class="input" value="Ruang 01">
             </div>
             <div class="form-group">
-              <label>Nomor Meja</label>
+              <label for="stSeat">Nomor meja</label>
               <input id="stSeat" type="number" class="input" value="7">
             </div>
             <div class="form-group">
-              <label>Password CBT</label>
+              <label for="stPass">Password CBT</label>
               <input id="stPass" class="input" value="BURU09">
             </div>
           </div>
-          <button class="btn btn-primary" onclick="addStudent()">+ Simpan Data Siswa</button>
+          <button class="btn btn-primary" onclick="addStudent()"><svg class="icon"><use href="#i-plus"></use></svg>Simpan siswa</button>
         </div>
 
         <div class="card">
           <div class="card-header">
-            <div class="card-title">Daftar Siswa Terdaftar</div>
+            <div class="card-title">Siswa terdaftar</div>
           </div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>No. Meja</th>
-                  <th>No. Peserta</th>
+                  <th>Meja</th>
+                  <th>No. peserta</th>
                   <th>NISN</th>
-                  <th>Nama Siswa</th>
+                  <th>Nama siswa</th>
                   <th>TTL</th>
                   <th>Kelas</th>
                   <th>Ruang</th>
@@ -315,69 +311,67 @@
       <section id="tab-exams" class="tab-pane" style="display:none;">
         <div class="card">
           <div class="card-header">
-            <div class="card-title">Buat Jadwal Ujian Baru</div>
+            <div class="card-title">Buat jadwal ujian</div>
           </div>
           <div class="form-grid">
-            <div class="form-group" style="grid-column: span 2;">
-              <label>Pilih Mata Pelajaran / Bank Soal Guru (Drop Box)</label>
-              <select id="exSubjectSelect" class="input" style="font-weight:700;background:#ffffff;border:1.5px solid var(--primary);" onchange="handleSubjectDropdownChange(this.value)">
-                <option value="">-- Pilih Mata Pelajaran / Bank Soal dari Panel Guru --</option>
+            <div class="form-group span-2">
+              <label for="exSubjectSelect">Mata pelajaran / bank soal guru</label>
+              <select id="exSubjectSelect" class="input" onchange="handleSubjectDropdownChange(this.value)">
+                <option value="">Pilih mata pelajaran atau bank soal dari panel guru</option>
               </select>
-              <div id="subjectStatusBanner" style="display:none;margin-top:8px;padding:9px 13px;border-radius:6px;font-size:12.5px;font-weight:600;line-height:1.5;"></div>
+              <div id="subjectStatusBanner" class="notice" style="display:none;margin-top:8px;"></div>
               <input type="hidden" id="selectedBankSoalId">
             </div>
 
             <div class="form-group">
-              <label>Mata Pelajaran (Terisi Otomatis / Manual)</label>
-              <input id="exSubject" class="input" placeholder="Misal: Biologi / Sejarah">
+              <label for="exSubject">Mata pelajaran</label>
+              <input id="exSubject" class="input" placeholder="Biologi">
             </div>
             <div class="form-group">
-              <label>Nama Kegiatan Ujian</label>
+              <label for="exTitle">Nama kegiatan ujian</label>
               <input id="exTitle" class="input" value="Penilaian Akhir Semester (PAS)">
             </div>
-            <div class="form-group" style="grid-column: span 2;">
-              <label>Target Kelas Peserta (Pilih dari Data Siswa Terdaftar)</label>
-              <div style="display:flex;gap:8px;align-items:center;">
+            <div class="form-group span-2">
+              <label for="exClassSelect">Kelas peserta</label>
+              <div class="row" style="flex-wrap:nowrap;">
                 <select id="exClassSelect" class="input" style="flex:1;" onchange="handleClassSelectChange(this.value)">
-                  <option value="">-- Pilih Kelas dari Data Siswa --</option>
-                  <option value="Semua Kelas">🌟 Semua Kelas (Seluruh Siswa)</option>
+                  <option value="">Pilih kelas dari data siswa</option>
+                  <option value="Semua Kelas">Semua kelas (seluruh siswa)</option>
                 </select>
-                <input id="exClass" class="input" style="flex:1;" placeholder="Atau ketik/pilih kelas, misal: X 1, X 2">
+                <input id="exClass" class="input" style="flex:1;" placeholder="Atau ketik kelas, misal X 1, X 2">
               </div>
-              <div id="classChipsContainer" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;"></div>
-              <div style="font-size:11.5px;color:var(--muted);margin-top:4px;">
-                💡 <b>Tips:</b> Klik tombol kelas di atas untuk memilih satu atau beberapa kelas sekaligus. Jika dikosongkan atau diisi <i>Semua Kelas</i>, ujian akan aktif untuk semua kelas.
-              </div>
+              <div id="classChipsContainer" class="row" style="gap:6px;margin-top:8px;"></div>
+              <div class="hint">Klik kelas di atas untuk memilih satu atau beberapa sekaligus. Jika dikosongkan atau diisi "Semua Kelas", ujian aktif untuk semua kelas.</div>
             </div>
             <div class="form-group">
-              <label>Tanggal Ujian</label>
+              <label for="exDate">Tanggal ujian</label>
               <input id="exDate" type="date" class="input" value="2026-11-21">
             </div>
             <div class="form-group">
-              <label>Jam Mulai & Sesi</label>
+              <label for="exSession">Jam mulai & sesi</label>
               <input id="exSession" class="input" value="Sesi 1 (08:00 WIT)">
             </div>
             <div class="form-group">
-              <label>Durasi (Menit)</label>
+              <label for="exDuration">Durasi (menit)</label>
               <input id="exDuration" type="number" class="input" value="90">
             </div>
           </div>
-          <button class="btn btn-primary" onclick="createExam()">+ Buat & Aktifkan Jadwal Ujian</button>
+          <button class="btn btn-primary" onclick="createExam()"><svg class="icon"><use href="#i-plus"></use></svg>Buat & aktifkan jadwal</button>
         </div>
 
         <div class="card">
           <div class="card-header">
-            <div class="card-title">Daftar Jadwal Ujian</div>
+            <div class="card-title">Daftar jadwal ujian</div>
           </div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Mata Pelajaran & Guru</th>
-                  <th>Nama Ujian</th>
-                  <th>Target Kelas</th>
-                  <th>Bank Soal</th>
-                  <th>Sesi & Durasi</th>
+                  <th>Mata pelajaran & guru</th>
+                  <th>Nama ujian</th>
+                  <th>Kelas</th>
+                  <th>Bank soal</th>
+                  <th>Sesi & durasi</th>
                   <th>Token</th>
                   <th>Status</th>
                   <th>Aksi</th>
@@ -393,52 +387,50 @@
       <section id="tab-staff" class="tab-pane" style="display:none;">
         <div class="card">
           <div class="card-header">
-            <div class="card-title">Tambah Akun Guru Mapel / Pengawas Ruangan</div>
+            <div class="card-title">Tambah akun guru / pengawas</div>
           </div>
           <div class="form-grid">
             <div class="form-group">
-              <label>Peran (Role)</label>
+              <label for="stfRole">Peran</label>
               <select id="stfRole">
-                <option value="guru">Guru Mata Pelajaran</option>
-                <option value="pengawas">Pengawas Ruangan</option>
-                <option value="operator">Operator Server</option>
+                <option value="guru">Guru mata pelajaran</option>
+                <option value="pengawas">Pengawas ruangan</option>
+                <option value="operator">Operator server</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Nama Lengkap & Gelar</label>
-              <input id="stfName" class="input" placeholder="Misal: Bpk. Ahmad, S.Pd.">
+              <label for="stfName">Nama lengkap & gelar</label>
+              <input id="stfName" class="input" placeholder="Bpk. Ahmad, S.Pd.">
             </div>
             <div class="form-group">
-              <label>Username Login</label>
+              <label for="stfUser">Username</label>
               <input id="stfUser" class="input" placeholder="guru_biologi">
             </div>
             <div class="form-group">
-              <label>Password Login</label>
+              <label for="stfPass">Password</label>
               <input id="stfPass" class="input" value="buru123">
             </div>
             <div class="form-group">
-              <label>Mata Pelajaran / Ruang Tugas</label>
-              <input id="stfMeta" class="input" placeholder="Misal: Biologi atau Ruang 01">
-              <small style="color:var(--muted);font-size:11px;margin-top:3px;display:block;">
-                Untuk guru: Tulis mapel yang diampu (misal: <code>Matematika</code>). Jika mengampu 2 mapel, pisahkan koma (misal: <code>Matematika, Fisika</code>).
-              </small>
+              <label for="stfMeta">Mata pelajaran / ruang tugas</label>
+              <input id="stfMeta" class="input" placeholder="Biologi atau Ruang 01">
+              <div class="hint">Guru dengan dua mapel: pisahkan dengan koma, misal <code>Matematika, Fisika</code></div>
             </div>
           </div>
-          <button class="btn btn-primary" onclick="addStaff()">+ Simpan Akun Staf</button>
+          <button class="btn btn-primary" onclick="addStaff()"><svg class="icon"><use href="#i-plus"></use></svg>Simpan akun</button>
         </div>
 
         <div class="card">
           <div class="card-header">
-            <div class="card-title">Daftar Akun Operator, Guru & Pengawas</div>
+            <div class="card-title">Akun operator, guru & pengawas</div>
           </div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Peran</th>
-                  <th>Nama Lengkap</th>
+                  <th>Nama lengkap</th>
                   <th>Username</th>
-                  <th>Mapel / Ruang Tugas</th>
+                  <th>Mapel / ruang tugas</th>
                   <th>Aksi</th>
                 </tr>
               </thead>
@@ -450,194 +442,183 @@
     </main>
   </div>
 
-  <!-- MODAL PANTAU KERJA SISWA (ANTI-CONTEK LIVE MONITOR) -->
-  <div id="workMonitorModal" style="position:fixed;inset:0;background:rgba(15,23,42,0.78);z-index:120;display:none;align-items:center;justify-content:center;padding:16px;">
-    <div class="card" style="max-width:720px;width:100%;max-height:86vh;overflow-y:auto;margin:0;">
+  <!-- MODAL PANTAU KERJA SISWA -->
+  <div id="workMonitorModal" class="modal-overlay" style="z-index:120;">
+    <div class="card modal-card" style="max-width:720px;">
       <div class="card-header">
         <div>
-          <div class="card-title" id="wmStudentTitle">👁️ Pantau Kerja Siswa Secara Langsung</div>
-          <p style="font-size:12px;color:var(--muted);" id="wmStudentSub">Memantau posisi soal aktif & jawaban yang sedang dipilih siswa</p>
+          <div class="card-title" id="wmStudentTitle">Pantau kerja siswa</div>
+          <p class="card-sub" id="wmStudentSub">Posisi soal yang sedang dibuka dan jawaban yang dipilih siswa</p>
         </div>
-        <button class="btn btn-sm btn-outline" onclick="closeWorkMonitor()">✕ Tutup</button>
+        <button class="btn btn-sm btn-ghost" onclick="closeWorkMonitor()" aria-label="Tutup"><svg class="icon"><use href="#i-x"></use></svg>Tutup</button>
       </div>
       <div id="wmBody"></div>
     </div>
   </div>
 
-  <!-- MODAL PINDAH KELAS SISWA CEPAT -->
-  <div id="changeClassModal" style="position:fixed;inset:0;background:rgba(15,23,42,0.78);z-index:125;display:none;align-items:center;justify-content:center;padding:16px;">
-    <div class="card" style="max-width:480px;width:100%;margin:0;">
+  <!-- MODAL PINDAH KELAS SISWA -->
+  <div id="changeClassModal" class="modal-overlay" style="z-index:125;">
+    <div class="card modal-card" style="max-width:480px;">
       <div class="card-header">
         <div>
-          <div class="card-title">✏️ Pindah Kelas Siswa Cepat</div>
-          <p style="font-size:12px;color:var(--muted);">Ganti kelas jika siswa pindah kelas belajar tanpa update Dapodik</p>
+          <div class="card-title">Pindah kelas siswa</div>
+          <p class="card-sub">Untuk siswa yang pindah kelas belajar tanpa pembaruan Dapodik</p>
         </div>
-        <button class="btn btn-sm btn-outline" onclick="closeChangeClassModal()">✕ Tutup</button>
+        <button class="btn btn-sm btn-ghost" onclick="closeChangeClassModal()" aria-label="Tutup"><svg class="icon"><use href="#i-x"></use></svg></button>
       </div>
-      <div style="padding:16px;">
-        <input type="hidden" id="ccStudentId">
-        <div style="background:#f8fafc;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px;line-height:1.6;border:1px solid #e2e8f0;">
-          <div>Nama Siswa: <b id="ccStudentName" style="color:var(--dark);">-</b></div>
-          <div>Kelas Sekarang: <span class="badge badge-idle" id="ccCurrentClass">-</span></div>
-        </div>
+      <input type="hidden" id="ccStudentId">
+      <div class="info-box">
+        <div>Nama siswa: <b id="ccStudentName">-</b></div>
+        <div>Kelas sekarang: <span class="badge badge-neutral" id="ccCurrentClass">-</span></div>
+      </div>
 
-        <div class="form-group" style="margin-bottom:14px;">
-          <label style="font-size:12px;font-weight:700;">Pilih / Ketik Kelas Tujuan Baru:</label>
-          <input id="ccNewClass" class="input" placeholder="Contoh: XII IPA 2" list="classListDatalist">
-          <datalist id="classListDatalist"></datalist>
-        </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label for="ccNewClass">Kelas tujuan</label>
+        <div id="ccClassChips" class="row" style="gap:6px;margin-bottom:8px;"></div>
+        <input id="ccNewClass" class="input" autocomplete="off" placeholder="Pilih kelas di atas atau ketik kelas baru" oninput="syncChangeClassChips()">
+        <datalist id="classListDatalist"></datalist>
+      </div>
 
-        <div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:8px;padding:10px 12px;margin-bottom:18px;">
-          <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#92400e;cursor:pointer;">
-            <input type="checkbox" id="ccResetExam" checked style="margin-top:2px;">
-            <span><b>Reset Sesi Ujian Aktif:</b> Kosongkan jawaban & sesi lama agar siswa langsung menerima paket soal guru di kelas barunya saat login.</span>
-          </label>
-        </div>
+      <label class="notice notice-warn check-row">
+        <input type="checkbox" id="ccResetExam" checked>
+        <span><b>Reset sesi ujian aktif.</b> Jawaban dan sesi lama dikosongkan supaya siswa langsung menerima paket soal kelas barunya saat login.</span>
+      </label>
 
-        <div style="display:flex;justify-content:flex-end;gap:8px;">
-          <button class="btn btn-outline" type="button" onclick="closeChangeClassModal()">Batal</button>
-          <button class="btn btn-primary" type="button" onclick="submitChangeClass()">Simpan Perubahan Kelas</button>
-        </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" type="button" onclick="closeChangeClassModal()">Batal</button>
+        <button class="btn btn-primary" type="button" onclick="submitChangeClass()">Simpan perubahan</button>
       </div>
     </div>
   </div>
 
   <!-- MODAL UPLOAD SOAL WORD DARI OPERATOR -->
-  <div id="modalUploadWord" style="position:fixed;inset:0;background:rgba(15,23,42,0.78);z-index:130;display:none;align-items:center;justify-content:center;padding:16px;">
-    <div class="card" style="max-width:520px;width:100%;margin:0;">
+  <div id="modalUploadWord" class="modal-overlay" style="z-index:130;">
+    <div class="card modal-card" style="max-width:520px;">
       <div class="card-header">
         <div>
-          <div class="card-title">📤 Upload Soal Ujian (.docx)</div>
-          <p style="font-size:12px;color:var(--muted);" id="opUploadSubTitle">Ekstrak soal Pilihan Ganda & Esai otomatis dari file Word</p>
+          <div class="card-title">Unggah soal dari Word (.docx)</div>
+          <p class="card-sub" id="opUploadSubTitle">Soal pilihan ganda & esai diambil otomatis dari file Word</p>
         </div>
-        <button class="btn btn-sm btn-outline" onclick="closeUploadWordModal()">✕ Tutup</button>
+        <button class="btn btn-sm btn-ghost" onclick="closeUploadWordModal()" aria-label="Tutup"><svg class="icon"><use href="#i-x"></use></svg></button>
       </div>
-      <div style="padding:16px;">
-        <div style="background:#f8fafc;padding:12px 14px;border-radius:8px;margin-bottom:14px;border:1px solid #e2e8f0;font-size:13px;">
-          <div>Mata Pelajaran: <b id="opUploadExamName" style="color:var(--dark);">-</b></div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px;" id="opUploadExamClass">-</div>
-        </div>
+      <div class="info-box">
+        <div>Mata pelajaran: <b id="opUploadExamName">-</b></div>
+        <div class="text-muted" style="font-size:12px;" id="opUploadExamClass">-</div>
+      </div>
 
-        <div class="form-group" style="margin-bottom:14px;">
-          <label style="font-size:12px;font-weight:700;">Pilih File Microsoft Word (.docx):</label>
-          <input type="file" id="opWordFileInput" accept=".docx" class="input">
-          <div style="font-size:11.5px;color:var(--muted);margin-top:4px;">
-            Mendukung format standar CBT (Soal nomor 1., opsi A., B., C., D., Kunci Jawaban: A)
-          </div>
-        </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label for="opWordFileInput">File Microsoft Word (.docx)</label>
+        <input type="file" id="opWordFileInput" accept=".docx" class="input">
+        <div class="hint">Format standar CBT: nomor soal "1.", opsi "A.", "B.", "C.", "D.", lalu "Kunci Jawaban: A"</div>
+      </div>
 
-        <div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:8px;padding:10px 12px;margin-bottom:16px;">
-          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#1e40af;cursor:pointer;">
-            <input type="checkbox" id="opReplaceCheck" checked>
-            <span><b>Hapus & Ganti Soal Lama</b> (jika sebelumnya sudah ada soal)</span>
-          </label>
-        </div>
+      <label class="notice check-row" style="margin-bottom:16px;">
+        <input type="checkbox" id="opReplaceCheck" checked>
+        <span><b>Hapus & ganti soal lama</b> bila paket ini sudah berisi soal</span>
+      </label>
 
-        <div id="opImportResultMsg" style="display:none;margin-bottom:14px;font-size:13px;font-weight:700;"></div>
+      <div id="opImportResultMsg" style="display:none;margin-bottom:16px;font-size:13px;font-weight:500;"></div>
 
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <a href="/guru.html" target="_blank" style="font-size:12px;color:var(--primary);text-decoration:underline;">Buka Detail di Panel Guru ↗</a>
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-outline" type="button" onclick="closeUploadWordModal()">Batal</button>
-            <button class="btn btn-primary" type="button" id="btnSubmitOpWord" onclick="submitOperatorWordUpload()">🚀 Upload & Simpan Soal</button>
-          </div>
+      <div class="row-between">
+        <a href="/guru.html" target="_blank" class="btn btn-sm btn-ghost"><svg class="icon"><use href="#i-external"></use></svg>Buka panel guru</a>
+        <div class="row">
+          <button class="btn btn-outline" type="button" onclick="closeUploadWordModal()">Batal</button>
+          <button class="btn btn-primary" type="button" id="btnSubmitOpWord" onclick="submitOperatorWordUpload()"><svg class="icon"><use href="#i-upload"></use></svg>Unggah & simpan</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- MODAL INTIP BUTIR SOAL GURU UNTUK OPERATOR -->
-  <div id="modalPreviewQuestions" style="position:fixed;inset:0;background:rgba(15,23,42,0.78);z-index:135;display:none;align-items:center;justify-content:center;padding:16px;">
-    <div class="card" style="max-width:760px;width:100%;max-height:88vh;overflow-y:auto;margin:0;">
+  <!-- MODAL INTIP BUTIR SOAL GURU -->
+  <div id="modalPreviewQuestions" class="modal-overlay" style="z-index:135;">
+    <div class="card modal-card" style="max-width:760px;">
       <div class="card-header">
         <div>
-          <div class="card-title">👁️ Intip Butir Soal Buatan Guru</div>
-          <p style="font-size:12px;color:var(--muted);" id="prevQExamSubTitle">Melihat naskah soal & kunci jawaban yang sudah dimasukkan oleh guru</p>
+          <div class="card-title">Lihat soal buatan guru</div>
+          <p class="card-sub" id="prevQExamSubTitle">Naskah soal dan kunci jawaban yang sudah dimasukkan guru</p>
         </div>
-        <button class="btn btn-sm btn-outline" onclick="closePreviewQuestionsModal()">✕ Tutup</button>
+        <button class="btn btn-sm btn-ghost" onclick="closePreviewQuestionsModal()" aria-label="Tutup"><svg class="icon"><use href="#i-x"></use></svg>Tutup</button>
       </div>
-      <div style="padding:16px;">
-        <div id="prevQHeaderInfo" style="background:#f8fafc;padding:12px 14px;border-radius:8px;margin-bottom:14px;border:1px solid #e2e8f0;font-size:13px;line-height:1.6;"></div>
-        <div id="prevQListContainer" style="display:flex;flex-direction:column;gap:12px;"></div>
-      </div>
+      <div id="prevQHeaderInfo" class="info-box"></div>
+      <div id="prevQListContainer" style="display:flex;flex-direction:column;gap:12px;"></div>
     </div>
   </div>
 
-  <!-- MODAL EDIT AKUN STAF (GURU / PENGAWAS) -->
-  <div id="modalEditStaff" style="position:fixed;inset:0;background:rgba(15,23,42,0.7);z-index:150;display:none;align-items:center;justify-content:center;padding:16px;">
-    <div class="card" style="max-width:440px;width:100%;margin:0;padding:24px;border-radius:14px;box-shadow:var(--shadow-lg);">
-      <div class="card-header" style="margin-bottom:14px;">
-        <div class="card-title">✏️ Edit Akun Guru / Pengawas</div>
-        <button class="btn btn-sm btn-outline" onclick="closeEditStaffModal()">✕</button>
+  <!-- MODAL EDIT AKUN STAF -->
+  <div id="modalEditStaff" class="modal-overlay" style="z-index:150;">
+    <div class="card modal-card" style="max-width:440px;">
+      <div class="card-header">
+        <div class="card-title">Ubah akun guru / pengawas</div>
+        <button class="btn btn-sm btn-ghost" onclick="closeEditStaffModal()" aria-label="Tutup"><svg class="icon"><use href="#i-x"></use></svg></button>
       </div>
       <input type="hidden" id="editStfId">
-      <div class="form-group" style="margin-bottom:10px;">
-        <label>Peran (Role)</label>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label for="editStfRole">Peran</label>
         <select id="editStfRole">
-          <option value="guru">Guru Mata Pelajaran</option>
-          <option value="pengawas">Pengawas Ruangan</option>
-          <option value="operator">Operator Server</option>
+          <option value="guru">Guru mata pelajaran</option>
+          <option value="pengawas">Pengawas ruangan</option>
+          <option value="operator">Operator server</option>
         </select>
       </div>
-      <div class="form-group" style="margin-bottom:10px;">
-        <label>Nama Lengkap</label>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label for="editStfName">Nama lengkap</label>
         <input id="editStfName" class="input">
       </div>
-      <div class="form-group" style="margin-bottom:10px;">
-        <label>Username</label>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label for="editStfUser">Username</label>
         <input id="editStfUser" class="input">
       </div>
-      <div class="form-group" style="margin-bottom:10px;">
-        <label>Password Baru (Kosongkan jika tidak ingin diubah)</label>
-        <input id="editStfPass" class="input" placeholder="Ketik password baru jika ingin diganti">
+      <div class="form-group" style="margin-bottom:12px;">
+        <label for="editStfPass">Password baru</label>
+        <input id="editStfPass" class="input" placeholder="Kosongkan bila tidak diubah">
       </div>
-      <div class="form-group" style="margin-bottom:16px;">
-        <label>Mata Pelajaran / Ruang Tugas</label>
-        <input id="editStfMeta" class="input" placeholder="Misal: Matematika atau Kimia, Fisika">
-        <small style="color:var(--muted);font-size:11px;display:block;margin-top:2px;">Pisahkan koma jika 1 guru mengampu 2 mapel (contoh: <code>Matematika, Fisika</code>).</small>
+      <div class="form-group">
+        <label for="editStfMeta">Mata pelajaran / ruang tugas</label>
+        <input id="editStfMeta" class="input" placeholder="Matematika atau Kimia, Fisika">
+        <div class="hint">Pisahkan dengan koma bila satu guru mengampu dua mapel, misal <code>Matematika, Fisika</code></div>
       </div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <div class="modal-actions">
         <button class="btn btn-outline" type="button" onclick="closeEditStaffModal()">Batal</button>
-        <button class="btn btn-primary" type="button" onclick="submitEditStaff()">Simpan Perubahan</button>
+        <button class="btn btn-primary" type="button" onclick="submitEditStaff()">Simpan perubahan</button>
       </div>
     </div>
   </div>
 
   <!-- MODAL SALIN SOAL DARI BANK SOAL -->
-  <div id="modalCopyQuestions" style="position:fixed;inset:0;background:rgba(15,23,42,0.7);z-index:150;display:none;align-items:center;justify-content:center;padding:16px;">
-    <div class="card" style="max-width:500px;width:100%;margin:0;padding:24px;border-radius:14px;box-shadow:var(--shadow-lg);">
-      <div class="card-header" style="margin-bottom:12px;">
-        <div class="card-title">📋 Salin Butir Soal ke Paket Ujian</div>
-        <button class="btn btn-sm btn-outline" onclick="closeCopyQuestionsModal()">✕</button>
+  <div id="modalCopyQuestions" class="modal-overlay" style="z-index:150;">
+    <div class="card modal-card" style="max-width:500px;">
+      <div class="card-header">
+        <div class="card-title">Salin soal ke paket ujian</div>
+        <button class="btn btn-sm btn-ghost" onclick="closeCopyQuestionsModal()" aria-label="Tutup"><svg class="icon"><use href="#i-x"></use></svg></button>
       </div>
-      <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px;">
-        Salin seluruh butir soal (PG & Esai) dari bank soal guru lain ke paket ujian: <b id="copyTargetSubjectLabel" style="color:var(--primary);">-</b>
+      <p class="card-sub" style="margin:-8px 0 16px;">
+        Semua soal (PG & esai) dari bank soal lain disalin ke paket: <b id="copyTargetSubjectLabel" class="text-strong">-</b>
       </p>
       <input type="hidden" id="copyTargetExamId">
-      <div class="form-group" style="margin-bottom:18px;">
-        <label>Pilih Sumber Bank Soal (Yang Sudah Ada Soal)</label>
-        <select id="copySourceExamSelect" class="input" style="font-weight:600;"></select>
+      <div class="form-group">
+        <label for="copySourceExamSelect">Sumber bank soal</label>
+        <select id="copySourceExamSelect" class="input"></select>
       </div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <div class="modal-actions">
         <button class="btn btn-outline" type="button" onclick="closeCopyQuestionsModal()">Batal</button>
-        <button class="btn btn-primary" type="button" onclick="submitCopyQuestions()">🚀 Salin Soal Sekarang</button>
+        <button class="btn btn-primary" type="button" onclick="submitCopyQuestions()"><svg class="icon"><use href="#i-copy"></use></svg>Salin soal</button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL POP-UP KONFIRMASI HAPUS (ANTI SALAH KLIK) -->
-  <div id="modalConfirmDelete" style="position:fixed;inset:0;background:rgba(15,23,42,0.72);z-index:9999;display:none;align-items:center;justify-content:center;padding:16px;">
-    <div class="card" style="max-width:440px;width:100%;margin:0;padding:24px;border-radius:14px;box-shadow:var(--shadow-lg);text-align:center;">
-      <div style="width:52px;height:52px;background:#fee2e2;color:#dc2626;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 14px auto;">
-        🗑️
+  <!-- MODAL KONFIRMASI HAPUS -->
+  <div id="modalConfirmDelete" class="modal-overlay" style="z-index:9999;">
+    <div class="card modal-card" style="max-width:420px;text-align:center;">
+      <div class="icon-tile" style="width:48px;height:48px;border-radius:24px;background:var(--red-soft);color:var(--red);margin:0 auto 16px;">
+        <svg class="icon" style="width:22px;height:22px;"><use href="#i-trash"></use></svg>
       </div>
-      <div id="delModalTitle" style="font-size:16px;font-weight:800;color:#1e293b;margin-bottom:8px;">Konfirmasi Hapus</div>
-      <div id="delModalDesc" style="font-size:13.5px;color:#475569;line-height:1.6;margin-bottom:20px;">
-        Apakah Anda yakin ingin menghapus data ini?
+      <div id="delModalTitle" style="font-size:16px;font-weight:600;margin-bottom:8px;">Konfirmasi hapus</div>
+      <div id="delModalDesc" style="font-size:14px;color:var(--slate);line-height:1.6;margin-bottom:20px;">
+        Yakin ingin menghapus data ini?
       </div>
-      <div style="display:flex;gap:10px;justify-content:center;">
-        <button class="btn btn-outline" style="min-width:105px;" type="button" onclick="closeConfirmDeleteModal()">Batal</button>
-        <button class="btn" style="background:#dc2626;color:#ffffff;border:none;min-width:125px;font-weight:700;" type="button" onclick="executeConfirmDelete()">Ya, Hapus</button>
+      <div class="row" style="justify-content:center;">
+        <button class="btn btn-outline" style="min-width:104px;" type="button" onclick="closeConfirmDeleteModal()">Batal</button>
+        <button class="btn btn-red" style="min-width:124px;" type="button" onclick="executeConfirmDelete()">Ya, hapus</button>
       </div>
     </div>
   </div>
@@ -735,7 +716,7 @@
     async function downloadBackup() {
       const btn = document.getElementById('btnBackupDownload');
       btn.disabled = true;
-      btn.textContent = '⏳ Menyiapkan...';
+      btn.textContent = 'Menyiapkan...';
       try {
         const res = await fetch('/api/operator/backup/download', { headers: authHeaders() });
         if (!res.ok) {
@@ -754,7 +735,7 @@
         await cbtAlert('Gagal mengunduh backup. Periksa koneksi ke server.', 'error');
       } finally {
         btn.disabled = false;
-        btn.textContent = '⬇️ Unduh Backup Sekarang';
+        btn.innerHTML = cbtIcon('download') + 'Unduh backup';
       }
     }
 
@@ -801,18 +782,18 @@
           ? `TOKEN: ${actives.map(e => `${e.token} (${e.subject})`).join(' • ')}`
           : `TOKEN: ${data.activeExam.token} (${mm}:${ss})`;
         document.getElementById('statToken').textContent = actives.map(e => e.token).join(' / ');
-        document.getElementById('statTokenTimer').textContent = `⏱ Otomatis ganti token baru dalam ${mm}:${ss}`;
+        document.getElementById('statTokenTimer').textContent = `Token baru dalam ${mm}:${ss}`;
         document.getElementById('statExamTitle').textContent = actives.map(e => {
           const pg = e.pg_count != null ? e.pg_count : data.pgCount;
           const es = e.esai_count != null ? e.esai_count : data.esaiCount;
-          return `${e.subject} (${e.class_target || 'Semua Kelas'}) • ${pg} PG & ${es} Esai`;
-        }).join('  |  ');
+          return `${e.subject} · ${e.class_target || 'Semua Kelas'} · ${pg} PG, ${es} esai`;
+        }).join('  /  ');
 
         const warnBox = document.getElementById('activeExamZeroWarning');
         if (warnBox) {
           const empty = actives.filter(e => Number(e.total_questions != null ? e.total_questions : (data.pgCount + data.esaiCount)) === 0);
           if (empty.length > 0) {
-            warnBox.style.display = 'block';
+            warnBox.style.display = 'flex';
             document.getElementById('warnExamSubject').textContent = empty.map(e => `${e.subject} (${e.title})`).join(', ');
           } else {
             warnBox.style.display = 'none';
@@ -825,10 +806,10 @@
         const selEx = document.getElementById('monExamFilter');
         if (selEx) {
           const prevEx = selEx.value;
-          let optExHtml = '<option value="ALL">🌐 Semua Ujian / Sesi Siswa</option>';
+          let optExHtml = '<option value="ALL">Semua ujian / sesi</option>';
           data.exams.forEach(e => {
-            const act = e.is_active ? ' ● Aktif' : '';
-            optExHtml += `<option value="${e.id}">${esc(e.subject)} (${e.total_questions || 0} Soal)${act}</option>`;
+            const act = e.is_active ? ' · aktif' : '';
+            optExHtml += `<option value="${e.id}">${esc(e.subject)} (${e.total_questions || 0} soal)${act}</option>`;
           });
           selEx.innerHTML = optExHtml;
           if (prevEx && (prevEx === 'ALL' || data.exams.some(e => String(e.id) === String(prevEx)))) {
@@ -849,7 +830,7 @@
         const selCls = document.getElementById('monClassFilter');
         if (selCls) {
           const currentVal = selCls.value;
-          selCls.innerHTML = '<option value="ALL">Semua Kelas</option>' + data.classes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+          selCls.innerHTML = '<option value="ALL">Semua kelas</option>' + data.classes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
           if (data.classes.includes(currentVal)) selCls.value = currentVal;
         }
         const dl = document.getElementById('classListDatalist');
@@ -866,18 +847,18 @@
         const safeName = s.full_name || '';
         return `
         <tr>
-          <td>Meja ${esc(s.seat_number)}</td>
-          <td><b>${esc(s.exam_number)}</b></td>
-          <td>${esc(s.nisn)}</td>
-          <td><b>${esc(s.full_name)}</b></td>
-          <td>${esc(s.birth_info || '-')}</td>
-          <td>
-            <b>${esc(s.class_name)}</b>
-            <div><button class="btn btn-sm btn-outline" style="font-size:12px;padding:4px 10px;margin-top:4px;" onclick="openChangeClassModal(${s.id}, '${escJs(safeName)}', '${escJs(s.class_name)}')">✏️ Pindah</button></div>
+          <td><span class="tag-mono">Meja ${esc(s.seat_number)}</span></td>
+          <td><span class="tag-mono">${esc(s.exam_number)}</span></td>
+          <td class="mono text-muted">${esc(s.nisn)}</td>
+          <td class="cell-name">${esc(s.full_name)}</td>
+          <td class="text-muted">${esc(s.birth_info || '-')}</td>
+          <td class="nowrap">
+            ${esc(s.class_name)}
+            <div class="cell-sub"><button class="btn-link" onclick="openChangeClassModal(${s.id}, '${escJs(safeName)}', '${escJs(s.class_name)}')">pindah kelas</button></div>
           </td>
-          <td>${esc(s.room)}</td>
-          <td><code>${s.password}</code></td>
-          <td><button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;padding:2px 7px;font-size:11px;" onclick="confirmDeleteStudent(${s.id}, '${escJs(safeName)}', '${escJs(s.exam_number)}')">🗑️ Hapus</button></td>
+          <td class="nowrap">${esc(s.room)}</td>
+          <td><code>${esc(s.password)}</code></td>
+          <td><button class="btn btn-xs btn-danger-outline" onclick="confirmDeleteStudent(${s.id}, '${escJs(safeName)}', '${escJs(s.exam_number)}')">${cbtIcon('trash')}Hapus</button></td>
         </tr>
       `;
       }).join('');
@@ -894,37 +875,33 @@
         const safeSubject = e.subject || '';
         const safeTarget = e.class_target || '';
         const qBadge = totalQ > 0
-          ? `<span class="badge badge-finished" title="${pgQ} PG, ${esaiQ} Esai">${totalQ} Soal (${pgQ} PG${esaiQ > 0 ? `, ${esaiQ} Esai` : ''})</span>`
-          : `<span class="badge" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca;">⚠️ 0 Soal</span>`;
+          ? `<span class="badge badge-neutral" title="${pgQ} PG, ${esaiQ} esai">${totalQ} soal · ${pgQ} PG${esaiQ > 0 ? `, ${esaiQ} esai` : ''}</span>`
+          : `<span class="badge badge-locked">0 soal</span>`;
 
         return `
         <tr>
           <td>
-            <b>${esc(e.subject)}</b>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px;">
-              Guru: <span style="color:#0f172a;font-weight:600;">${esc(e.teacher_name || 'Guru Mapel')}</span>
-            </div>
+            <div class="cell-name">${esc(e.subject)}</div>
+            <div class="cell-sub">${esc(e.teacher_name || 'Guru mapel')}</div>
           </td>
           <td>${esc(e.title)}</td>
-          <td><span class="badge" style="background:#f8fafc;border:1px solid #cbd5e1;color:#334155;">${esc(e.class_target || 'Semua Kelas')}</span></td>
+          <td><span class="badge badge-neutral">${esc(e.class_target || 'Semua Kelas')}</span></td>
           <td>
             ${qBadge}
-            <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">
-              ${totalQ > 0 ? `<button class="btn btn-sm btn-outline" style="font-size:11px;padding:2px 7px;" onclick="openPreviewQuestionsModal(${e.id})">👁️ Intip Soal</button>` : ''}
-              ${totalQ === 0 ? `<button class="btn btn-sm btn-outline" style="font-size:11px;padding:2px 7px;color:#d97706;border-color:#fcd34d;" onclick="openCopyQuestionsModal(${e.id}, '${escJs(safeSubject)}')">📋 Salin Soal</button>` : ''}
-              <button class="btn btn-sm btn-outline" style="font-size:11px;padding:2px 7px;" onclick="openUploadWordModal(${e.id}, '${escJs(safeSubject)}', '${escJs(safeTarget)}')">
-                📤 Upload Word
-              </button>
+            <div class="cell-actions" style="margin-top:6px;">
+              ${totalQ > 0 ? `<button class="btn btn-xs btn-outline" onclick="openPreviewQuestionsModal(${e.id})">${cbtIcon('eye')}Lihat soal</button>` : ''}
+              ${totalQ === 0 ? `<button class="btn btn-xs btn-outline" onclick="openCopyQuestionsModal(${e.id}, '${escJs(safeSubject)}')">${cbtIcon('copy')}Salin soal</button>` : ''}
+              <button class="btn btn-xs btn-outline" onclick="openUploadWordModal(${e.id}, '${escJs(safeSubject)}', '${escJs(safeTarget)}')">${cbtIcon('upload')}Unggah Word</button>
             </div>
           </td>
-          <td>${esc(e.session_name)} • ${e.duration_minutes} Menit</td>
-          <td><b style="color:var(--primary);">${e.token}</b></td>
-          <td>${e.is_active ? '<span class="badge badge-finished">● Aktif</span>' : '<span class="badge badge-idle">Nonaktif</span>'}</td>
+          <td class="nowrap">${esc(e.session_name)}<div class="cell-sub">${e.duration_minutes} menit</div></td>
+          <td><span class="tag-mono">${esc(e.token)}</span></td>
+          <td>${e.is_active ? '<span class="badge badge-working"><span class="live-dot"></span>Aktif</span>' : '<span class="badge badge-idle">Nonaktif</span>'}</td>
           <td>
-            <div style="display:flex;gap:4px;flex-wrap:wrap;">
-              ${!e.is_active ? `<button class="btn btn-sm ${totalQ > 0 ? 'btn-primary' : 'btn-outline'}" onclick="activateExam(${e.id}, ${totalQ})">${totalQ > 0 ? '⚡ Aktifkan' : 'Aktifkan (0 Soal)'}</button>` : ''}
-              <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;font-size:11px;padding:3px 8px;" onclick="confirmDeleteExam(${e.id}, '${escJs(safeSubject)}', ${totalQ})">🗑️ Hapus</button>
-              <a href="/guru.html" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px;padding:3px 8px;" title="Kelola butir soal di Panel Guru">Panel Guru ↗</a>
+            <div class="cell-actions">
+              ${!e.is_active ? `<button class="btn btn-xs ${totalQ > 0 ? 'btn-primary' : 'btn-outline'}" onclick="activateExam(${e.id}, ${totalQ})">${cbtIcon('play')}${totalQ > 0 ? 'Aktifkan' : 'Aktifkan (0 soal)'}</button>` : ''}
+              <button class="btn btn-xs btn-danger-outline" onclick="confirmDeleteExam(${e.id}, '${escJs(safeSubject)}', ${totalQ})">${cbtIcon('trash')}Hapus</button>
+              <a href="/guru.html" target="_blank" class="btn btn-xs btn-ghost" title="Kelola butir soal di panel guru">${cbtIcon('external')}Panel guru</a>
             </div>
           </td>
         </tr>
@@ -934,13 +911,13 @@
       // Render tabel staf
       document.getElementById('staffTableBody').innerHTML = data.staff.map(u => `
         <tr>
-          <td><span class="badge badge-working">${u.role.toUpperCase()}</span></td>
-          <td><b>${esc(u.full_name)}</b></td>
+          <td><span class="badge ${u.role === 'operator' ? 'badge-working' : 'badge-neutral'}">${({ operator: 'Operator', guru: 'Guru', pengawas: 'Pengawas' })[u.role] || esc(u.role)}</span></td>
+          <td class="cell-name">${esc(u.full_name)}</td>
           <td><code>${esc(u.username)}</code></td>
           <td>${esc(u.subject || u.room || '-')}</td>
-          <td>
-            <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;margin-right:4px;" onclick="openEditStaffModal(${u.id}, '${escJs(u.full_name)}', '${escJs(u.username)}', '${u.role}', '${escJs(u.subject || u.room || '')}')">✏️ Edit</button>
-            ${u.role !== 'operator' ? `<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#fca5a5;padding:2px 8px;font-size:11px;" onclick="confirmDeleteStaff(${u.id}, '${escJs(u.full_name)}', '${u.role}')">Hapus</button>` : ''}
+          <td class="cell-actions">
+            <button class="btn btn-xs btn-outline" onclick="openEditStaffModal(${u.id}, '${escJs(u.full_name)}', '${escJs(u.username)}', '${u.role}', '${escJs(u.subject || u.room || '')}')">${cbtIcon('pencil')}Ubah</button>
+            ${u.role !== 'operator' ? `<button class="btn btn-xs btn-danger-outline" onclick="confirmDeleteStaff(${u.id}, '${escJs(u.full_name)}', '${u.role}')">${cbtIcon('trash')}Hapus</button>` : ''}
           </td>
         </tr>
       `).join('');
@@ -955,37 +932,39 @@
         : currentMonitoringList.filter(m => m.class_name === filterCls);
 
       mBody.innerHTML = filtered.map(m => {
-        let badge = '<span class="badge badge-idle">Belum Login</span>';
-        if (m.status === 'WORKING') badge = `<span class="badge badge-working">● Soal No. ${m.current_question_number || 1}</span>`;
-        if (m.status === 'FINISHED') badge = '<span class="badge badge-finished">✓ Selesai</span>';
-        if (m.status === 'LOCKED') badge = '<span class="badge badge-locked">🔒 TERKUNCI</span>';
+        let badge = '<span class="badge badge-idle">Belum login</span>';
+        if (m.status === 'WORKING') badge = `<span class="badge badge-working"><span class="live-dot"></span>Soal ${m.current_question_number || 1}</span>`;
+        if (m.status === 'FINISHED') badge = '<span class="badge badge-finished">Selesai</span>';
+        if (m.status === 'LOCKED') badge = `<span class="badge badge-locked">${cbtIcon('lock')}Terkunci</span>`;
 
         const subjBadge = (m.exam_subject && m.exam_subject !== '-')
-          ? `<div style="font-size:11px;font-weight:700;color:var(--primary);margin-top:2px;">[${esc(m.exam_subject)}]</div>`
+          ? `<div class="cell-sub">${esc(m.exam_subject)}</div>`
           : '';
         const recentStr = (m.recent_choices || []).slice(-6).map(c => `${c.number}:${c.chosen}`).join(' ');
         const safeName = m.full_name || '';
         return `
           <tr>
-            <td><b>${esc(m.exam_number)}</b></td>
-            <td><b>${esc(m.full_name)}</b><br><span style="font-size:11px;color:var(--muted);">Meja ${esc(m.seat_number)}</span></td>
-            <td>
-              <b>${esc(m.class_name)}</b> • ${esc(m.room)}
-              <div><button class="btn btn-sm btn-outline" style="font-size:12px;padding:4px 10px;margin-top:4px;" onclick="openChangeClassModal(${m.student_id}, '${escJs(safeName)}', '${escJs(m.class_name)}')">✏️ Pindah</button></div>
+            <td><span class="tag-mono">${esc(m.exam_number)}</span></td>
+            <td><div class="cell-name">${esc(m.full_name)}</div><div class="cell-sub">Meja ${esc(m.seat_number)}</div></td>
+            <td class="nowrap">
+              ${esc(m.class_name)}
+              <div class="cell-sub">${esc(m.room)} · <button class="btn-link" onclick="openChangeClassModal(${m.student_id}, '${escJs(safeName)}', '${escJs(m.class_name)}')">pindah kelas</button></div>
             </td>
             <td>${badge}${subjBadge}</td>
             <td>
-              <b>${m.answered_pg} / ${m.total_pg} PG</b>
-              ${recentStr ? `<div style="font-size:11px;color:var(--primary);font-family:monospace;">[${recentStr}]</div>` : ''}
+              <span class="mono">${m.answered_pg} / ${m.total_pg}</span>
+              ${recentStr ? `<div class="cell-sub mono">${recentStr}</div>` : ''}
             </td>
-            <td style="color:${m.violation_count > 0 ? 'var(--red)' : 'var(--muted)'};font-weight:700;">
-              ${m.violation_count > 0 ? `⚠️ ${m.violation_count}x Keluar App` : 'Aman (0)'}
+            <td class="nowrap ${m.violation_count > 0 ? 'text-red' : 'text-muted'}">
+              ${m.violation_count > 0 ? `${m.violation_count}× keluar aplikasi` : 'Aman'}
             </td>
-            <td><b style="color:var(--green);font-size:14px;">${m.score}</b></td>
-            <td style="display:flex;gap:6px;flex-wrap:wrap;">
-              ${m.session_id ? `<button class="btn btn-sm btn-primary" onclick="openWorkMonitor(${m.session_id})">👁️ Pantau Kerja</button>` : ''}
-              ${m.status === 'LOCKED' ? `<button class="btn btn-sm btn-red" onclick="unlockSession(${m.session_id})">🔓 Buka Kunci</button>` : ''}
-              ${m.session_id ? `<button class="btn btn-sm btn-outline" onclick="resetSession(${m.session_id})">Reset Login</button>` : '-'}
+            <td class="mono text-strong">${m.score}</td>
+            <td>
+              <div class="cell-actions">
+                ${m.session_id ? `<button class="btn btn-xs btn-outline" onclick="openWorkMonitor(${m.session_id})">${cbtIcon('eye')}Pantau</button>` : ''}
+                ${m.status === 'LOCKED' ? `<button class="btn btn-xs btn-red" onclick="unlockSession(${m.session_id})">${cbtIcon('unlock')}Buka kunci</button>` : ''}
+                ${m.session_id ? `<button class="btn btn-xs btn-ghost" onclick="resetSession(${m.session_id})">Reset login</button>` : '<span class="text-muted">-</span>'}
+              </div>
             </td>
           </tr>
         `;
@@ -998,7 +977,30 @@
       document.getElementById('ccCurrentClass').textContent = currentClass;
       document.getElementById('ccNewClass').value = '';
       document.getElementById('ccResetExam').checked = true;
+
+      // Pilihan kelas tujuan sebagai tombol (pengganti daftar saran bawaan browser yang tidak bisa dirapikan)
+      const norm = v => String(v || '').trim().toUpperCase();
+      const classes = ((currentOverview && currentOverview.classes) || []).filter(c => norm(c) !== norm(currentClass));
+      document.getElementById('ccClassChips').innerHTML = classes.length
+        ? classes.map(c => `<button type="button" class="class-chip" data-class="${esc(c)}" onclick="pickChangeClass('${escJs(c)}')">${esc(c)}</button>`).join('')
+        : '<span class="hint" style="margin:0;">Belum ada kelas lain di data siswa, ketik nama kelas tujuan</span>';
+
       document.getElementById('changeClassModal').style.display = 'flex';
+    }
+
+    function pickChangeClass(cls) {
+      const inp = document.getElementById('ccNewClass');
+      inp.value = cls;
+      syncChangeClassChips();
+    }
+
+    function syncChangeClassChips() {
+      const val = document.getElementById('ccNewClass').value.trim().toUpperCase();
+      document.querySelectorAll('#ccClassChips .class-chip').forEach(btn => {
+        const on = String(btn.dataset.class || '').toUpperCase() === val;
+        btn.classList.toggle('is-on', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
     }
 
     function closeChangeClassModal() {
@@ -1157,13 +1159,13 @@
       const msg = document.getElementById('studentImportMsg');
       msg.style.display = 'block';
       if (res.ok) {
-        msg.style.color = '#059669';
-        msg.textContent = `✓ Berhasil mengimpor ${data.importedCount} data peserta ujian!`;
+        msg.style.color = 'var(--primary)';
+        msg.textContent = `${data.importedCount} data peserta berhasil diimpor`;
         inp.value = '';
         loadOverview();
       } else {
-        msg.style.color = '#dc2626';
-        msg.textContent = `⚠️ ${data.error || 'Gagal mengimpor Excel'}`;
+        msg.style.color = 'var(--red)';
+        msg.textContent = data.error || 'Gagal mengimpor Excel';
       }
     }
 
@@ -1171,21 +1173,16 @@
       const res = await fetch(`/api/pengawas/student-work/${sessionId}`, { headers: authHeaders() });
       if (!res.ok) return;
       const data = await res.json();
-      document.getElementById('wmStudentTitle').textContent = `👁️ Pantau Kerja: ${data.student.full_name} (Meja ${data.student.seat_number} • ${data.student.room})`;
-      document.getElementById('wmStudentSub').textContent = `Sedang di Soal Nomor ${data.session.current_question_number || 1} • Status: ${data.session.status} • Pelanggaran: ${data.session.violation_count}x`;
+      document.getElementById('wmStudentTitle').textContent = `${data.student.full_name} · Meja ${data.student.seat_number} · ${data.student.room}`;
+      document.getElementById('wmStudentSub').textContent = `Sedang di soal ${data.session.current_question_number || 1} · status ${data.session.status} · ${data.session.violation_count}× keluar aplikasi`;
 
       document.getElementById('wmBody').innerHTML = `
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px;">
+        <div class="wm-grid">
           ${data.workDetail.map(w => `
-            <div style="border:1.5px solid ${w.is_current ? '#2563eb' : (w.essay_answered || w.chosen_option) ? '#86efac' : '#e2e8f0'};background:${w.is_current ? '#eff6ff' : (w.essay_answered || w.chosen_option) ? '#f0fdf4' : '#fff'};border-radius:10px;padding:8px 10px;font-size:12px;">
-              <div style="display:flex;justify-content:space-between;font-weight:800;">
-                <span>No. ${w.number} (${w.type})</span>
-                <span style="color:${(w.essay_answered || w.chosen_option) ? '#15803d' : '#94a3b8'};">
-                  ${w.type === 'ESAI' ? (w.essay_answered ? '✓ Dijawab (kertas)' : 'Belum ditandai') : (w.chosen_option ? 'Jawab: ' + w.chosen_option : 'Kosong')}
-                </span>
-              </div>
-              ${w.is_current ? '<div style="font-size:12px;color:#2563eb;font-weight:700;margin-top:3px;">👀 Sedang Dilihat Siswa</div>' : ''}
-
+            <div class="wm-cell${(w.essay_answered || w.chosen_option) ? ' is-answered' : ''}${w.is_current ? ' is-current' : ''}">
+              <div class="wm-no">${w.number} <span class="text-muted" style="font-weight:400;">${w.type === 'ESAI' ? 'esai' : 'PG'}</span></div>
+              <div class="wm-ans">${w.type === 'ESAI' ? (w.essay_answered ? 'Dijawab di kertas' : 'Belum ditandai') : (w.chosen_option ? 'Jawab ' + esc(w.chosen_option) : 'Kosong')}</div>
+              ${w.is_current ? '<div class="wm-now">Sedang dibuka</div>' : ''}
             </div>
           `).join('')}
         </div>
@@ -1227,7 +1224,7 @@
     function confirmDeleteStudent(id, name, examNo) {
       showConfirmDelete(
         'Hapus Data Siswa Peserta',
-        `Apakah Anda yakin ingin menghapus siswa:<br><b style="font-size:15px;color:var(--dark);">${name}</b><br><span style="font-size:12px;color:var(--muted);">No. Peserta: ${examNo || '-'}</span><br><br><span style="font-size:12px;color:#dc2626;font-weight:600;">⚠️ Riwayat jawaban dan sesi login siswa ini akan dihapus permanen.</span>`,
+        `Yakin ingin menghapus siswa <b>${esc(name)}</b> <span class="tag-mono">${esc(examNo || '-')}</span>?<div class="notice notice-danger" style="margin-top:12px;text-align:left;">$1</div>`,
         async () => {
           await fetch(`/api/operator/students/${id}`, { method: 'DELETE', headers: authHeaders() });
           loadOverview();
@@ -1278,7 +1275,7 @@
       const res = await fetch(`/api/operator/exams/${id}/activate`, { method: 'POST', headers: authHeaders() });
       const data = await res.json();
       if (data.autoCopiedQuestions > 0) {
-        cbtAlert(`✅ Paket ujian diaktifkan! Otomatis menyalin ${data.autoCopiedQuestions} butir soal dari bank soal yang tersedia.`);
+        cbtAlert(`Paket ujian diaktifkan. ${data.autoCopiedQuestions} butir soal disalin otomatis dari bank soal yang tersedia.`, 'success');
       }
       loadOverview();
     }
@@ -1330,12 +1327,12 @@
 
     function confirmDeleteExam(id, subject, totalQ) {
       const warnSoal = totalQ > 0
-        ? `<br><br><span style="font-size:12.5px;color:#dc2626;font-weight:700;background:#fef2f2;padding:6px 10px;border-radius:6px;display:inline-block;border:1px solid #fecaca;">⚠️ PERINGATAN: Paket ini berisi ${totalQ} butir soal! Seluruh butir soal dan data nilai siswa akan ikut terhapus permanen.</span>`
-        : `<br><span style="font-size:12px;color:var(--muted);">(Paket ini masih 0 soal / kosong)</span>`;
+        ? `<div class="notice notice-danger" style="margin-top:12px;text-align:left;">Paket ini berisi ${totalQ} butir soal. $1</div>`
+        : `<div class="hint">Paket ini masih kosong (0 soal)</div>`;
 
       showConfirmDelete(
         'Hapus Jadwal Ujian',
-        `Apakah Anda yakin ingin menghapus jadwal ujian:<br><b style="font-size:15px;color:var(--dark);">${subject}</b>${warnSoal}`,
+        `Yakin ingin menghapus jadwal ujian <b>${esc(subject)}</b>?${warnSoal}`,
         async () => {
           try {
             const res = await fetch(`/api/operator/exams/${id}`, {
@@ -1364,14 +1361,14 @@
       if (!sel) return;
       const prevVal = sel.value;
 
-      let html = '<option value="">-- Pilih Mata Pelajaran / Bank Soal dari Panel Guru --</option>';
+      let html = '<option value="">Pilih mata pelajaran atau bank soal dari panel guru</option>';
 
       if (exams && exams.length) {
-        html += '<optgroup label="📦 Bank Soal Guru Tersedia">';
+        html += '<optgroup label="Bank soal guru">';
         exams.forEach(e => {
           const totalQ = Number(e.total_questions || 0);
           const teacher = e.teacher_name ? `Guru: ${esc(e.teacher_name)}` : 'Guru Mapel';
-          const status = totalQ > 0 ? `✅ ${totalQ} Soal SIAP (${e.pg_count} PG, ${e.esai_count} Esai)` : '⚠️ 0 Soal (Kosong)';
+          const status = totalQ > 0 ? `${totalQ} soal siap (${e.pg_count} PG, ${e.esai_count} esai)` : '0 soal (kosong)';
           html += `<option value="exam:${e.id}">${esc(e.subject)} — ${esc(e.title)} [${teacher}] • ${status}</option>`;
         });
         html += '</optgroup>';
@@ -1380,16 +1377,16 @@
       if (teachers && teachers.length) {
         const uniqueSubjs = [...new Set(teachers.map(t => t.subject).filter(Boolean))];
         if (uniqueSubjs.length) {
-          html += '<optgroup label="📚 Mata Pelajaran Pengampu Guru">';
+          html += '<optgroup label="Mata pelajaran guru">';
           uniqueSubjs.forEach(s => {
             const tNames = teachers.filter(t => t.subject === s).map(t => t.full_name).join(', ');
-            html += `<option value="subj:${esc(s)}">Mata Pelajaran: ${esc(s)} (${esc(tNames)})</option>`;
+            html += `<option value="subj:${esc(s)}">${esc(s)} (${esc(tNames)})</option>`;
           });
           html += '</optgroup>';
         }
       }
 
-      html += '<option value="CUSTOM">+ Ketik Mata Pelajaran Baru Manual</option>';
+      html += '<option value="CUSTOM">Ketik mata pelajaran baru</option>';
       sel.innerHTML = html;
       if (prevVal) sel.value = prevVal;
     }
@@ -1416,11 +1413,9 @@
         subjInp.value = subjName;
         titleInp.value = `Ujian ${subjName}`;
         if (banner) {
-          banner.style.display = 'block';
-          banner.style.background = '#eff6ff';
-          banner.style.border = '1px solid #bfdbfe';
-          banner.style.color = '#1e40af';
-          banner.innerHTML = `ℹ️ Jadwal baru untuk mata pelajaran <b>${subjName}</b>. Guru mapel dapat mengunggah soal di Panel Guru atau Anda dapat mengunggah file Word di bawah.`;
+          banner.style.display = 'flex';
+          banner.className = 'notice notice-info';
+          banner.innerHTML = cbtIcon('info') + `<span>Jadwal baru untuk <b>${esc(subjName)}</b>. Guru mapel bisa mengunggah soal di panel guru, atau unggah file Word dari daftar jadwal di bawah.</span>`;
         }
         return;
       }
@@ -1439,17 +1434,13 @@
           const totalQ = Number(exam.total_questions || 0);
           const teacher = exam.teacher_name || 'Guru Mapel';
           if (banner) {
-            banner.style.display = 'block';
+            banner.style.display = 'flex';
             if (totalQ > 0) {
-              banner.style.background = '#ecfdf5';
-              banner.style.border = '1px solid #a7f3d0';
-              banner.style.color = '#065f46';
-              banner.innerHTML = `✅ <b>Soal Sudah Dibuat & Siap:</b> ${totalQ} Butir Soal (${exam.pg_count} Pilihan Ganda & ${exam.esai_count} Esai) oleh Bpk/Ibu <b>${teacher}</b>. Klik tombol di bawah untuk mengaktifkan sesi ujian ini.`;
+              banner.className = 'notice notice-info';
+              banner.innerHTML = cbtIcon('check') + `<span><b>Soal siap:</b> ${totalQ} butir (${exam.pg_count} pilihan ganda, ${exam.esai_count} esai) dari ${esc(teacher)}. Simpan jadwal di bawah untuk mengaktifkan sesi ujian ini.</span>`;
             } else {
-              banner.style.background = '#fef2f2';
-              banner.style.border = '1px solid #fecaca';
-              banner.style.color = '#991b1b';
-              banner.innerHTML = `⚠️ <b>Perhatian:</b> Paket soal ini dibuat oleh <b>${teacher}</b> namun masih <b>0 Soal</b> (Guru belum mengunggah soal).`;
+              banner.className = 'notice notice-danger';
+              banner.innerHTML = cbtIcon('alert') + `<span>Paket soal dari <b>${esc(teacher)}</b> masih <b>0 soal</b>, guru belum mengunggah soal.</span>`;
             }
           }
         }
@@ -1474,38 +1465,38 @@
         const esaiCount = questions.filter(q => q.type === 'ESAI').length;
 
         headerInfo.innerHTML = `
-          <div>Mata Pelajaran: <b style="font-size:15px;color:var(--dark);">${esc(exam.subject || '-')}</b> (${esc(exam.title || '-')})</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px;">Target Kelas: <b>${esc(exam.class_target || 'Semua Kelas')}</b> • Durasi: <b>${exam.duration_minutes || 90} Menit</b></div>
-          <div style="margin-top:6px;display:flex;gap:8px;align-items:center;">
-            <span class="badge badge-finished">${questions.length} Total Soal</span>
-            <span class="badge" style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;">${pgCount} PG</span>
-            <span class="badge" style="background:#fefce8;color:#854d0e;border:1px solid #fef08a;">${esaiCount} Esai</span>
+          <div class="text-strong">${esc(exam.subject || '-')} <span class="text-muted" style="font-weight:400;">· ${esc(exam.title || '-')}</span></div>
+          <div class="text-muted" style="font-size:12px;">Kelas ${esc(exam.class_target || 'Semua Kelas')} · ${exam.duration_minutes || 90} menit</div>
+          <div class="row" style="margin-top:8px;">
+            <span class="badge badge-neutral">${questions.length} soal</span>
+            <span class="badge badge-neutral">${pgCount} PG</span>
+            <span class="badge badge-neutral">${esaiCount} esai</span>
           </div>
         `;
 
         if (!questions.length) {
-          listContainer.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;">Belum ada butir soal yang diunggah oleh guru pada paket ujian ini.</div>';
+          listContainer.innerHTML = '<div class="text-muted" style="text-align:center;padding:24px;font-size:13px;">Guru belum mengunggah soal untuk paket ini</div>';
           return;
         }
 
         listContainer.innerHTML = questions.map(q => {
           const isPg = q.type === 'PG';
           return `
-            <div class="card" style="margin:0;padding:12px;background:#ffffff;border:1px solid #e2e8f0;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-weight:700;font-size:13px;color:var(--dark);">No. ${q.number} <span class="badge ${isPg ? 'badge-finished' : 'badge-working'}" style="font-size:10px;padding:1px 6px;">${q.type}</span></span>
-                ${isPg && q.answer_key ? `<span class="badge" style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;font-weight:700;">Kunci: ${q.answer_key}</span>` : ''}
+            <div class="q-card">
+              <div class="row-between">
+                <span class="row"><span class="tag-mono">${q.number}</span><span class="badge badge-neutral">${isPg ? 'PG' : 'Esai'}</span></span>
+                ${isPg && q.answer_key ? `<span class="badge badge-working">Kunci ${esc(q.answer_key)}</span>` : ''}
               </div>
-              <div style="font-size:13px;color:#1e293b;line-height:1.5;margin-bottom:8px;">${esc(q.question_text || '')}</div>
+              <div class="q-text">${esc(q.question_text || '')}</div>
               ${isPg ? `
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px;">
-                  <div style="${q.answer_key === 'A' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">A. ${esc(q.option_a || '-')}</div>
-                  <div style="${q.answer_key === 'B' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">B. ${esc(q.option_b || '-')}</div>
-                  <div style="${q.answer_key === 'C' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">C. ${esc(q.option_c || '-')}</div>
-                  <div style="${q.answer_key === 'D' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">D. ${esc(q.option_d || '-')}</div>
-                  ${q.option_e ? `<div style="${q.answer_key === 'E' ? 'font-weight:700;color:#065f46;background:#f0fdf4;padding:3px 6px;border-radius:4px;' : 'color:#475569;'}">E. ${esc(q.option_e)}</div>` : ''}
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+                  <div class="q-opt${q.answer_key === 'A' ? ' is-key' : ''}">A. ${esc(q.option_a || '-')}</div>
+                  <div class="q-opt${q.answer_key === 'B' ? ' is-key' : ''}">B. ${esc(q.option_b || '-')}</div>
+                  <div class="q-opt${q.answer_key === 'C' ? ' is-key' : ''}">C. ${esc(q.option_c || '-')}</div>
+                  <div class="q-opt${q.answer_key === 'D' ? ' is-key' : ''}">D. ${esc(q.option_d || '-')}</div>
+                  ${q.option_e ? `<div class="q-opt${q.answer_key === 'E' ? ' is-key' : ''}">E. ${esc(q.option_e)}</div>` : ''}
                 </div>
-              ` : '<div style="font-size:11.5px;color:var(--muted);font-style:italic;">(Lembar Jawaban Kertas Difoto oleh Siswa)</div>'}
+              ` : '<div class="hint" style="margin:0;">Dijawab siswa di lembar kertas</div>'}
             </div>
           `;
         }).join('');
@@ -1524,8 +1515,8 @@
       if (sel) {
         const prevVal = sel.value;
         sel.innerHTML = `
-          <option value="">-- Pilih Kelas dari Data Siswa --</option>
-          <option value="Semua Kelas">🌟 Semua Kelas (Seluruh Siswa)</option>
+          <option value="">Pilih kelas dari data siswa</option>
+          <option value="Semua Kelas">Semua kelas (seluruh siswa)</option>
           ${currentClassesList.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}
         `;
         if (prevVal) sel.value = prevVal;
@@ -1534,18 +1525,14 @@
       const chipsBox = document.getElementById('classChipsContainer');
       if (chipsBox) {
         if (!currentClassesList || currentClassesList.length === 0) {
-          chipsBox.innerHTML = '<span style="font-size:11.5px;color:#94a3b8;">(Belum ada data siswa/kelas yang diimpor)</span>';
+          chipsBox.innerHTML = '<span class="hint" style="margin:0;">Belum ada data kelas, impor data siswa dulu</span>';
           return;
         }
         const currentSelected = (document.getElementById('exClass')?.value || '').split(',').map(s => s.trim().toUpperCase());
         chipsBox.innerHTML = currentClassesList.map(c => {
           const isSelected = currentSelected.includes(c.toUpperCase());
           return `
-            <button type="button" class="btn btn-sm" 
-              style="font-size:11.5px;padding:2px 8px;border-radius:12px;background:${isSelected ? 'var(--primary)' : '#f1f5f9'};color:${isSelected ? '#ffffff' : '#334155'};border:1px solid ${isSelected ? 'var(--primary)' : '#cbd5e1'};cursor:pointer;"
-              onclick="toggleClassChip('${c}')">
-              ${isSelected ? '✓ ' : '+ '}${c}
-            </button>
+            <button type="button" class="class-chip${isSelected ? ' is-on' : ''}" aria-pressed="${isSelected}" onclick="toggleClassChip('${escJs(c)}')">${esc(c)}</button>
           `;
         }).join('');
       }
@@ -1613,7 +1600,7 @@
       const btn = document.getElementById('btnSubmitOpWord');
       const origText = btn.innerHTML;
       btn.disabled = true;
-      btn.innerHTML = '⏳ Memproses & Mengekstrak Soal...';
+      btn.innerHTML = 'Memproses soal...';
 
       const formData = new FormData();
       formData.append('file', fileInp.files[0]);
@@ -1629,14 +1616,14 @@
         const msg = document.getElementById('opImportResultMsg');
         msg.style.display = 'block';
         if (res.ok) {
-          msg.style.color = '#065f46';
-          msg.textContent = `✓ Berhasil mengimpor ${data.importedCount} soal (${data.pgCount} Pilihan Ganda & ${data.esaiCount} Soal Esai)!`;
+          msg.style.color = 'var(--primary)';
+          msg.textContent = `${data.importedCount} soal berhasil diimpor (${data.pgCount} pilihan ganda, ${data.esaiCount} esai)`;
           fileInp.value = '';
           await loadOverview();
           setTimeout(() => { closeUploadWordModal(); }, 1800);
         } else {
-          msg.style.color = '#dc2626';
-          msg.textContent = `⚠️ ${data.error || 'Gagal mengimpor file Word'}`;
+          msg.style.color = 'var(--red)';
+          msg.textContent = data.error || 'Gagal mengimpor file Word';
         }
       } catch (err) {
         cbtAlert('Gagal menghubungi server. Pastikan server aktif.');
@@ -1676,7 +1663,7 @@
     function confirmDeleteStaff(id, name, role) {
       showConfirmDelete(
         'Hapus Akun Staf',
-        `Apakah Anda yakin ingin menghapus akun ${(role || '').toUpperCase()} atas nama:<br><b style="font-size:15px;color:var(--dark);">${name}</b>?`,
+        `Yakin ingin menghapus akun ${esc(role || 'staf')} atas nama <b>${esc(name)}</b>?`,
         async () => {
           const res = await fetch(`/api/operator/staff/${id}`, { method: 'DELETE', headers: authHeaders() });
           if (res.ok) {

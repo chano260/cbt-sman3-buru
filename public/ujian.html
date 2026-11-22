@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Portal Ujian CBT — SMA Negeri 3 Buru</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="exambppp-body" oncontextmenu="return false;">
@@ -16,7 +19,7 @@
       <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px;">
         <div class="brand-logo" style="width:38px;height:38px;border-radius:10px;font-size:15px;background:#4f7774;box-shadow:none;">S3</div>
         <div style="text-align:left;">
-          <div style="font-size:16px;font-weight:800;color:#0f2d2a;line-height:1.2;">SMA NEGERI 3 BURU</div>
+          <div style="font-size:16px;font-weight:600;color:#0f2d2a;line-height:1.2;">SMA NEGERI 3 BURU</div>
           <div style="font-size:11.5px;color:#64748b;font-weight:600;">Portal Evaluasi & Ujian CBT</div>
         </div>
       </div>
@@ -64,7 +67,7 @@
     <header class="exambppp-top-header">
       <div style="display:flex;align-items:center;gap:8px;">
         <div class="brand-logo" style="width:28px;height:28px;border-radius:7px;font-size:11px;background:#4f7774;box-shadow:none;">S3</div>
-        <span style="font-size:13px;font-weight:800;color:#0f2d2a;">CBT SMAN 3 BURU</span>
+        <span style="font-size:13px;font-weight:600;color:#0f2d2a;">CBT SMAN 3 BURU</span>
       </div>
       <div class="exambppp-rec-badge">
         <span class="exambppp-rec-dot"></span>
@@ -74,7 +77,7 @@
 
     <div class="exambppp-container">
       <div class="exambppp-data-card">
-        <div style="font-size:18px;font-weight:800;color:#1e3d3b;margin-bottom:2px;">Konfirmasi Identitas Peserta</div>
+        <div style="font-size:18px;font-weight:600;color:#1e3d3b;margin-bottom:2px;">Konfirmasi Identitas Peserta</div>
         <div style="font-size:13px;color:#64748b;margin-bottom:16px;">Selamat Datang di Lembar Ujian CBT SMAN 3 Buru</div>
 
         <table class="exambppp-table">
@@ -114,7 +117,7 @@
 
         <!-- PERINGATAN CEK PINDAH KELAS -->
         <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:9px;padding:11px 13px;font-size:12px;color:#92400e;margin-bottom:14px;line-height:1.55;">
-          <b>⚠️ Periksa Data Kelas Anda:</b> Pastikan Kelas di atas sesuai dengan ruang kelas belajar Anda saat ini. Jika Anda sudah <b>pindah kelas</b> dan data di atas masih kelas lama, <b>segera lapor ke Pengawas Ruangan</b> agar dipindahkan sebelum menekan Lanjutkan.
+          <b>Periksa data kelas Anda.</b> Pastikan Kelas di atas sesuai dengan ruang kelas belajar Anda saat ini. Jika Anda sudah <b>pindah kelas</b> dan data di atas masih kelas lama, <b>segera lapor ke Pengawas Ruangan</b> agar dipindahkan sebelum menekan Lanjutkan.
         </div>
 
         <div class="exambppp-rules-box">
@@ -124,7 +127,7 @@
           2. Membawa catatan/mencontek<br>
           3. Mendokumentasi soal.<br><br>
           Jika Anda mengalami <b>KENDALA</b> segera hubungi pengawas masing-masing.<br>
-          <b>Selamat Mengerjakan!</b>
+          <b>Selamat mengerjakan</b>
         </div>
 
         <button class="exambppp-btn-teal" onclick="openModalConfirmData()">
@@ -159,7 +162,7 @@
     <header class="exambppp-top-header">
       <div style="display:flex;align-items:center;gap:8px;">
         <div class="brand-logo" style="width:28px;height:28px;border-radius:7px;font-size:11px;background:#4f7774;box-shadow:none;">S3</div>
-        <span style="font-size:13px;font-weight:800;color:#0f2d2a;">CBT SMAN 3 BURU</span>
+        <span style="font-size:13px;font-weight:600;color:#0f2d2a;">CBT SMAN 3 BURU</span>
       </div>
       <div class="exambppp-rec-badge">
         <span class="exambppp-rec-dot"></span>
@@ -177,7 +180,7 @@
 
     <div class="exambppp-container">
       <div class="exambppp-data-card">
-        <div style="font-size:14px;font-weight:800;color:#0f2d2a;margin-bottom:12px;letter-spacing:0.04em;">PETUNJUK</div>
+        <div style="font-size:15px;font-weight:600;color:#0f2d2a;margin-bottom:12px;">Petunjuk</div>
         <div style="font-size:13px;color:#334155;line-height:1.7;margin-bottom:16px;">
           1. Periksa dan bacalah soal-soal dengan teliti sebelum Anda menjawabnya.<br>
           2. Untuk soal Pilihan Ganda, pilih salah satu pilihan jawaban dengan menekan pilihan pada lingkaran yang sesuai.<br>
@@ -203,7 +206,7 @@
           <label for="inpSubtestToken" class="exambppp-label" style="text-align:center;color:#0f2d2a;font-weight:700;margin-bottom:8px;">
             Masukkan Token Ujian
           </label>
-          <input id="inpSubtestToken" type="text" maxlength="8" class="exambppp-input" style="text-align:center;font-size:22px;font-weight:900;letter-spacing:0.25em;text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;" placeholder="TOKEN" oninput="toggleAgreeButton()" autocomplete="off">
+          <input id="inpSubtestToken" type="text" maxlength="8" class="exambppp-input" style="text-align:center;font-size:22px;font-weight:600;letter-spacing:0.25em;text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;" placeholder="TOKEN" oninput="toggleAgreeButton()" autocomplete="off">
           <div id="subtestTokenErr" style="color:#e11d48;font-size:12px;font-weight:600;margin-top:6px;text-align:center;display:none;"></div>
         </div>
 
@@ -239,8 +242,8 @@
 
       <!-- KOTAK TOKEN YANG MUNCUL SETELAH DICEKLIS -->
       <div id="boxRevealedToken" style="display:none;background:#ecfdf5;border:1.5px solid #a7f3d0;border-radius:10px;padding:14px;margin-top:14px;text-align:center;">
-        <div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">TOKEN UJIAN AKTIF ANDA</div>
-        <div id="revealedTokenVal" style="font-size:26px;font-weight:900;letter-spacing:0.22em;color:#065f46;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin-bottom:10px;">------</div>
+        <div style="font-size:13px;font-weight:500;color:#047857;margin-bottom:4px;">Token ujian aktif Anda</div>
+        <div id="revealedTokenVal" style="font-size:26px;font-weight:600;letter-spacing:0.22em;color:#065f46;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin-bottom:10px;">------</div>
         <button type="button" class="exambppp-btn-teal" style="background:#059669;padding:10px;font-size:13px;" onclick="applyRevealedToken()">
           <span>Gunakan Token Ini & Mulai Ujian &rarr;</span>
         </button>
@@ -275,7 +278,7 @@
       <div style="display:flex;align-items:center;gap:10px;">
         <div class="brand-logo" style="width:28px;height:28px;border-radius:7px;font-size:11px;background:#4f7774;box-shadow:none;">S3</div>
         <div>
-          <div style="font-size:13px;font-weight:800;color:#0f2d2a;" id="hdrStudentName">-</div>
+          <div style="font-size:13px;font-weight:600;color:#0f2d2a;" id="hdrStudentName">-</div>
           <div style="font-size:11px;color:#64748b;" id="hdrExamInfo">-</div>
         </div>
       </div>
@@ -288,7 +291,7 @@
     <!-- SUB-BAR SOAL: NOMOR SOAL + ZOOM TEKS + SISA WAKTU (PDF Hal 10) -->
     <div class="exambppp-exam-subbar">
       <div style="display:flex;align-items:center;gap:12px;">
-        <span style="font-size:13.5px;font-weight:800;color:#0f2d2a;" id="subbarQuestionNumber">Soal Nomor 1</span>
+        <span style="font-size:13.5px;font-weight:600;color:#0f2d2a;" id="subbarQuestionNumber">Soal Nomor 1</span>
         <div class="exambppp-zoom-group">
           <button class="exambppp-zoom-btn" title="Perkecil Ukuran Teks" onclick="changeFontSize(-1)">Q-</button>
           <button class="exambppp-zoom-btn" title="Perbesar Ukuran Teks" onclick="changeFontSize(1)">Q+</button>
@@ -310,7 +313,7 @@
     <div id="daftarSoalDrawer" class="exambppp-drawer-overlay" onclick="toggleDaftarSoal(false)">
       <div class="exambppp-drawer-card" onclick="event.stopPropagation()">
         <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:10px;">
-          <div style="font-size:14px;font-weight:800;color:#0f2d2a;">DAFTAR SOAL</div>
+          <div style="font-size:15px;font-weight:600;color:#0f2d2a;">Daftar soal</div>
           <button class="bp3-icon-btn" onclick="toggleDaftarSoal(false)">
             <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
@@ -335,7 +338,7 @@
         <svg class="icon" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
       </button>
 
-      <span style="font-size:13px;font-weight:800;color:#334155;font-variant-numeric:tabular-nums;" id="qBottomIndicator">
+      <span style="font-size:13px;font-weight:600;color:#334155;font-variant-numeric:tabular-nums;" id="qBottomIndicator">
         1 / 10
       </span>
 
@@ -393,7 +396,7 @@
     <header class="exambppp-top-header">
       <div style="display:flex;align-items:center;gap:8px;">
         <div class="brand-logo" style="width:28px;height:28px;border-radius:7px;font-size:11px;background:#4f7774;box-shadow:none;">S3</div>
-        <span style="font-size:13px;font-weight:800;color:#0f2d2a;">CBT SMAN 3 BURU</span>
+        <span style="font-size:13px;font-weight:600;color:#0f2d2a;">CBT SMAN 3 BURU</span>
       </div>
       <a href="/" class="btn btn-outline" style="padding:6px 14px;font-size:12px;">Keluar</a>
     </header>
@@ -403,7 +406,7 @@
         <div style="width:52px;height:52px;border-radius:14px;background:#ecfdf5;border:1px solid #a7f3d0;color:#059669;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
           <svg class="icon" style="width:28px;height:28px;" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         </div>
-        <h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:8px;">Ujian Telah Selesai</h2>
+        <h2 style="font-size:18px;font-weight:600;color:#0f172a;margin-bottom:8px;">Ujian Telah Selesai</h2>
         <p style="font-size:13px;color:#475569;margin-bottom:18px;line-height:1.6;" id="finishMsgText">
           Seluruh jawaban Pilihan Ganda Anda telah tersimpan dengan aman di Server CBT SMA Negeri 3 Buru.
         </p>
@@ -425,7 +428,7 @@
       <div style="width:48px;height:48px;border-radius:14px;background:#fff1f2;color:#e11d48;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
         <svg class="icon" style="width:24px;height:24px;" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       </div>
-      <h1 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:8px;">Peringatan Keluar Layar Ujian</h1>
+      <h1 style="font-size:18px;font-weight:600;color:#0f172a;margin-bottom:8px;">Peringatan Keluar Layar Ujian</h1>
       <p style="font-size:13px;color:#475569;margin-bottom:14px;line-height:1.55;" id="lockedReasonText">
         Sistem mendeteksi Anda berpindah aplikasi atau meminimalkan layar ujian.
       </p>
@@ -444,7 +447,7 @@
       <div style="width:48px;height:48px;border-radius:14px;background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
         <svg class="icon" style="width:24px;height:24px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       </div>
-      <h1 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:8px;">Lanjutkan Pengerjaan Ujian</h1>
+      <h1 style="font-size:18px;font-weight:600;color:#0f172a;margin-bottom:8px;">Lanjutkan Pengerjaan Ujian</h1>
       <p style="font-size:13px;color:#475569;margin-bottom:16px;line-height:1.5;">
         Sesi ujian Anda dijeda sementara. Klik tombol di bawah untuk kembali ke lembar soal:
       </p>
@@ -858,13 +861,12 @@
           const subj = examData?.exam?.subject || 'Mata Pelajaran Ini';
           card.innerHTML = `
             <div style="text-align:center;padding:36px 16px;">
-              <div style="font-size:46px;margin-bottom:12px;">⚠️</div>
-              <div style="font-size:18px;font-weight:800;color:#92400e;margin-bottom:8px;">Paket Ujian Ini Belum Memiliki Butir Soal</div>
+              <div style="font-size:18px;font-weight:600;color:#92400e;margin-bottom:8px;">Paket Ujian Ini Belum Memiliki Butir Soal</div>
               <p style="font-size:14px;color:#78350f;max-width:540px;margin:0 auto 16px;line-height:1.6;">
                 Paket soal untuk ujian <b>${esc(subj)}</b> belum diunggah atau paket yang diaktifkan oleh sekolah masih kosong (0 butir soal).
               </p>
               <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:10px;padding:14px;font-size:13px;color:#92400e;display:inline-block;max-width:480px;line-height:1.5;">
-                📢 Silakan laporkan hal ini kepada <b>Pengawas Ruangan</b> atau <b>Operator CBT</b> agar paket bank soal yang benar diaktifkan.
+                Laporkan hal ini kepada <b>Pengawas Ruangan</b> atau <b>Operator CBT</b> agar paket bank soal yang benar diaktifkan.
               </div>
             </div>
           `;
@@ -911,7 +913,7 @@
           <div class="q-body-text" style="line-height:1.7;margin-bottom:18px;white-space:pre-line;">${esc(q.question_text)}</div>
           ${mediaHtml}
           <div class="essay-paper-box${done ? ' is-done' : ''}" id="essayBox_${q.id}">
-            <div class="essay-paper-title">📝 Lembar Jawaban Kertas — Soal Esai No. ${displayNumber(q)}</div>
+            <div class="essay-paper-title">Lembar jawaban kertas · soal esai nomor ${displayNumber(q)}</div>
             <p class="essay-paper-text">
               Tuliskan jawaban lengkap Anda pada <b>lembar kertas</b> yang dibagikan pengawas, lengkap dengan nama dan nomor peserta.
               Setelah selesai menulis, tekan tombol di bawah. Lembar kertas diserahkan kepada pengawas ruangan.
@@ -1037,7 +1039,7 @@
           msg = `Silahkan lengkapi jawaban Anda terlebih dahulu sebelum menyelesaikan subtes. Terdapat ${unansweredPg.length} soal Pilihan Ganda yang masih belum terjawab.`;
         } else {
           const missingNos = missingEsai.map(q => `No. ${displayNumber(q)}`).join(', ');
-          msg = `⚠️ Soal Esai ${missingNos} belum ditandai sudah dijawab. Tulis jawabannya di lembar kertas, lalu tekan tombol "Saya sudah menjawab soal ini di kertas" pada soal tersebut.`;
+          msg = `Soal esai ${missingNos} belum ditandai sudah dijawab. Tulis jawabannya di lembar kertas, lalu tekan tombol "Saya sudah menjawab soal ini di kertas" pada soal tersebut.`;
         }
         document.getElementById('incompleteNoticeText').textContent = msg;
         document.getElementById('modalIncompleteNotice').style.display = 'flex';

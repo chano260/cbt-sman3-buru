@@ -17,11 +17,11 @@
   };
   // Tema baru (body.ui-v2): ikon garis dari icons.js + warna tema yang lebih tenang
   var TONES_V2 = {
-    info: { svg: 'info', bg: '#ecf8f3', fg: '#047857', btn: '#047857' },
-    success: { svg: 'check', bg: '#ecf8f3', fg: '#047857', btn: '#047857' },
+    info: { svg: 'info', bg: '#eef2fa', fg: '#27449b', btn: '#27449b' },
+    success: { svg: 'check', bg: '#eaf5ec', fg: '#23793a', btn: '#27449b' },
     warning: { svg: 'alert', bg: '#fdf6e9', fg: '#a15c07', btn: '#15181c' },
-    error: { svg: 'alert', bg: '#fdf0f0', fg: '#c8262d', btn: '#15181c' },
-    danger: { svg: 'alert', bg: '#fdf0f0', fg: '#c8262d', btn: '#c8262d' }
+    error: { svg: 'alert', bg: '#fdf0f0', fg: '#d42a30', btn: '#15181c' },
+    danger: { svg: 'alert', bg: '#fdf0f0', fg: '#d42a30', btn: '#d42a30' }
   };
   function toneFor(name) {
     var v2 = !!(document.body && document.body.classList && document.body.classList.contains('ui-v2') && typeof window.cbtIcon === 'function');

@@ -712,9 +712,9 @@ tr:last-child td {
 }
 
 .bp3-nav-item.active {
-  background: #4f7774;
+  background: #27449b;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(79, 119, 116, 0.25);
+  box-shadow: 0 2px 6px rgba(39, 68, 155, 0.25);
 }
 
 .bp3-nav-divider {
@@ -727,7 +727,7 @@ tr:last-child td {
 .bp3-main-content h2.bp3-section-title {
   font-size: 20px;
   font-weight: 600;
-  color: #0f2d2a;
+  color: #172033;
   letter-spacing: -0.01em;
   margin-bottom: 16px;
 }
@@ -761,7 +761,7 @@ tr:last-child td {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #4f7774;
+  background: #27449b;
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -775,7 +775,7 @@ tr:last-child td {
 .bp3-announce-title {
   font-size: 14.5px;
   font-weight: 700;
-  color: #0f2d2a;
+  color: #172033;
   margin-bottom: 8px;
   letter-spacing: -0.01em;
 }
@@ -815,9 +815,9 @@ tr:last-child td {
   width: 38px;
   height: 48px;
   border-radius: 8px;
-  background: #e6f0ee;
+  background: #eef2fa;
   border: 1px solid #cfe0dd;
-  color: #1e3d3b;
+  color: #1f2a44;
   font-size: 22px;
   font-weight: 600;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -837,7 +837,7 @@ tr:last-child td {
   text-align: center;
   font-size: 14px;
   font-weight: 700;
-  color: #0f2d2a;
+  color: #172033;
 }
 
 .bp3-doc-item {
@@ -936,7 +936,7 @@ tr:last-child td {
   gap: 6px;
   font-size: 24px;
   font-weight: 600;
-  color: #1e3d3b;
+  color: #1f2a44;
   margin-bottom: 8px;
   letter-spacing: -0.02em;
 }
@@ -972,14 +972,14 @@ tr:last-child td {
 }
 
 .exambppp-input:focus {
-  border-color: #4f7774;
-  box-shadow: 0 0 0 3px rgba(79, 119, 116, 0.18);
+  border-color: #27449b;
+  box-shadow: 0 0 0 3px rgba(39, 68, 155, 0.18);
 }
 
 .exambppp-btn-teal {
   width: 100%;
   padding: 12px 16px;
-  background: #4f7774;
+  background: #27449b;
   color: #ffffff;
   border: none;
   border-radius: 8px;
@@ -995,7 +995,7 @@ tr:last-child td {
 }
 
 .exambppp-btn-teal:hover {
-  background: #406461;
+  background: #1f3780;
 }
 
 .exambppp-btn-teal:disabled {
@@ -1036,7 +1036,7 @@ tr:last-child td {
   padding: 16px 18px;
   color: #ffffff;
   margin-top: 18px;
-  border: 1px solid rgba(79, 119, 116, 0.4);
+  border: 1px solid rgba(39, 68, 155, 0.4);
 }
 
 .exambppp-dark-title {
@@ -1073,7 +1073,7 @@ tr:last-child td {
 }
 
 .exambppp-copy-btn {
-  background: #4f7774;
+  background: #27449b;
   color: #ffffff;
   border: none;
   border-radius: 6px;
@@ -1088,13 +1088,13 @@ tr:last-child td {
 }
 
 .exambppp-copy-btn:hover {
-  background: #3c5e5b;
+  background: #1c3274;
 }
 
 .exambppp-link-btn {
   background: transparent;
   border: none;
-  color: #4f7774;
+  color: #27449b;
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
@@ -1164,7 +1164,7 @@ tr:last-child td {
 }
 
 .exambppp-subbar {
-  background: #4f7774;
+  background: #27449b;
   color: #ffffff;
   padding: 8px 18px;
   font-size: 12px;
@@ -1241,7 +1241,7 @@ tr:last-child td {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #4f7774;
+  background: #27449b;
   color: #ffffff;
   padding: 12px 14px;
   border-radius: 8px;
@@ -1315,7 +1315,7 @@ tr:last-child td {
   position: fixed;
   right: 0;
   top: 140px;
-  background: #4f7774;
+  background: #27449b;
   color: #ffffff;
   padding: 10px 8px;
   border-top-left-radius: 8px;
@@ -1378,8 +1378,8 @@ tr:last-child td {
 }
 
 .exambppp-num-btn.done {
-  background: #4f7774;
-  border-color: #4f7774;
+  background: #27449b;
+  border-color: #27449b;
   color: #ffffff;
 }
 
@@ -1421,9 +1421,9 @@ tr:last-child td {
 }
 
 .exambppp-choice-row.selected {
-  border-color: #4f7774;
+  border-color: #27449b;
   background: #f0f6f5;
-  box-shadow: 0 0 0 1px #4f7774;
+  box-shadow: 0 0 0 1px #27449b;
 }
 
 .exambppp-radio-circle {
@@ -1439,14 +1439,14 @@ tr:last-child td {
 }
 
 .exambppp-choice-row.selected .exambppp-radio-circle {
-  border-color: #4f7774;
+  border-color: #27449b;
 }
 
 .exambppp-radio-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #4f7774;
+  background: #27449b;
   display: none;
 }
 
@@ -1514,7 +1514,7 @@ tr:last-child td {
 .exambppp-modal-title {
   font-size: 16px;
   font-weight: 600;
-  color: #0f2d2a;
+  color: #172033;
   margin-bottom: 10px;
 }
 
@@ -1546,7 +1546,7 @@ tr:last-child td {
   flex: 1;
   padding: 10px;
   border: none;
-  background: #4f7774;
+  background: #27449b;
   color: #ffffff;
   border-radius: 7px;
   font-weight: 700;

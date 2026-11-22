@@ -75,7 +75,7 @@
     out.type = 'button';
     var save = el('button', 'btn cbt-dialog-btn cbt-dialog-btn-primary', 'Simpan Password');
     save.type = 'submit';
-    save.style.background = '#1d4ed8';
+    save.style.background = '#27449b';
     actions.appendChild(out);
     actions.appendChild(save);
     form.appendChild(actions);

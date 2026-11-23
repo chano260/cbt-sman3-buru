@@ -261,6 +261,12 @@ function copyQuestions(db, sourceExamId, targetExamId) {
   return sourceQuestions.length;
 }
 
+// Nilai PG skala 0–100, dibulatkan ke bilangan bulat (pembulatan biasa: ,5 ke atas).
+// Dikali 100 dulu baru dibagi supaya pecahan seperti 17,5 tidak meleset karena galat bilangan biner.
+function pgScore(correct, total) {
+  return total > 0 ? Math.round((correct * 100) / total) : 0;
+}
+
 function calculateExamScores(db, examId) {
   const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);
   if (!exam) return { exam: null, pgCount: 0, esaiCount: 0, scores: [] };
@@ -341,7 +347,7 @@ function calculateExamScores(db, examId) {
       }
     }
     const wrong = Math.max(0, answeredPg - correct);
-    const rawScore = pgCount > 0 ? Number(((correct / pgCount) * 100).toFixed(1)) : 0;
+    const rawScore = pgScore(correct, pgCount);
 
     return {
       student_id: student.id,
@@ -818,7 +824,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
           }
         }
         const wrong = Math.max(0, answeredPg - correct);
-        const score = cache.pgCount > 0 ? Number(((correct / cache.pgCount) * 100).toFixed(1)) : 0;
+        const score = pgScore(correct, cache.pgCount);
 
         return {
           student_id: st.id,
@@ -2429,4 +2435,4 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
   return app;
 }
 
-module.exports = { createApp, getLocalLanIp, calculateExamScores };
+module.exports = { createApp, getLocalLanIp, calculateExamScores, pgScore };

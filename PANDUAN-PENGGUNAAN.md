@@ -168,3 +168,31 @@ Catatan:
 - Username yang sudah ada akan **diperbarui**; bila kolom Password dikosongkan, password lama tetap dipakai.
 - Akun **operator** tidak bisa dibuat atau diubah lewat impor (demi keamanan).
 - Password disimpan terenkripsi. Bila diisi `guru123`/`pengawas123`, pemilik akun wajib menggantinya saat login pertama.
+
+---
+
+## 7. Ujian di iPhone / iPad dengan Safe Exam Browser (SEB)
+
+Aplikasi ujian Android (SMANTRI CBT / Exambro) tidak tersedia untuk iOS. Siswa pengguna iPhone/iPad memakai
+**Safe Exam Browser** (gratis di App Store, buatan ETH Zürich). SEB mengunci iPhone selama ujian dengan mode
+bawaan iOS (Automatic Assessment Configuration): siswa tidak bisa pindah aplikasi, membuka notifikasi, atau
+mengambil screenshot sampai password keluar dimasukkan.
+
+**Persiapan oleh operator (sekali saja):**
+1. Panel Operator → **Pantauan & token** → kotak **QR iPhone / iPad (Safe Exam Browser)**.
+2. Isi **Password keluar SEB** (minimal 6 karakter), lalu **Simpan**. Password ini hanya untuk pengawas.
+   Server hanya menyimpan hash-nya, bukan password asli.
+3. QR SEB langsung muncul di Panel Operator dan di papan token Panel Pengawas.
+   Isinya tautan `sebs://<domain-sekolah>/seb/ujian.seb` yang membuka SEB dengan alamat ujian sekolah.
+
+**Saat ujian (siswa iPhone/iPad):**
+1. Pasang **Safe Exam Browser** dari App Store (lakukan sehari sebelum ujian).
+2. Pindai **QR iPhone / iPad (SEB)** dengan kamera iPhone, lalu pilih buka di SEB.
+3. Login seperti biasa (nomor peserta, kata sandi, token dari pengawas).
+4. Setelah selesai, pengawas memasukkan **password keluar SEB** di iPhone siswa untuk menutup SEB.
+
+Catatan:
+- Bila alamat domain/IP server diganti di Panel Operator, QR SEB ikut berubah otomatis.
+- Bila password keluar diganti, siswa yang sedang memakai pengaturan lama tetap memakai password lama
+  sampai SEB dibuka ulang lewat QR baru.
+- Cobalah satu iPhone sebelum hari ujian untuk memastikan SEB dan mode kunci berjalan di perangkat itu.

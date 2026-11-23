@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
+const zlib = require('node:zlib');
 const multer = require('multer');
 const XLSX = require('xlsx');
 const QRCode = require('qrcode');
@@ -261,6 +262,41 @@ function copyQuestions(db, sourceExamId, targetExamId) {
   return sourceQuestions.length;
 }
 
+// ---------- Safe Exam Browser (iPhone/iPad) ----------
+// Format .seb resmi (safeexambrowser.org/developer/seb-file-format.html):
+// gzip( "plnd" + gzip(plist XML) ) untuk pengaturan tanpa enkripsi.
+// hashedQuitPassword = SHA-256 (hex) dari password keluar; bila diisi, SEB iOS berjalan dalam
+// mode aman dengan kunci iOS (Automatic Assessment Configuration).
+function xmlEscape(v) {
+  return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function buildSebConfig(startURL, hashedQuitPassword) {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>sebConfigPurpose</key>
+  <integer>0</integer>
+  <key>sebMode</key>
+  <integer>0</integer>
+  <key>startURL</key>
+  <string>${xmlEscape(startURL)}</string>
+  <key>hashedQuitPassword</key>
+  <string>${xmlEscape(hashedQuitPassword)}</string>
+  <key>allowQuit</key>
+  <true/>
+  <key>URLFilterEnable</key>
+  <false/>
+  <key>sendBrowserExamKey</key>
+  <false/>
+</dict>
+</plist>
+`;
+  const inner = zlib.gzipSync(Buffer.from(xml, 'utf8'));
+  return zlib.gzipSync(Buffer.concat([Buffer.from('plnd', 'latin1'), inner]));
+}
+
 // Nilai PG skala 0–100, dibulatkan ke bilangan bulat (pembulatan biasa: ,5 ke atas).
 // Dikali 100 dulu baru dibagi supaya pecahan seperti 17,5 tidak meleset karena galat bilangan biner.
 function pgScore(correct, total) {
@@ -460,13 +496,22 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       qrDataUrl = await QRCode.toDataURL(qrPayload, { width: 240, margin: 1 });
     }
 
+    // QR kedua untuk iPhone/iPad: tautan seb(s):// ke file .seb (hanya bila password keluar sudah diatur)
+    const rowSeb = db.prepare("SELECT value FROM settings WHERE key = 'seb_quit_hash'").get();
+    const sebReady = !!(rowSeb && rowSeb.value);
+    const sebUrl = baseUrl.replace(/^https:\/\//i, 'sebs://').replace(/^http:\/\//i, 'seb://').replace(/\/ujian\.html$/i, '') + '/seb/ujian.seb';
+    const sebQrDataUrl = sebReady ? await QRCode.toDataURL(sebUrl, { width: 240, margin: 1 }) : null;
+
     return {
       publicUrl: rowUrl ? rowUrl.value : '',
       qrMode,
       qrPayload,
       baseUrl,
       examUrl,
-      qrDataUrl
+      qrDataUrl,
+      sebReady,
+      sebUrl,
+      sebQrDataUrl
     };
   }
 
@@ -897,6 +942,32 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     }
     const qrBundle = await buildQrBundle(req);
     res.json(qrBundle);
+  });
+
+  // Password keluar Safe Exam Browser (disimpan sebagai hash SHA-256, password asli tidak disimpan)
+  app.post('/api/operator/seb-settings', requireStaffAuth(['operator']), async (req, res) => {
+    const pw = String((req.body || {}).quitPassword || '').trim();
+    if (pw.length < 6) return res.status(400).json({ error: 'Password keluar SEB minimal 6 karakter.' });
+    const hash = crypto.createHash('sha256').update(pw, 'utf8').digest('hex');
+    db.prepare(`
+      INSERT INTO settings (key, value) VALUES ('seb_quit_hash', ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `).run(hash);
+    res.json({ ok: true, ...(await buildQrBundle(req)) });
+  });
+
+  // File pengaturan SEB untuk iPhone/iPad (publik: hanya berisi alamat ujian & hash password keluar)
+  app.get('/seb/ujian.seb', (req, res) => {
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'seb_quit_hash'").get();
+    if (!row || !row.value) {
+      return res.status(404).json({ error: 'Pengaturan Safe Exam Browser belum dibuat operator.' });
+    }
+    const baseUrl = getEffectiveBaseUrl(req);
+    const examUrl = baseUrl.endsWith('/ujian.html') ? baseUrl : `${baseUrl}/ujian.html`;
+    res.setHeader('Content-Type', 'application/seb');
+    res.setHeader('Content-Disposition', 'attachment; filename="ujian.seb"');
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(buildSebConfig(examUrl, row.value));
   });
 
   app.post('/api/operator/token', requireStaffAuth(['operator']), (req, res) => {

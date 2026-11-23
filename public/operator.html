@@ -149,6 +149,31 @@
           </div>
         </div>
 
+        <!-- QR UNTUK IPHONE / IPAD (SAFE EXAM BROWSER) -->
+        <div class="card" id="sebCard">
+          <div class="qr-panel">
+            <div class="qr-frame">
+              <img id="opSebQrImg" src="" alt="QR Safe Exam Browser" style="display:none;">
+              <div id="opSebQrEmpty" class="seb-qr-empty"><svg class="icon"><use href="#i-lock"></use></svg><span>Atur password keluar dulu</span></div>
+              <div class="qr-caption">iPhone / iPad</div>
+            </div>
+            <div class="qr-text">
+              <div class="card-title">QR iPhone / iPad (Safe Exam Browser)</div>
+              <p>Siswa memasang <b>Safe Exam Browser</b> dari App Store, lalu memindai QR ini dengan kamera iPhone. Ujian terbuka di SEB dalam mode terkunci: siswa tidak bisa keluar ke aplikasi lain sampai pengawas memasukkan password keluar.</p>
+              <div class="link-box">Tautan SEB: <code id="opSebUrlText">-</code></div>
+            </div>
+            <div class="settings-box">
+              <label class="field-label" for="inpSebQuitPw">Password keluar SEB (untuk pengawas)</label>
+              <div class="settings-row">
+                <input id="inpSebQuitPw" type="password" class="input input-sm" autocomplete="new-password" placeholder="Minimal 6 karakter">
+                <button class="btn btn-primary btn-sm nowrap" onclick="saveSebSettings()"><svg class="icon"><use href="#i-save"></use></svg>Simpan</button>
+              </div>
+              <div class="hint" id="sebStatusText">Belum diatur. QR muncul setelah password keluar disimpan.</div>
+              <div id="sebSavedMsg" class="saved-msg">Password keluar SEB tersimpan, QR diperbarui</div>
+            </div>
+          </div>
+        </div>
+
         <div id="activeExamZeroWarning" class="notice notice-danger alert-banner" style="display:none;">
           <svg class="icon"><use href="#i-alert"></use></svg>
           <div class="notice-body">
@@ -801,6 +826,7 @@
       if (data.examUrl) {
         document.getElementById('opExamUrlText').textContent = data.qrPayload || data.examUrl;
       }
+      renderSebQr(data);
       const inpPub = document.getElementById('inpPublicUrl');
       if (inpPub && document.activeElement !== inpPub) {
         inpPub.value = data.publicUrl || '';
@@ -1092,6 +1118,47 @@
       if (!ok) return;
       await fetch('/api/operator/token', { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: '{}' });
       loadOverview();
+    }
+
+    function renderSebQr(data) {
+      const img = document.getElementById('opSebQrImg');
+      const empty = document.getElementById('opSebQrEmpty');
+      if (!img) return;
+      document.getElementById('opSebUrlText').textContent = data.sebUrl || '-';
+      if (data.sebReady && data.sebQrDataUrl) {
+        img.src = data.sebQrDataUrl;
+        img.style.display = 'block';
+        empty.style.display = 'none';
+        document.getElementById('sebStatusText').textContent = 'Sudah diatur. Isi kolom ini hanya bila ingin mengganti password keluar.';
+      } else {
+        img.style.display = 'none';
+        empty.style.display = 'flex';
+        document.getElementById('sebStatusText').textContent = 'Belum diatur. QR muncul setelah password keluar disimpan.';
+      }
+    }
+
+    async function saveSebSettings() {
+      const inp = document.getElementById('inpSebQuitPw');
+      const quitPassword = inp.value.trim();
+      if (quitPassword.length < 6) {
+        cbtAlert('Password keluar SEB minimal 6 karakter.', 'warning');
+        return;
+      }
+      const res = await fetch('/api/operator/seb-settings', {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ quitPassword })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        cbtAlert(data.error || 'Gagal menyimpan password keluar SEB.', 'error');
+        return;
+      }
+      inp.value = '';
+      renderSebQr(data);
+      const msg = document.getElementById('sebSavedMsg');
+      msg.style.display = 'block';
+      setTimeout(() => { msg.style.display = 'none'; }, 3500);
     }
 
     async function savePublicUrl() {

@@ -26,6 +26,7 @@
     }
 
     .ui-v2 .board-card .qr-frame img { width: 96px; height: 96px; }
+    .ui-v2 .board-qrs { display: flex; gap: 8px; align-items: flex-start; }
     .ui-v2 .board-card .token-meta { margin-top: 12px; }
 
     .ui-v2 .lock-alert-banner { margin-bottom: 12px; }
@@ -107,9 +108,15 @@
   <div class="pengawas-wrap">
     <!-- TOKEN 15 MENIT & QR CODE UJIAN -->
     <div class="card token-board board-card">
-      <div class="qr-frame">
-        <img id="pwQrImg" src="" alt="QR code ujian">
-        <div class="qr-caption">Pindai di aplikasi ujian</div>
+      <div class="board-qrs">
+        <div class="qr-frame">
+          <img id="pwQrImg" src="" alt="QR code ujian">
+          <div class="qr-caption">Aplikasi ujian (Android)</div>
+        </div>
+        <div class="qr-frame" id="pwSebQrFrame" style="display:none;">
+          <img id="pwSebQrImg" src="" alt="QR Safe Exam Browser">
+          <div class="qr-caption">iPhone / iPad (SEB)</div>
+        </div>
       </div>
       <div style="min-width:0;">
         <div class="stat-label">Token ujian aktif</div>
@@ -253,6 +260,13 @@
       const data = await res.json();
       if (data.qrDataUrl) {
         document.getElementById('pwQrImg').src = data.qrDataUrl;
+      }
+      const sebFrame = document.getElementById('pwSebQrFrame');
+      if (data.sebReady && data.sebQrDataUrl) {
+        document.getElementById('pwSebQrImg').src = data.sebQrDataUrl;
+        sebFrame.style.display = '';
+      } else {
+        sebFrame.style.display = 'none';
       }
 
       // Pengawas yang terikat ruang tertentu hanya dapat memantau ruangnya sendiri

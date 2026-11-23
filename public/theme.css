@@ -918,3 +918,21 @@
   .ui-v2 .topbar-btn svg.icon { width: 18px; height: 18px; }
   .ui-v2 .topbar-chips .chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
+
+/* QR Safe Exam Browser yang belum diatur */
+.ui-v2 .seb-qr-empty {
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  background: var(--raised);
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  font-size: 12px;
+  padding: 8px;
+}
+.ui-v2 .seb-qr-empty svg.icon { width: 20px; height: 20px; }

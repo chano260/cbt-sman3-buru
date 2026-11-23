@@ -228,7 +228,7 @@
           <div class="card-header">
             <div>
               <div class="card-title">Cetak dokumen ujian</div>
-              <p class="card-sub">Daftar hadir, kartu peserta, kartu login, dan kartu meja dengan kop SMA Negeri 3 Buru, siap cetak A4 atau PDF</p>
+              <p class="card-sub">Daftar hadir, kartu peserta, kartu login, kartu meja Android, dan kartu meja iPhone (SEB) dengan kop SMA Negeri 3 Buru, siap cetak A4 atau PDF</p>
             </div>
             <button class="btn btn-primary" onclick="window.print()"><svg class="icon"><use href="#i-printer"></use></svg>Cetak / simpan PDF</button>
           </div>
@@ -241,6 +241,7 @@
                 <option value="KARTU_PESERTA">2. Kartu peserta ujian (dibawa siswa)</option>
                 <option value="KARTU_LOGIN">3. Kartu login CBT (username, password & alamat server)</option>
                 <option value="KARTU_MEJA">4. Kartu meja ujian (ditempel di meja)</option>
+                <option value="QR_SEB">5. Kartu meja iPhone / iPad (Safe Exam Browser)</option>
               </select>
             </div>
             <div class="form-group">
@@ -1904,21 +1905,15 @@
       const students = currentPrintData.students || [];
       const exam = currentPrintData.activeExam || { title: 'Ujian Sekolah', subject: '-', session_name: 'Sesi 1', exam_date: '2026-11-02' };
       const roomLabel = document.getElementById('printRoomFilter').value === 'ALL' ? 'Semua Ruang' : document.getElementById('printRoomFilter').value;
-      const qrImgHtml = currentPrintData.qrDataUrl
-        ? `<img src="${currentPrintData.qrDataUrl}" alt="QR Exambro" style="width:74px;height:74px;border:1px solid #000;padding:2px;background:#fff;">`
+      const qrImg = (px) => currentPrintData.qrDataUrl
+        ? `<img src="${currentPrintData.qrDataUrl}" alt="QR Exambro" style="width:${px}px;height:${px}px;border:1px solid #000;padding:3px;background:#fff;">`
         : '';
       // QR kedua untuk siswa iPhone/iPad (Safe Exam Browser), hanya bila operator sudah mengatur password keluar SEB
       const sebReady = !!(currentPrintData.sebReady && currentPrintData.sebQrDataUrl);
-      const qrBlock = (labelAndroid) => `
-        <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
-          <div style="text-align:center;">
-            ${qrImgHtml}
-            <div style="font-size:8px;font-weight:800;margin-top:2px;">${labelAndroid}</div>
-          </div>
-          ${sebReady ? `<div style="text-align:center;">
-            <img src="${currentPrintData.sebQrDataUrl}" alt="QR Safe Exam Browser" style="width:74px;height:74px;border:1px solid #000;padding:2px;background:#fff;">
-            <div style="font-size:8px;font-weight:800;margin-top:2px;">IPHONE (SEB)</div>
-          </div>` : ''}
+      const qrBlock = (labelAndroid, px = 74) => `
+        <div style="text-align:center;flex-shrink:0;">
+          ${qrImg(px)}
+          <div style="font-size:8px;font-weight:800;margin-top:2px;">${labelAndroid}</div>
         </div>`;
       const container = document.getElementById('printSheetArea');
 
@@ -2009,7 +2004,7 @@
         const cards = students.map(s => `
           <div class="print-card-item">
             <div class="print-card-head">
-              KARTU LOGIN CBT & SCAN QR EXAMBRO<br>
+              KARTU LOGIN CBT<br>
               <span style="font-size:13px;">SMA NEGERI 3 BURU</span>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
@@ -2019,10 +2014,9 @@
                 <tr><td style="padding:2px 0;border:none;"><b>Username CBT</b></td><td style="padding:2px 0;border:none;">: <b style="font-size:13.5px;">${esc(s.exam_number)}</b></td></tr>
                 <tr><td style="padding:2px 0;border:none;"><b>Password CBT</b></td><td style="padding:2px 0;border:none;">: <b style="font-size:13.5px;">${esc(s.password)}</b></td></tr>
               </table>
-              ${qrBlock('ANDROID')}
             </div>
-            <div style="margin-top:6px;background:#f8fafc;border:1px solid #000;padding:5px;font-size:9.5px;text-align:center;">
-              Android: scan QR di aplikasi ujian sekolah${sebReady ? ' • iPhone: scan QR SEB dengan kamera, buka di <b>Safe Exam Browser</b>' : ''} • Masukkan Username, Password & Token 15-Menit.
+            <div style="margin-top:8px;background:#f8fafc;border:1px solid #000;padding:5px;font-size:9.5px;text-align:center;">
+              Buka ujian dengan memindai QR di <b>kartu meja</b> • Masukkan Username, Password & Token 15-Menit dari pengawas.
             </div>
           </div>
         `).join('');
@@ -2039,8 +2033,35 @@
                 <div class="st-name">${esc(s.full_name)}</div>
                 <div style="font-size:12px;font-weight:700;margin-top:3px;">KELAS: ${esc(s.class_name)} | NISN: ${esc(s.nisn)}</div>
               </div>
-              ${qrBlock('ANDROID')}
+              ${qrBlock('SCAN DI APLIKASI UJIAN', 132)}
             </div>
+          </div>
+        `).join('');
+
+        container.innerHTML = `<div class="print-cards-grid">${cards}</div>`;
+      } else if (docType === 'QR_SEB') {
+        if (!sebReady) {
+          container.innerHTML = `<div style="padding:24px;text-align:center;font-size:14px;">
+            QR iPhone / iPad belum tersedia. Atur <b>password keluar SEB</b> dulu di menu <b>Pantauan &amp; token</b>
+            (kotak "QR iPhone / iPad (Safe Exam Browser)").</div>`;
+          return;
+        }
+        const cards = students.map(s => `
+          <div class="desk-card-item">
+            <div style="font-size:11px;font-weight:800;letter-spacing:0.06em;">UJIAN CBT — SMA NEGERI 3 BURU</div>
+            <div class="seat-no">NOMOR MEJA: ${String(s.seat_number).padStart(2, '0')} • ${esc(String(s.room || '')).toUpperCase()}</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin:6px 0;">
+              <div>
+                <div class="exam-no" style="margin:0;">${esc(s.exam_number)}</div>
+                <div class="st-name">${esc(s.full_name)}</div>
+                <div style="font-size:12px;font-weight:700;margin-top:3px;">KELAS: ${esc(s.class_name)} | NISN: ${esc(s.nisn)}</div>
+              </div>
+              <div style="text-align:center;flex-shrink:0;">
+                <img src="${currentPrintData.sebQrDataUrl}" alt="QR Safe Exam Browser" style="width:74px;height:74px;border:1px solid #000;padding:2px;background:#fff;">
+                <div style="font-size:8px;font-weight:800;margin-top:2px;">IPHONE / IPAD (SEB)</div>
+              </div>
+            </div>
+            <div style="font-size:9.5px;margin-top:4px;">Pindai dengan <b>kamera iPhone</b>, lalu buka di <b>Safe Exam Browser</b>.</div>
           </div>
         `).join('');
 

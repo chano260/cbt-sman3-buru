@@ -26,7 +26,14 @@
     }
 
     .ui-v2 .board-card .qr-frame img { width: 96px; height: 96px; }
-    .ui-v2 .board-qrs { display: flex; gap: 8px; align-items: flex-start; }
+    .ui-v2 .board-qrs { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+    .ui-v2 .qr-switch { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: rgba(255, 255, 255, 0.14); }
+    .ui-v2 .qr-switch-btn {
+      min-height: 28px; padding: 4px 10px; border: 0; border-radius: 6px;
+      background: none; color: rgba(255, 255, 255, 0.8); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer;
+      transition: background-color 150ms var(--ease), color 150ms var(--ease);
+    }
+    .ui-v2 .qr-switch-btn.is-on { background: #fff; color: var(--primary); }
     .ui-v2 .board-card .token-meta { margin-top: 12px; }
 
     .ui-v2 .lock-alert-banner { margin-bottom: 12px; }
@@ -108,8 +115,13 @@
   <div class="pengawas-wrap">
     <!-- TOKEN 15 MENIT & QR CODE UJIAN -->
     <div class="card token-board board-card">
+      <!-- Hanya satu QR yang tampil supaya kamera tidak menangkap dua QR sekaligus -->
       <div class="board-qrs">
-        <div class="qr-frame">
+        <div class="qr-switch" id="pwQrSwitch" style="display:none;" role="tablist" aria-label="Pilih QR">
+          <button type="button" class="qr-switch-btn is-on" data-qr="android" onclick="showBoardQr('android')">Android</button>
+          <button type="button" class="qr-switch-btn" data-qr="seb" onclick="showBoardQr('seb')">iPhone</button>
+        </div>
+        <div class="qr-frame" id="pwQrFrame">
           <img id="pwQrImg" src="" alt="QR code ujian">
           <div class="qr-caption">Aplikasi ujian (Android)</div>
         </div>
@@ -246,6 +258,20 @@
       document.getElementById('loginOverlay').style.display = 'flex';
     }
 
+    let sebAvailable = false;
+    let boardQrChoice = 'android';
+    function showBoardQr(which) {
+      if (which === 'seb' && !sebAvailable) which = 'android';
+      boardQrChoice = which;
+      document.getElementById('pwQrFrame').style.display = which === 'android' ? '' : 'none';
+      document.getElementById('pwSebQrFrame').style.display = which === 'seb' ? '' : 'none';
+      document.querySelectorAll('#pwQrSwitch .qr-switch-btn').forEach(b => {
+        const on = b.dataset.qr === which;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+    }
+
     async function loadRoomData() {
       if (!staffToken) return;
       const room = document.getElementById('roomSelect').value;
@@ -261,13 +287,10 @@
       if (data.qrDataUrl) {
         document.getElementById('pwQrImg').src = data.qrDataUrl;
       }
-      const sebFrame = document.getElementById('pwSebQrFrame');
-      if (data.sebReady && data.sebQrDataUrl) {
-        document.getElementById('pwSebQrImg').src = data.sebQrDataUrl;
-        sebFrame.style.display = '';
-      } else {
-        sebFrame.style.display = 'none';
-      }
+      sebAvailable = !!(data.sebReady && data.sebQrDataUrl);
+      if (sebAvailable) document.getElementById('pwSebQrImg').src = data.sebQrDataUrl;
+      document.getElementById('pwQrSwitch').style.display = sebAvailable ? 'flex' : 'none';
+      showBoardQr(sebAvailable ? boardQrChoice : 'android');
 
       // Pengawas yang terikat ruang tertentu hanya dapat memantau ruangnya sendiri
       const roomSel = document.getElementById('roomSelect');

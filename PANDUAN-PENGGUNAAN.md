@@ -182,7 +182,7 @@ mengambil screenshot sampai password keluar dimasukkan.
 1. Panel Operator → **Pantauan & token** → kotak **QR iPhone / iPad (Safe Exam Browser)**.
 2. Isi **Password keluar SEB** (minimal 6 karakter), lalu **Simpan**. Password ini hanya untuk pengawas.
    Server hanya menyimpan hash-nya, bukan password asli.
-3. QR SEB langsung muncul di Panel Operator dan di papan token Panel Pengawas.
+3. QR SEB langsung muncul di Panel Operator, di papan token Panel Pengawas (tombol **Android | iPhone** untuk berganti QR, supaya hanya satu QR yang tampil), dan sebagai **kartu meja iPhone tersendiri**: Panel Operator → **Cetak dokumen** → **5. Kartu meja iPhone / iPad (Safe Exam Browser)**. Cetak hanya untuk meja siswa pengguna iPhone/iPad; kartu meja biasa hanya memuat QR Android, kartu login tanpa QR.
    Isinya tautan `sebs://<domain-sekolah>/seb/ujian.seb` yang membuka SEB dengan alamat ujian sekolah.
 
 **Saat ujian (siswa iPhone/iPad):**

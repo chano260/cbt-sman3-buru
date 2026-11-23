@@ -500,7 +500,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     const rowSeb = db.prepare("SELECT value FROM settings WHERE key = 'seb_quit_hash'").get();
     const sebReady = !!(rowSeb && rowSeb.value);
     const sebUrl = baseUrl.replace(/^https:\/\//i, 'sebs://').replace(/^http:\/\//i, 'seb://').replace(/\/ujian\.html$/i, '') + '/seb/ujian.seb';
-    const sebQrDataUrl = sebReady ? await QRCode.toDataURL(sebUrl, { width: 240, margin: 1 }) : null;
+    const sebQrDataUrl = sebReady ? await QRCode.toDataURL(sebUrl, { width: 240, margin: 3 }) : null; // ruang kosong lebih lebar: mudah dibedakan dari QR lain
 
     return {
       publicUrl: rowUrl ? rowUrl.value : '',

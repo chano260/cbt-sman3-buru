@@ -72,3 +72,15 @@ test('SEB: QR SEB memakai tautan sebs:// untuk server https', async (t) => {
   assert.equal(ov.sebUrl, 'sebs://cbt.contoh.sch.id/seb/ujian.seb');
   assert.match(ov.sebQrDataUrl, /^data:image\/png;base64,/);
 });
+
+test('SEB: data kartu cetak ikut memuat QR SEB setelah diatur', async (t) => {
+  const { base, login } = setup(t);
+  const op = await login('operator', 'admin123');
+  let pd = await fetch(`${base}/api/operator/print-data`, { headers: op }).then(r => r.json());
+  assert.equal(pd.sebReady, false);
+  await fetch(`${base}/api/operator/seb-settings`, { method: 'POST', headers: op, body: JSON.stringify({ quitPassword: 'Keluar#2026' }) });
+  pd = await fetch(`${base}/api/operator/print-data`, { headers: op }).then(r => r.json());
+  assert.equal(pd.sebReady, true);
+  assert.match(pd.sebQrDataUrl, /^data:image\/png;base64,/);
+  assert.match(pd.sebUrl, /\/seb\/ujian\.seb$/);
+});

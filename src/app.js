@@ -1765,6 +1765,58 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     res.json({ id: questionId, image_data: nextImg, audio_data: nextAud });
   });
 
+  // Edit isi soal (nomor, jenis, teks, opsi, kunci). Gambar & audio diatur lewat endpoint media di atas.
+  // Kunci boleh dibetulkan walau siswa sudah menjawab: nilai dihitung ulang otomatis dari kunci terbaru.
+  app.put('/api/guru/questions/:questionId', requireStaffAuth(['guru', 'operator']), (req, res) => {
+    const questionId = Number(req.params.questionId);
+    const existing = db.prepare('SELECT q.*, e.teacher_id, e.subject, e.class_target FROM questions q JOIN exams e ON q.exam_id = e.id WHERE q.id = ?').get(questionId);
+    if (!existing) return res.status(404).json({ error: 'Soal tidak ditemukan' });
+    if (!teacherCanAccessExam(req.staffUser, existing)) {
+      return res.status(403).json({ error: 'Akses ditolak: Anda tidak memiliki akses ke butir soal ini.' });
+    }
+
+    const body = req.body || {};
+    const number = Number(body.number);
+    if (!Number.isInteger(number) || number < 1) return res.status(400).json({ error: 'Nomor soal harus angka 1 atau lebih.' });
+    const type = body.type === 'ESAI' ? 'ESAI' : 'PG';
+    const text = String(body.question_text || '').trim();
+    if (!text && !existing.image_data) return res.status(400).json({ error: 'Teks soal wajib diisi (kecuali soal bergambar).' });
+
+    const opt = (k) => String(body[k] == null ? '' : body[k]).trim();
+    let key = null;
+    if (type === 'PG') {
+      key = String(body.answer_key || '').trim().toUpperCase();
+      if (!/^[A-E]$/.test(key)) return res.status(400).json({ error: 'Kunci jawaban harus A, B, C, D, atau E.' });
+      if (!opt(`option_${key.toLowerCase()}`)) return res.status(400).json({ error: `Opsi ${key} kosong, padahal dipilih sebagai kunci jawaban.` });
+    }
+
+    const answeredCount = db.prepare('SELECT COUNT(*) AS c FROM answers WHERE question_id = ?').get(questionId).c;
+    if (type !== existing.type && answeredCount > 0) {
+      return res.status(409).json({
+        error: `Jenis soal tidak dapat diganti karena sudah ada ${answeredCount} jawaban siswa untuk soal ini.`
+      });
+    }
+
+    const isPg = type === 'PG';
+    db.prepare(`
+      UPDATE questions SET number = ?, type = ?, question_text = ?,
+        option_a = ?, option_b = ?, option_c = ?, option_d = ?, option_e = ?, answer_key = ?
+      WHERE id = ?
+    `).run(
+      number, type, text,
+      isPg ? opt('option_a') : null,
+      isPg ? opt('option_b') : null,
+      isPg ? opt('option_c') : null,
+      isPg ? opt('option_d') : null,
+      isPg ? opt('option_e') : null,
+      key,
+      questionId
+    );
+    invalidateQuestionsCache(existing.exam_id);
+    const question = db.prepare('SELECT * FROM questions WHERE id = ?').get(questionId);
+    res.json({ ok: true, question, answeredCount });
+  });
+
   app.delete('/api/guru/questions/:questionId', requireStaffAuth(['guru', 'operator']), (req, res) => {
     const questionId = Number(req.params.questionId);
     const existing = db.prepare('SELECT q.*, e.teacher_id, e.subject FROM questions q JOIN exams e ON q.exam_id = e.id WHERE q.id = ?').get(questionId);

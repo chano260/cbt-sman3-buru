@@ -479,8 +479,17 @@
       sessionStorage.setItem('cbt_active_session_id', String(id));
       sessionStorage.setItem('cbt_session_token', sessionToken);
     }
+    // Mode pratinjau guru (ujian.html?pratinjau=<id paket>): tampilan sama persis dengan siswa,
+    // tetapi tanpa login, token, penguncian layar, catatan pelanggaran, dan jawaban tidak disimpan.
+    const PREVIEW_EXAM_ID = Number(new URLSearchParams(window.location.search).get('pratinjau')) || null;
     const nativeFetch = window.fetch.bind(window);
     window.fetch = async (url, opts = {}) => {
+      if (PREVIEW_EXAM_ID && typeof url === 'string' && url.startsWith('/api/ujian/')) {
+        const fake = url.startsWith('/api/ujian/finish')
+          ? { ok: true, message: 'Pratinjau selesai. Ini hanya pratinjau: tidak ada jawaban yang disimpan.' }
+          : { ok: true };
+        return new Response(JSON.stringify(fake), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
       if (typeof url === 'string' && url.startsWith('/api/ujian/') && sessionToken) {
         opts = { ...opts, headers: { ...(opts.headers || {}), 'X-Session-Token': sessionToken } };
       }
@@ -735,8 +744,43 @@
       }
     }
 
-    // Resume sesi aktif jika sudah login
-    if (sessionId) {
+    async function startPreviewMode() {
+      const guruToken = sessionStorage.getItem('cbt_guru_token') || '';
+      const res = await nativeFetch(`/api/guru/exams/${PREVIEW_EXAM_ID}/questions`, {
+        headers: { Authorization: 'Bearer ' + guruToken }
+      });
+      if (!res.ok) {
+        await cbtAlert('Pratinjau hanya bisa dibuka dari tombol "Pratinjau ujian" di panel guru setelah login.', 'warning', 'Pratinjau');
+        return;
+      }
+      const data = await res.json();
+      const all = data.questions || [];
+      // Urutan sama seperti di layar siswa: pilihan ganda dulu, lalu esai (tanpa pengacakan)
+      questions = all.filter(q => q.type === 'PG').concat(all.filter(q => q.type === 'ESAI'));
+      examData = { exam: data.exam };
+      answers = {};
+      essayAnswered = {};
+      currentIndex = 0;
+      remainingSeconds = (Number(data.exam.duration_minutes) || 90) * 60;
+      document.getElementById('hdrStudentName').textContent = 'Pratinjau guru · jawaban tidak disimpan';
+      document.getElementById('hdrExamInfo').textContent = `${data.exam.subject} • ${data.exam.title || ''}`;
+      document.title = 'Pratinjau · ' + data.exam.subject;
+      const banner = document.createElement('div');
+      banner.id = 'previewBanner';
+      banner.textContent = 'MODE PRATINJAU — tampilan sama dengan siswa, jawaban tidak disimpan';
+      banner.style.cssText = 'background:#b45309;color:#fff;text-align:center;font-size:12px;font-weight:700;padding:6px 10px;';
+      const examScreen = document.getElementById('screenExam');
+      examScreen.insertBefore(banner, examScreen.firstChild);
+      showScreen('screenExam');
+      updateTimerDisplay();
+      renderDrawerNumbers();
+      renderCurrentQuestion();
+    }
+
+    if (PREVIEW_EXAM_ID) {
+      startPreviewMode().catch(function (err) { cbtAlert('Gagal membuka pratinjau: ' + err.message, 'error'); });
+    } else if (sessionId) {
+      // Resume sesi aktif jika sudah login
       loadExamSession().then(() => {
         if (examData && examData.session && examData.session.status !== 'FINISHED') {
           showScreen('screenExam');

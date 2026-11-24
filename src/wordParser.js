@@ -22,10 +22,13 @@ function parseQuestionsFromText(rawText) {
   let passage = null;
   // Teks tanpa nomor tanpa rentang: dipasang ke soal tepat sesudahnya saja
   let orphan = [];
+  // Nomor bagian ([PG] / [ESAI]) untuk setiap soal, supaya bacaan tidak menyeberang antarbagian
+  let section = 0;
 
   const pushCurrent = () => {
     if (current && current.prefix) {
       current.question_text = [current.prefix, current.question_text].filter(Boolean).join('\n\n');
+      current.ctx = current.prefix; // bacaan dari judul rentang, dipakai lagi oleh linkSharedPassages
     }
     // Soal yang hanya berisi gambar (tanpa teks) tetap disimpan
     if (!current || (!current.question_text.trim() && !current.image_data)) return;
@@ -49,13 +52,13 @@ function parseQuestionsFromText(rawText) {
     if (/^\[?\s*(PG|PILIHAN\s*GANDA)\s*\]?$/i.test(line)) {
       pushCurrent();
       currentMode = 'PG';
-      started = true; passage = null; orphan = [];
+      started = true; passage = null; orphan = []; section++;
       continue;
     }
     if (/^\[?\s*(ESAI|ESSAY|URAIAN)\s*\]?$/i.test(line)) {
       pushCurrent();
       currentMode = 'ESAI';
-      started = true; passage = null; orphan = [];
+      started = true; passage = null; orphan = []; section++;
       continue;
     }
 
@@ -120,6 +123,7 @@ function parseQuestionsFromText(rawText) {
         if (orphan.length) { prefixParts.push(orphan.join('\n')); orphan = []; }
         current = {
           prefix: prefixParts.join('\n\n'),
+          section,
           type: currentMode,
           number: num,
           question_text: numMatch[2].trim(),
@@ -164,10 +168,59 @@ function parseQuestionsFromText(rawText) {
 
   pushCurrent();
 
-  return questions.map((q, idx) => ({
-    ...q,
-    number: q.number || idx + 1
-  }));
+  linkSharedPassages(questions);
+  return questions.map((q, idx) => {
+    const { section, ctx, ...rest } = q;
+    return { ...rest, number: q.number || idx + 1 };
+  });
+}
+
+// Kata yang menandakan soal membahas bacaan sebelumnya. "di atas"/"above" sengaja tidak dipakai: sering
+// merujuk ke kalimat soal itu sendiri (mis. Fisika "Pernyataan di atas merupakan bunyi hukum ...").
+const REFERS_TO_PASSAGE_RE = /\b(text|story|passage|paragraph|letter|dialog(ue)?|conversation|advertisement|announcement|invitation|writer|author|conclusion|teks|bacaan|paragraf|cerita|wacana|surat|percakapan|iklan|pengumuman|penulis|kesimpulan)\b/i;
+
+const textLines = (t) => String(t || '').split('\n').map(l => l.trim()).filter(Boolean);
+
+// Soal yang membawa konteks sendiri (bacaan, dialog, daftar pernyataan, atau gambar)
+function hasOwnContext(q) {
+  return Boolean(q.image_data) || textLines(q.question_text).length >= 3 || q.question_text.length >= 250;
+}
+
+// Banyak bank soal menulis bacaan langsung di dalam soal pertama ("1. A farmer came ... What is the
+// purpose of the text?"), lalu soal 2-4 hanya berisi pertanyaan. Siswa melihat soal satu per satu, jadi
+// bacaan itu ikut dipasang di soal-soal pendek sesudahnya, sampai soal berikutnya yang punya konteks sendiri.
+// Hanya bila minimal satu soal di kelompok itu menyebut bacaannya ("the text", "paragraph", "teks", ...),
+// supaya soal biasa (mis. Matematika) tidak ketempelan.
+function linkSharedPassages(questions) {
+  let source = null;
+  let sourceSection = null;
+  let group = [];
+  const flush = () => {
+    if (source && group.length && group.some(q => REFERS_TO_PASSAGE_RE.test(q.question_text))) {
+      for (const q of group) {
+        if (source.text) q.question_text = source.text + '\n\n' + q.question_text;
+        // Bacaan berupa gambar: dipakai soal yang belum punya gambar sendiri
+        if (source.image && !q.image_data) q.image_data = source.image;
+      }
+    }
+    group = [];
+  };
+  for (const q of questions) {
+    // Bacaan tidak menyeberang dari bagian PG ke bagian esai (atau sebaliknya)
+    if (source && q.section !== sourceSection) { flush(); source = null; }
+    if (hasOwnContext(q)) {
+      flush();
+      // Bacaan = konteks dari judul rentang, atau seluruh baris kecuali baris pertanyaan terakhir;
+      // ditambah gambar soal itu (bacaan yang dijadikan gambar)
+      const passageText = q.ctx || textLines(q.question_text).slice(0, -1).join('\n');
+      const text = passageText.length >= 120 || (q.ctx && q.image_data) ? passageText : '';
+      source = text || q.image_data ? { text, image: q.image_data || null } : null;
+      sourceSection = q.section;
+      continue;
+    }
+    if (source) group.push(q);
+  }
+  flush();
 }
 
 async function parseDocxBuffer(buffer) {

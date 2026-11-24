@@ -6,6 +6,7 @@ const os = require('node:os');
 const Database = require('better-sqlite3');
 const { initDb } = require('../src/db');
 const { createApp } = require('../src/app');
+require('./helpers/studentSessionFetch');
 
 async function setup(t) {
   const db = initDb(':memory:');
@@ -110,4 +111,48 @@ test('panel operator: daftar jadwal hanya paket terjadwal; Jadwalkan & Hapus pak
   const renderBanks = html.slice(html.indexOf("getElementById('banksTableBody').innerHTML"));
   assert.match(renderBanks, /scheduleBank\(/);
   assert.match(renderBanks, /confirmDeleteExam\(/);
+});
+
+test('batalkan jadwal saat masih ada siswa: daftar siswa ditampilkan, lalu bisa diselesaikan paksa', async (t) => {
+  const { db, op, post, flag, base } = await setup(t);
+  const exam = db.prepare('SELECT * FROM exams WHERE is_active = 1 LIMIT 1').get();
+  const [s1, s2] = db.prepare('SELECT * FROM students LIMIT 2').all();
+  const login = (st) => fetch(`${base}/api/ujian/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ exam_number: st.exam_number, password: st.password, token: exam.token })
+  }).then(r => r.json());
+  const a = await login(s1);
+  // Jawaban siswa 1 yang sudah tersimpan
+  const pg = db.prepare("SELECT * FROM questions WHERE exam_id = ? AND type = 'PG' ORDER BY number LIMIT 1").get(exam.id);
+  const saved = await fetch(`${base}/api/ujian/answer`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: a.sessionId, questionId: pg.id, chosenOption: pg.answer_key })
+  });
+  assert.equal(saved.status, 200);
+  await login(s2);
+  db.prepare("UPDATE exam_sessions SET status = 'LOCKED' WHERE student_id = ? AND exam_id = ?").run(s2.id, exam.id);
+
+  const blocked = await post(`/api/operator/exams/${exam.id}/unschedule`, op);
+  assert.equal(blocked.status, 409);
+  const info = await blocked.json();
+  assert.equal(info.code, 'UNFINISHED_SESSIONS');
+  assert.equal(info.unfinished.length, 2);
+  const names = info.unfinished.map(u => u.full_name).sort();
+  assert.deepEqual(names, [s1.full_name, s2.full_name].sort());
+  assert.ok(info.unfinished.every(u => u.class_name && u.status), 'kelas & status siswa ikut dikirim');
+
+  const forced = await post(`/api/operator/exams/${exam.id}/unschedule`, op, { finishUnfinished: true });
+  assert.equal(forced.status, 200);
+  assert.equal((await forced.json()).finishedSessions, 2);
+  assert.deepEqual(flag(exam.id), { is_scheduled: 0, is_active: 0 });
+  const rows = db.prepare('SELECT status, finished_at FROM exam_sessions WHERE exam_id = ?').all(exam.id);
+  assert.ok(rows.every(r => r.status === 'FINISHED' && r.finished_at), 'semua sesi ditutup sebagai selesai');
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM answers WHERE session_id = ?').get(a.sessionId).c, 1, 'jawaban tetap tersimpan untuk dinilai');
+});
+
+test('panel operator: penolakan batalkan jadwal menampilkan daftar siswa dan tombol selesaikan', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'operator.html'), 'utf8');
+  const fn = html.slice(html.indexOf('async function unscheduleExam'), html.indexOf('function scheduleBank'));
+  assert.match(fn, /UNFINISHED_SESSIONS/);
+  assert.match(fn, /finishUnfinished: true/);
 });

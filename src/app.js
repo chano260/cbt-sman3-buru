@@ -1183,12 +1183,32 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     const examId = Number(req.params.id);
     const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);
     if (!exam) return res.status(404).json({ error: 'Jadwal ujian tidak ditemukan' });
-    const unfinished = db.prepare("SELECT COUNT(*) AS c FROM exam_sessions WHERE exam_id = ? AND status != 'FINISHED'").get(examId).c;
-    if (unfinished > 0) {
-      return res.status(409).json({ error: `Jadwal tidak dapat dibatalkan: masih ada ${unfinished} siswa yang sedang mengerjakan atau terkunci pada ujian ini.` });
+    const unfinished = db.prepare(`
+      SELECT s.id, s.status, st.full_name, st.class_name, st.room
+      FROM exam_sessions s JOIN students st ON st.id = s.student_id
+      WHERE s.exam_id = ? AND s.status != 'FINISHED'
+      ORDER BY st.room, st.class_name, st.full_name
+    `).all(examId);
+    const finishUnfinished = Boolean(req.body && req.body.finishUnfinished);
+    if (unfinished.length > 0 && !finishUnfinished) {
+      // Operator memutuskan: tunggu siswa selesai, atau tutup sesi yang tertinggal (keluar tanpa Selesai / terkunci)
+      return res.status(409).json({
+        code: 'UNFINISHED_SESSIONS',
+        error: `Masih ada ${unfinished.length} siswa yang belum selesai (sedang mengerjakan atau terkunci) pada ujian ini.`,
+        unfinished: unfinished.map(u => ({ full_name: u.full_name, class_name: u.class_name, room: u.room, status: u.status }))
+      });
     }
-    db.prepare('UPDATE exams SET is_scheduled = 0, is_active = 0 WHERE id = ?').run(examId);
-    res.json({ ok: true, id: examId });
+    // Sesi yang belum selesai ditutup sebagai selesai; jawaban yang sudah tersimpan tetap dinilai
+    const tx = db.transaction(() => {
+      const finished = db.prepare(`
+        UPDATE exam_sessions SET status = 'FINISHED', finished_at = ?, need_token_reverify = 0
+        WHERE exam_id = ? AND status != 'FINISHED'
+      `).run(new Date().toISOString(), examId).changes;
+      db.prepare('UPDATE exams SET is_scheduled = 0, is_active = 0 WHERE id = ?').run(examId);
+      return finished;
+    });
+    const finishedSessions = tx();
+    res.json({ ok: true, id: examId, finishedSessions });
   });
 
   app.post('/api/operator/exams/:targetId/copy-questions-from/:sourceId', requireStaffAuth(['operator']), (req, res) => {

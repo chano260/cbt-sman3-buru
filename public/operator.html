@@ -1744,8 +1744,31 @@
         confirmText: 'Ya, batalkan jadwal'
       });
       if (!ok) return;
-      const res = await fetch(`/api/operator/exams/${id}/unschedule`, { method: 'POST', headers: authHeaders() });
-      const data = await res.json().catch(() => ({}));
+      const send = (body) => fetch(`/api/operator/exams/${id}/unschedule`, {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(body || {})
+      });
+      let res = await send();
+      let data = await res.json().catch(() => ({}));
+
+      // Masih ada siswa yang belum selesai (sering: keluar tanpa menekan Selesai, atau terkunci lalu pulang)
+      if (res.status === 409 && data.code === 'UNFINISHED_SESSIONS') {
+        const list = data.unfinished || [];
+        const label = { WORKING: 'mengerjakan', LOCKED: 'terkunci' };
+        const shown = list.slice(0, 10).map(u => `• ${u.full_name} (${u.class_name}${u.room ? ', ' + u.room : ''}) — ${label[u.status] || u.status}`);
+        if (list.length > 10) shown.push(`… dan ${list.length - 10} siswa lainnya`);
+        const force = await cbtConfirm({
+          tone: 'danger',
+          title: `${list.length} siswa belum selesai`,
+          message: `${shown.join('\n')}\n\nJika dilanjutkan, ujian mereka ditutup sebagai selesai (jawaban yang sudah tersimpan tetap dinilai) dan siswa tidak bisa melanjutkan lagi. Pastikan mereka memang sudah tidak mengerjakan.`,
+          confirmText: 'Selesaikan ujian mereka & batalkan jadwal'
+        });
+        if (!force) return;
+        res = await send({ finishUnfinished: true });
+        data = await res.json().catch(() => ({}));
+        if (res.ok) cbtAlert(`Jadwal dibatalkan. Ujian ${data.finishedSessions} siswa ditutup sebagai selesai.`, 'success');
+      }
       if (!res.ok) cbtAlert(data.error || 'Gagal membatalkan jadwal.');
       loadOverview();
     }

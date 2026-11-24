@@ -11,9 +11,11 @@ function parseQuestionsFromText(rawText) {
   let currentMode = 'PG';
   const questions = [];
   let current = null;
+  let pendingImage = null;
 
   const pushCurrent = () => {
-    if (!current || !current.question_text.trim()) return;
+    // Soal yang hanya berisi gambar (tanpa teks) tetap disimpan
+    if (!current || (!current.question_text.trim() && !current.image_data)) return;
     delete current.lastTarget;
     if (current.type === 'PG') {
       current.answer_key = (current.answer_key || 'A').toUpperCase();
@@ -62,7 +64,8 @@ function parseQuestionsFromText(rawText) {
     // Cek awal nomor soal baru: "1. Teks..." atau "31) Teks..."
     // Pada mode PG, jika soal saat ini belum memiliki opsi A sama sekali, baris "1. ..." atau "2. ..."
     // adalah sub-pernyataan di dalam batang soal, BUKAN soal baru!
-    const numMatch = line.match(/^(\d+)\s*[\.\)]\s*(.+)$/);
+    // Teks boleh kosong: banyak bank soal menulis "1." sendirian, lalu gambar, lalu teks soal di baris berikutnya.
+    const numMatch = line.match(/^(\d+)\s*[\.\)]\s*(.*)$/);
     if (numMatch) {
       const isCompletePg = current && current.type === 'PG' && Boolean(current.option_a);
       // Pada mode esai, "1." / "2." yang nomornya tidak lebih besar dari nomor soal saat ini
@@ -74,7 +77,7 @@ function parseQuestionsFromText(rawText) {
           type: currentMode,
           number: Number(numMatch[1]),
           question_text: numMatch[2].trim(),
-          image_data: null,
+          image_data: pendingImage,
           option_a: '',
           option_b: '',
           option_c: '',
@@ -83,13 +86,17 @@ function parseQuestionsFromText(rawText) {
           answer_key: currentMode === 'PG' ? 'A' : null,
           lastTarget: 'question_text'
         };
+        pendingImage = null;
         continue;
       }
     }
 
     // Jika baris mengandung tag gambar base64 hasil ekstraksi mammoth
-    if (line.startsWith('IMG_DATA:') && current) {
-      current.image_data = line.replace('IMG_DATA:', '').trim();
+    if (line.startsWith('IMG_DATA:')) {
+      const src = line.replace('IMG_DATA:', '').trim();
+      // Gambar di atas nomor soal (belum ada soal yang sedang dibaca) disimpan untuk soal berikutnya
+      if (current) current.image_data = src;
+      else pendingImage = src;
       continue;
     }
 
@@ -97,7 +104,7 @@ function parseQuestionsFromText(rawText) {
     if (current) {
       const target = current.lastTarget || 'question_text';
       if (target === 'question_text') {
-        current.question_text += '\n' + line;
+        current.question_text = current.question_text ? current.question_text + '\n' + line : line;
       } else {
         current[target] = (current[target] + ' ' + line).trim();
       }

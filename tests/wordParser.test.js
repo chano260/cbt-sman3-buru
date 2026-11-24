@@ -92,3 +92,82 @@ test('esai: soal esai pertama boleh bernomor 1 dan nomor berikutnya tetap jadi s
   `);
   assert.deepEqual(result.map(q => q.number), [1, 2, 3]);
 });
+
+test('nomor soal sendirian di satu baris ("1. ") lalu gambar dan teks soal tetap terbaca sebagai satu soal', () => {
+  const result = parseQuestionsFromText(`
+  [PG]
+  1.
+  IMG_DATA:data:image/png;base64,AAAA
+  Tiga lampu pijar identik disusun secara seri seperti rangkaian di samping.
+  A. Sangat terang
+  B. Terang
+  C. Redup
+  D. Sangat redup
+  E. Mati
+  KUNCI: E
+  2.
+  IMG_DATA:data:image/png;base64,BBBB
+  Dari grafik di atas, nilai hambatannya adalah ....
+  A. 110 ohm
+  B. 115 ohm
+  C. 120 ohm
+  D. 125 ohm
+  E. 130 ohm
+  KUNCI: D
+  3. Alat untuk mengukur kuat arus adalah ....
+  A. Osiloskop
+  B. Galvanometer
+  C. Ohm meter
+  D. Voltmeter
+  E. Amperemeter
+  KUNCI: E
+  [ESAI]
+  25.
+  IMG_DATA:data:image/png;base64,CCCC
+  Hitung kuat arus pada gambar!
+  `);
+  assert.deepEqual(result.map(q => q.number), [1, 2, 3, 25]);
+  assert.equal(result[0].image_data, 'data:image/png;base64,AAAA');
+  assert.equal(result[0].question_text, 'Tiga lampu pijar identik disusun secara seri seperti rangkaian di samping.');
+  assert.equal(result[0].option_e, 'Mati');
+  assert.equal(result[0].answer_key, 'E');
+  assert.equal(result[1].image_data, 'data:image/png;base64,BBBB');
+  assert.equal(result[1].answer_key, 'D');
+  assert.equal(result[2].image_data, null);
+  assert.equal(result[3].type, 'ESAI');
+  assert.equal(result[3].image_data, 'data:image/png;base64,CCCC');
+  assert.equal(result[3].question_text, 'Hitung kuat arus pada gambar!');
+});
+
+test('gambar yang diletakkan di atas nomor soal ikut ke soal berikutnya', () => {
+  const result = parseQuestionsFromText(`
+  [PG]
+  IMG_DATA:data:image/png;base64,DDDD
+  1. Perhatikan gambar di atas!
+  A. satu
+  B. dua
+  C. tiga
+  D. empat
+  E. lima
+  KUNCI: A
+  `);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].image_data, 'data:image/png;base64,DDDD');
+});
+
+test('file bank soal: format pemberian nomor lama (teks di baris nomor) tetap sama hasilnya', () => {
+  const result = parseQuestionsFromText(`
+  [PG]
+  1. Perhatikan pernyataan berikut:
+  1. Katalis menurunkan energi aktivasi
+  Pernyataan yang benar adalah...
+  A. a
+  B. b
+  C. c
+  D. d
+  E. e
+  KUNCI: B
+  `);
+  assert.equal(result.length, 1);
+  assert.ok(result[0].question_text.startsWith('Perhatikan pernyataan berikut:\n1. Katalis'));
+});

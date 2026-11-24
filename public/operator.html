@@ -302,14 +302,19 @@
           <div class="card-header">
             <div>
               <div class="card-title">Impor peserta dari Excel</div>
-              <p class="card-sub">Unggah daftar siswa dalam satu file .xlsx supaya tidak perlu mengetik satu per satu</p>
+              <p class="card-sub">Bisa langsung file ekspor Dapodik. Cukup kolom Nama dan Kelas; NISN, Tempat & Tanggal Lahir dianjurkan</p>
             </div>
             <button class="btn btn-sm btn-outline" onclick="downloadStudentExcelTemplate()"><svg class="icon"><use href="#i-download"></use></svg>Unduh template Excel</button>
           </div>
-          <div class="row" style="gap:12px;">
+          <div class="row" style="gap:12px;align-items:flex-end;">
+            <div class="form-group" style="margin:0;">
+              <label for="studentPrefixInput">Awalan nomor peserta</label>
+              <input id="studentPrefixInput" class="input" style="width:140px;" maxlength="20" placeholder="26-03-">
+            </div>
             <input type="file" id="studentExcelInput" accept=".xlsx,.xls" class="input" style="max-width:340px;">
             <button class="btn btn-primary" onclick="importStudentsExcel()"><svg class="icon"><use href="#i-upload"></use></svg>Unggah & impor</button>
           </div>
+          <div class="hint">Yang kosong diisi otomatis: Nomor Peserta (awalan di atas + 001, 002, … per kelas lalu nama), Ruang = kelas, Nomor Meja urut nama, Password acak 6 karakter. Impor ulang dicocokkan lewat NISN, jadi nomor peserta & password lama tidak berubah.</div>
           <div id="studentImportMsg" style="margin-top:12px;font-size:13px;font-weight:500;display:none;"></div>
         </div>
 
@@ -356,7 +361,8 @@
 
         <div class="card">
           <div class="card-header">
-            <div class="card-title">Siswa terdaftar</div>
+            <div class="card-title">Siswa terdaftar <span class="badge badge-neutral" id="studentCount"></span></div>
+            <button class="btn btn-sm btn-danger-outline" onclick="confirmDeleteAllStudents()" title="Hapus seluruh data siswa sebelum impor ulang"><svg class="icon"><use href="#i-trash"></use></svg>Hapus semua siswa</button>
             <input id="studentSearch" class="input input-sm search-box" type="search" placeholder="Cari nama, no. peserta, NISN, kelas, ruang" oninput="filterTable('studentSearch', 'studentsTableBody')">
           </div>
           <div class="table-wrap">
@@ -1070,6 +1076,7 @@
       renderMonitoringTable();
 
       // Render tabel siswa
+      document.getElementById('studentCount').textContent = data.students.length;
       document.getElementById('studentsTableBody').innerHTML = data.students.map(s => {
         const safeName = s.full_name || '';
         return `
@@ -1529,6 +1536,31 @@
       window.location.href = `/api/operator/template-students-excel?staffToken=${encodeURIComponent(staffToken)}`;
     }
 
+    // Hapus seluruh data siswa (mis. sebelum impor ulang untuk ASAS). Nilai ujian lama ikut terhapus.
+    function confirmDeleteAllStudents() {
+      const total = ((currentOverview && currentOverview.students) || []).length;
+      if (!total) return cbtAlert('Belum ada data siswa.', 'info');
+      showConfirmDelete(
+        'Hapus Semua Siswa',
+        `Yakin ingin menghapus <b>${total} siswa</b>?<div class="notice notice-danger" style="margin-top:12px;text-align:left;">Seluruh sesi ujian dan nilai siswa yang sudah ada ikut terhapus dan tidak dapat dikembalikan. Ekspor nilai lebih dulu bila masih diperlukan.</div><div class="hint">Tidak wajib sebelum impor ulang: impor dicocokkan lewat NISN, jadi siswa tidak dobel.</div>`,
+        async () => {
+          try {
+            const res = await fetch('/api/operator/students/delete-all', {
+              method: 'POST',
+              headers: authHeaders({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify({ confirm: 'HAPUS SEMUA' })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) cbtAlert(data.error || 'Gagal menghapus data siswa.');
+            else cbtAlert(`${data.deletedStudents} siswa dihapus.`, 'success');
+            loadOverview();
+          } catch (err) {
+            cbtAlert('Terjadi kesalahan: ' + err.message);
+          }
+        }
+      );
+    }
+
     async function importStudentsExcel() {
       const inp = document.getElementById('studentExcelInput');
       if (!inp.files || !inp.files[0]) {
@@ -1537,6 +1569,7 @@
       }
       const fd = new FormData();
       fd.append('file', inp.files[0]);
+      fd.append('prefix', (document.getElementById('studentPrefixInput').value || '').trim());
       const res = await fetch('/api/operator/students/import-excel', {
         method: 'POST',
         headers: authHeaders(),
@@ -1547,7 +1580,7 @@
       msg.style.display = 'block';
       if (res.ok) {
         msg.style.color = 'var(--primary)';
-        msg.textContent = `${data.importedCount} data peserta berhasil diimpor`;
+        msg.textContent = `${data.importedCount} data peserta berhasil diimpor (${data.createdCount || 0} siswa baru, ${data.updatedCount || 0} diperbarui)`;
         inp.value = '';
         loadOverview();
       } else {

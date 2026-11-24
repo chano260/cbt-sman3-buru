@@ -10,6 +10,7 @@ const QRCode = require('qrcode');
 const { parseDocxBuffer, parseQuestionsFromText, generateWordTemplateBuffer } = require('./wordParser');
 const { hashPassword, verifyPassword, safeEqual, randomToken, isDefaultStaffPassword } = require('./security');
 const { createBackup, backupStatus } = require('./backup');
+const { parseStudentSheet, importStudents, defaultPrefix, cleanPrefix } = require('./studentImport');
 
 const STAFF_TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // Token login staf berlaku 12 jam
 const LOGIN_MAX_FAILS = 5;
@@ -1266,33 +1267,23 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     }
   });
 
-  // Template Excel Import Peserta Ujian
+  // Template Excel Import Peserta Ujian (kolom sederhana; ekspor Dapodik juga bisa langsung diunggah)
   app.get('/api/operator/template-students-excel', requireStaffAuth(['operator']), (req, res) => {
-    const sampleRows = [
-      {
-        'Nomor Peserta': '26-03-009',
-        'NISN': '0081234509',
-        'Nama Siswa': 'Dewi Sartika Wabula',
-        'Tempat Tanggal Lahir': 'Namlea, 14 Januari 2008',
-        'Kelas': 'XII IPA 1',
-        'Ruang': 'Ruang 01',
-        'Nomor Meja': 7,
-        'Password': 'BURU09'
-      },
-      {
-        'Nomor Peserta': '26-03-010',
-        'NISN': '0081234510',
-        'Nama Siswa': 'Hendra Saputra Namlea',
-        'Tempat Tanggal Lahir': 'Waprea, 22 Maret 2008',
-        'Kelas': 'XII IPA 1',
-        'Ruang': 'Ruang 01',
-        'Nomor Meja': 8,
-        'Password': 'BURU10'
-      }
+    const aoa = [
+      ['NISN', 'Nama Siswa', 'Kelas', 'Tempat Lahir', 'Tanggal Lahir', 'Nomor Peserta', 'Ruang', 'Nomor Meja', 'Password'],
+      ['0081234509', 'Dewi Sartika Wabula', 'X E 1', 'Namlea', '2008-01-14', '', '', '', ''],
+      ['0081234510', 'Hendra Saputra', 'X E 1', 'Waeapo', '2008-03-22', '', '', '', ''],
+      ['0081234511', 'Rina Marasabessy', 'X E 2', 'Ambon', '2008-07-05', '', '', '', '']
+    ];
+    const note = [
+      ['Cara mengisi'],
+      ['Wajib: Nama Siswa dan Kelas. Dianjurkan: NISN (supaya impor ulang tidak membuat siswa ganda), Tempat Lahir, Tanggal Lahir.'],
+      ['Boleh dikosongkan: Nomor Peserta (dibuat otomatis berurutan per kelas), Ruang (= kelas), Nomor Meja (urut nama), Password (acak 6 karakter).'],
+      ['File ekspor Dapodik (kolom Nama, NISN, Tempat Lahir, Tanggal Lahir, Rombel Saat Ini) juga bisa langsung diunggah.']
     ];
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(sampleRows);
-    XLSX.utils.book_append_sheet(wb, ws, 'Template Peserta CBT');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Peserta');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(note), 'Petunjuk');
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -1300,7 +1291,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     res.send(buf);
   });
 
-  // Import Data Peserta Sekaligus dari Excel (.xlsx)
+  // Import Data Peserta Sekaligus dari Excel (.xlsx) atau ekspor Dapodik
   app.post('/api/operator/students/import-excel', requireStaffAuth(['operator']), excelUpload.single('file'), (req, res) => {
     try {
       if (!req.file || !req.file.buffer) {
@@ -1310,49 +1301,48 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       if (ext !== '.xlsx' && ext !== '.xls') {
         return res.status(400).json({ error: 'Format file harus Excel (.xlsx atau .xls).' });
       }
-      // Hasil rumus tetap terbaca dari nilai tersimpan di file; teks rumus, HTML, gaya & makro tidak diproses
-      const wb = XLSX.read(req.file.buffer, {
-        type: 'buffer', cellFormula: false, cellHTML: false, cellStyles: false, bookVBA: false, sheets: 0
-      });
-      const sheetName = wb.SheetNames[0];
-      const rows = safeSheetRows(wb.Sheets[sheetName]);
-      if (!rows || rows.length === 0) {
-        return res.status(400).json({ error: 'File Excel kosong' });
+      const prefix = cleanPrefix(req.body && req.body.prefix !== undefined && req.body.prefix !== '' ? req.body.prefix : defaultPrefix());
+      if (prefix === null) {
+        return res.status(400).json({ error: 'Awalan nomor peserta hanya boleh huruf, angka, spasi, titik, garis miring, atau tanda hubung (maks. 20 karakter).' });
       }
-
-      const upsertStudent = db.prepare(`
-        INSERT INTO students (exam_number, nisn, full_name, class_name, room, seat_number, password, birth_info)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(exam_number) DO UPDATE SET
-          nisn = excluded.nisn,
-          full_name = excluded.full_name,
-          class_name = excluded.class_name,
-          room = excluded.room,
-          seat_number = excluded.seat_number,
-          password = excluded.password,
-          birth_info = excluded.birth_info
-      `);
-
-      let importedCount = 0;
-      rows.forEach((r, idx) => {
-        const examNo = String(r['Nomor Peserta'] || r['No Peserta'] || r['exam_number'] || '').trim();
-        const fullName = String(r['Nama Siswa'] || r['Nama Lengkap'] || r['Nama'] || r['full_name'] || '').trim();
-        if (!examNo || !fullName) return;
-        const nisn = String(r['NISN'] || r['nisn'] || '-').trim();
-        const birthInfo = String(r['Tempat Tanggal Lahir'] || r['Tempat, Tanggal Lahir'] || r['TTL'] || r['birth_info'] || '-').trim();
-        const className = String(r['Kelas'] || r['class_name'] || 'XII IPA 1').trim();
-        const room = String(r['Ruang'] || r['room'] || 'Ruang 01').trim();
-        const seatNo = Number(r['Nomor Meja'] || r['Meja'] || r['seat_number'] || idx + 1);
-        const pass = String(r['Password'] || r['password'] || `BURU${String(idx + 1).padStart(2, '0')}`).trim();
-
-        upsertStudent.run(examNo, nisn, fullName, className, room, seatNo, pass, birthInfo);
-        importedCount++;
+      // Hasil rumus tetap terbaca dari nilai tersimpan di file; teks rumus, HTML, gaya & makro tidak diproses.
+      // raw: file .xls berisi teks/HTML (sebagian ekspor Dapodik) tidak diubah otomatis ke tanggal format Amerika
+      // ("05/07/2008" harus 5 Juli); tanggal teks dibaca formatBirthDate sebagai tanggal/bulan/tahun.
+      const wb = XLSX.read(req.file.buffer, {
+        type: 'buffer', cellFormula: false, cellHTML: false, cellStyles: false, bookVBA: false, sheets: 0, raw: true
       });
-
-      res.json({ importedCount });
+      const matrix = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: true });
+      const rows = parseStudentSheet(matrix);
+      if (rows === null) {
+        return res.status(400).json({ error: 'Kolom "Nama" dan "Kelas" (atau "Rombel") tidak ditemukan. Gunakan template Excel atau file ekspor Dapodik.' });
+      }
+      if (rows.length === 0) {
+        return res.status(400).json({ error: 'Tidak ada baris siswa yang berisi nama dan kelas.' });
+      }
+      res.json(importStudents(db, rows, prefix));
     } catch (err) {
       res.status(500).json({ error: 'Gagal mengimpor file Excel: ' + err.message });
     }
+  });
+
+  // Hapus seluruh data siswa (mis. sebelum impor ulang untuk asesmen berikutnya).
+  // Sesi & jawaban siswa ikut terhapus; ditolak selama masih ada siswa yang sedang ujian.
+  app.post('/api/operator/students/delete-all', requireStaffAuth(['operator']), (req, res) => {
+    if (!req.body || req.body.confirm !== 'HAPUS SEMUA') {
+      return res.status(400).json({ error: 'Konfirmasi hapus semua siswa tidak sesuai.' });
+    }
+    const busy = db.prepare("SELECT COUNT(*) AS c FROM exam_sessions WHERE status != 'FINISHED'").get().c;
+    if (busy > 0) {
+      return res.status(409).json({ error: `Masih ada ${busy} siswa yang sedang mengerjakan atau terkunci. Tunggu sampai ujian selesai, atau batalkan jadwalnya dulu.` });
+    }
+    const tx = db.transaction(() => {
+      db.prepare('DELETE FROM answers').run();
+      const sessions = db.prepare('DELETE FROM exam_sessions').run().changes;
+      const students = db.prepare('DELETE FROM students').run().changes;
+      return { sessions, students };
+    });
+    const out = tx();
+    res.json({ ok: true, deletedStudents: out.students, deletedSessions: out.sessions });
   });
 
   app.delete('/api/operator/students/:id', requireStaffAuth(['operator']), (req, res) => {

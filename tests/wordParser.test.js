@@ -171,3 +171,122 @@ test('file bank soal: format pemberian nomor lama (teks di baris nomor) tetap sa
   assert.equal(result.length, 1);
   assert.ok(result[0].question_text.startsWith('Perhatikan pernyataan berikut:\n1. Katalis'));
 });
+
+const PG_OPTS = 'A. a\nB. b\nC. c\nD. d\nE. e';
+
+test('bacaan bersama "text for question 32 to 35" dipasang di atas setiap soal 32 sampai 35', () => {
+  const result = parseQuestionsFromText(`
+  [PG]
+  31. Soal sebelumnya?
+  ${PG_OPTS}
+  KUNCI: A
+  The following text for question 32 to 35
+  Social Media Age Limits
+  Should social media platforms enforce strict age limits of 16 or older?
+  32. Read the text below and then rearrange the sentences!
+  - I was more scared than I had ever been
+  ${PG_OPTS}
+  KUNCI: B
+  33. What is the main idea of the text?
+  ${PG_OPTS}
+  KUNCI: C
+  35. Which statement is true?
+  ${PG_OPTS}
+  KUNCI: D
+  36. Soal setelah bacaan
+  ${PG_OPTS}
+  KUNCI: E
+  `);
+  assert.deepEqual(result.map(q => q.number), [31, 32, 33, 35, 36]);
+  const passage = 'The following text for question 32 to 35\nSocial Media Age Limits\nShould social media platforms enforce strict age limits of 16 or older?';
+  assert.equal(result[1].question_text, passage + '\n\nRead the text below and then rearrange the sentences!\n- I was more scared than I had ever been');
+  assert.equal(result[2].question_text, passage + '\n\nWhat is the main idea of the text?');
+  assert.ok(result[3].question_text.startsWith(passage));
+  assert.equal(result[4].question_text, 'Soal setelah bacaan', 'soal di luar rentang tidak ikut bacaan');
+  assert.equal(result[0].option_e, 'e', 'bacaan tidak menempel ke opsi soal sebelumnya');
+  assert.equal(result[1].answer_key, 'B');
+});
+
+test('judul bacaan berbahasa Indonesia ("teks berikut untuk soal nomor 5-6") dan tanpa KUNCI sebelumnya', () => {
+  const result = parseQuestionsFromText(`
+  [PG]
+  4. Soal empat
+  ${PG_OPTS}
+  Bacalah teks berikut untuk soal nomor 5–6!
+  Pada suatu hari seekor kancil pergi ke hutan.
+  5. Siapa tokoh utama?
+  ${PG_OPTS}
+  KUNCI: A
+  6. Di mana latarnya?
+  ${PG_OPTS}
+  KUNCI: B
+  `);
+  assert.deepEqual(result.map(q => q.number), [4, 5, 6]);
+  assert.equal(result[0].option_e, 'e', 'judul bacaan memutus soal 4, tidak menempel ke opsi E');
+  for (const q of result.slice(1)) {
+    assert.ok(q.question_text.startsWith('Bacalah teks berikut untuk soal nomor 5–6!\nPada suatu hari seekor kancil pergi ke hutan.\n\n'));
+  }
+});
+
+test('teks tanpa nomor tanpa rentang dipasang ke soal berikutnya saja; judul template sebelum [PG] tidak ikut', () => {
+  const result = parseQuestionsFromText(`
+  TEMPLATE BANK SOAL CBT
+  Petunjuk: gunakan penanda [PG] dan [ESAI].
+  [PG]
+  1. Soal satu
+  ${PG_OPTS}
+  KUNCI: A
+  Perhatikan tabel berikut.
+  2. Soal dua
+  ${PG_OPTS}
+  KUNCI: B
+  3. Soal tiga
+  ${PG_OPTS}
+  KUNCI: C
+  `);
+  assert.equal(result[0].question_text, 'Soal satu');
+  assert.equal(result[1].question_text, 'Perhatikan tabel berikut.\n\nSoal dua');
+  assert.equal(result[2].question_text, 'Soal tiga');
+});
+
+test('gambar di dalam bacaan bersama ikut ke setiap soal dalam rentang yang belum bergambar', () => {
+  const result = parseQuestionsFromText(`
+  [PG]
+  Teks berikut untuk soal 1 sampai 2
+  IMG_DATA:data:image/png;base64,PSG
+  1. Soal satu
+  ${PG_OPTS}
+  KUNCI: A
+  2. Soal dua
+  IMG_DATA:data:image/png;base64,OWN
+  ${PG_OPTS}
+  KUNCI: B
+  `);
+  assert.equal(result[0].image_data, 'data:image/png;base64,PSG');
+  assert.equal(result[1].image_data, 'data:image/png;base64,OWN', 'gambar milik soal sendiri tidak ditimpa');
+});
+
+test('opsi yang menyebut "nomor 1 dan 3" atau kata seperti "piano 3 and 4" bukan judul bacaan', () => {
+  const result = parseQuestionsFromText(`
+  [PG]
+  1. Perhatikan pernyataan berikut!
+  A. Nomor 1 dan 2 benar
+  B. Nomor 1 dan 3 benar
+  C. Nomor 2 dan 4 benar
+  D. Semua benar
+  E. Semua salah
+  KUNCI: B
+  2. Alat musik apa yang dimainkan?
+  A. Gitar
+  B. Biola
+  C. Drum
+  D. Suling
+  E. Grand piano 3 and 4
+  KUNCI: A
+  `);
+  assert.deepEqual(result.map(q => q.number), [1, 2]);
+  assert.equal(result[0].option_b, 'Nomor 1 dan 3 benar');
+  assert.equal(result[0].option_c, 'Nomor 2 dan 4 benar');
+  assert.equal(result[1].question_text, 'Alat musik apa yang dimainkan?');
+  assert.equal(result[1].option_e, 'Grand piano 3 and 4');
+});

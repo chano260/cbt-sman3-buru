@@ -1,6 +1,9 @@
 const mammoth = require('mammoth');
 const { Document, Packer, Paragraph, TextRun, HeadingLevel } = require('docx');
 
+// Rentang nomor soal pada judul bacaan, mis. "question 32 to 35", "soal nomor 5–6", "soal 1 sampai 2", "no. 3 s.d. 4"
+const PASSAGE_RANGE_RE = /\b(?:questions?|numbers?|soal|nomor|no\.?)\s*(\d+)\s*(?:-|–|—|to|until|through|sampai|hingga|s\.?\s*d\.?|and|dan)\s*(\d+)/i;
+
 function parseQuestionsFromText(rawText) {
   const lines = String(rawText || '')
     .replace(/\r\n/g, '\n')
@@ -12,11 +15,22 @@ function parseQuestionsFromText(rawText) {
   const questions = [];
   let current = null;
   let pendingImage = null;
+  // Teks tanpa nomor di antara soal (bacaan/wacana). Hanya dikumpulkan setelah penanda [PG]/[ESAI]
+  // atau soal pertama, supaya judul & petunjuk di awal dokumen tidak ikut masuk ke soal.
+  let started = false;
+  // Bacaan bersama dengan rentang nomor ("text for question 32 to 35"): dipasang di setiap soal dalam rentang
+  let passage = null;
+  // Teks tanpa nomor tanpa rentang: dipasang ke soal tepat sesudahnya saja
+  let orphan = [];
 
   const pushCurrent = () => {
+    if (current && current.prefix) {
+      current.question_text = [current.prefix, current.question_text].filter(Boolean).join('\n\n');
+    }
     // Soal yang hanya berisi gambar (tanpa teks) tetap disimpan
     if (!current || (!current.question_text.trim() && !current.image_data)) return;
     delete current.lastTarget;
+    delete current.prefix;
     if (current.type === 'PG') {
       current.answer_key = (current.answer_key || 'A').toUpperCase();
     } else {
@@ -35,13 +49,16 @@ function parseQuestionsFromText(rawText) {
     if (/^\[?\s*(PG|PILIHAN\s*GANDA)\s*\]?$/i.test(line)) {
       pushCurrent();
       currentMode = 'PG';
+      started = true; passage = null; orphan = [];
       continue;
     }
     if (/^\[?\s*(ESAI|ESSAY|URAIAN)\s*\]?$/i.test(line)) {
       pushCurrent();
       currentMode = 'ESAI';
+      started = true; passage = null; orphan = [];
       continue;
     }
+
 
     // Cek baris kunci jawaban: KUNCI : B atau Jawaban: C
     const keyMatch = line.match(/^(?:KUNCI(?:\s*JAWABAN)?|JAWABAN)\s*[:=]\s*([A-Ea-e])/i);
@@ -61,6 +78,20 @@ function parseQuestionsFromText(rawText) {
       continue;
     }
 
+    // Judul bacaan bersama: "The following text for question 32 to 35", "Teks berikut untuk soal nomor 5–6".
+    // Dicek setelah opsi, supaya opsi seperti "B. Nomor 1 dan 3 benar" tetap terbaca sebagai opsi.
+    const rangeMatch = !/^\d+\s*[\.\)]/.test(line) && !/^[A-Ea-e]\s*[\.\)]/.test(line) && line.match(PASSAGE_RANGE_RE);
+    if (rangeMatch && Number(rangeMatch[2]) >= Number(rangeMatch[1])) {
+      // Hanya bila soal sebelumnya sudah lengkap (esai, atau PG yang sudah punya opsi)
+      const finished = !current || current.type === 'ESAI' || Boolean(current.option_a);
+      if (finished) {
+        pushCurrent();
+        started = true;
+        passage = { from: Number(rangeMatch[1]), to: Number(rangeMatch[2]), lines: [line], image: null, collecting: true };
+        continue;
+      }
+    }
+
     // Cek awal nomor soal baru: "1. Teks..." atau "31) Teks..."
     // Pada mode PG, jika soal saat ini belum memiliki opsi A sama sekali, baris "1. ..." atau "2. ..."
     // adalah sub-pernyataan di dalam batang soal, BUKAN soal baru!
@@ -73,11 +104,26 @@ function parseQuestionsFromText(rawText) {
       const isNextEsai = current && current.type === 'ESAI' && Number(numMatch[1]) > current.number;
       if (!current || isCompletePg || isNextEsai) {
         pushCurrent();
+        started = true;
+        const num = Number(numMatch[1]);
+        const prefixParts = [];
+        let passageImage = null;
+        if (passage) {
+          passage.collecting = false;
+          if (num >= passage.from && num <= passage.to) {
+            prefixParts.push(passage.lines.join('\n'));
+            passageImage = passage.image;
+          } else if (num > passage.to) {
+            passage = null;
+          }
+        }
+        if (orphan.length) { prefixParts.push(orphan.join('\n')); orphan = []; }
         current = {
+          prefix: prefixParts.join('\n\n'),
           type: currentMode,
-          number: Number(numMatch[1]),
+          number: num,
           question_text: numMatch[2].trim(),
-          image_data: pendingImage,
+          image_data: pendingImage || passageImage,
           option_a: '',
           option_b: '',
           option_c: '',
@@ -96,6 +142,7 @@ function parseQuestionsFromText(rawText) {
       const src = line.replace('IMG_DATA:', '').trim();
       // Gambar di atas nomor soal (belum ada soal yang sedang dibaca) disimpan untuk soal berikutnya
       if (current) current.image_data = src;
+      else if (passage && passage.collecting) passage.image = passage.image || src;
       else pendingImage = src;
       continue;
     }
@@ -108,6 +155,10 @@ function parseQuestionsFromText(rawText) {
       } else {
         current[target] = (current[target] + ' ' + line).trim();
       }
+    } else if (started) {
+      // Bacaan/wacana tanpa nomor sebelum soal berikutnya
+      if (passage && passage.collecting) passage.lines.push(line);
+      else orphan.push(line);
     }
   }
 

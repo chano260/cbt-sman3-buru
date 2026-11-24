@@ -63,3 +63,32 @@ test('parseQuestionsFromText handles sub-numbered statements inside question ste
   assert.equal(result[0].answer_key, 'C');
 });
 
+test('esai: sub-butir bernomor (1. 2.) dan berhuruf (a. b.) tetap satu kesatuan dengan soal esainya', () => {
+  const sample = `
+  [ESAI]
+  23. Petugas perpustakaan mencari buku berdasarkan nomor katalog.
+  1. Kondisi pertama, katalog belum terurut.
+  2. Kondisi kedua, katalog sudah diurutkan dari terkecil hingga terbesar.
+  a. Algoritma apa yang tepat untuk setiap kondisi?
+  b. Mengapa Binary Search tidak dapat diterapkan langsung pada data yang belum terurut?
+  24. Seorang guru memiliki nilai lima siswa: 75, 60, 90, 65, 80.
+  a. Jelaskan bagaimana Bubble Sort mengurutkan data tersebut!
+  `;
+  const result = parseQuestionsFromText(sample);
+  assert.deepEqual(result.map(q => q.number), [23, 24]);
+  assert.ok(result.every(q => q.type === 'ESAI'));
+  assert.ok(result[0].question_text.includes('1. Kondisi pertama'));
+  assert.ok(result[0].question_text.includes('2. Kondisi kedua'));
+  assert.ok(result[0].question_text.includes('b. Mengapa Binary Search'));
+  assert.ok(result[1].question_text.includes('a. Jelaskan bagaimana Bubble Sort'));
+});
+
+test('esai: soal esai pertama boleh bernomor 1 dan nomor berikutnya tetap jadi soal baru', () => {
+  const result = parseQuestionsFromText(`
+  [ESAI]
+  1. Jelaskan pengertian algoritma!
+  2. Sebutkan contoh algoritma!
+  3. Jelaskan perbedaan FIFO dan LIFO!
+  `);
+  assert.deepEqual(result.map(q => q.number), [1, 2, 3]);
+});

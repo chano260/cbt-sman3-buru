@@ -65,8 +65,10 @@ function parseQuestionsFromText(rawText) {
     const numMatch = line.match(/^(\d+)\s*[\.\)]\s*(.+)$/);
     if (numMatch) {
       const isCompletePg = current && current.type === 'PG' && Boolean(current.option_a);
-      const isEsai = current && current.type === 'ESAI';
-      if (!current || isCompletePg || isEsai) {
+      // Pada mode esai, "1." / "2." yang nomornya tidak lebih besar dari nomor soal saat ini
+      // adalah sub-butir di dalam soal esai (mis. soal 23 berisi "1. Kondisi pertama"), BUKAN soal baru.
+      const isNextEsai = current && current.type === 'ESAI' && Number(numMatch[1]) > current.number;
+      if (!current || isCompletePg || isNextEsai) {
         pushCurrent();
         current = {
           type: currentMode,

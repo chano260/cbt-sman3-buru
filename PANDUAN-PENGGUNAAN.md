@@ -200,7 +200,7 @@ Catatan:
 ## 8. Aplikasi Ujian Android Sekolah (Ujian CBT SMAN 3 Buru)
 
 Aplikasi ujian buatan sekolah sendiri. Tidak memerlukan aplikasi pendukung (tidak ada Simple Keyboard,
-tidak ada pindai QR); siswa memakai keyboard bawaan HP. Izin yang diminta hanya internet.
+tidak ada pindai QR); siswa memakai keyboard bawaan HP. Izin yang diminta hanya internet dan getar.
 Berjalan di Android 6.0 ke atas.
 
 **Persiapan (operator):**
@@ -220,6 +220,11 @@ Berjalan di Android 6.0 ke atas.
 3. Halaman login ujian langsung terbuka: login seperti biasa (nomor peserta, kata sandi, token).
 4. Tangkapan layar diblokir. Keluar ke Home, membuka aplikasi lain, atau layar belah dicatat sebagai pelanggaran
    seperti biasa.
+5. **Alarm keluar:** setelah soal dimulai, bila siswa keluar dari layar ujian (Home, pindah aplikasi, buka panel
+   notifikasi, layar belah), HP siswa langsung **berbunyi keras dan bergetar** sampai siswa kembali ke aplikasi.
+   Bunyi memakai volume alarm (dinaikkan ke maksimum lalu dikembalikan), jadi tetap terdengar walau HP mode
+   senyap/getar. Hanya mode "Jangan Ganggu" total yang bisa meredamnya. Di halaman login, setelah ujian selesai,
+   dan saat pengawas menutup aplikasi dengan password, alarm tidak berbunyi.
 
 **Keluar aplikasi (pengawas):**
 - Ketuk **Keluar** di bilah atas → masukkan password keluar → **Lanjut**. Aplikasi tertutup dan kunci layar lepas.

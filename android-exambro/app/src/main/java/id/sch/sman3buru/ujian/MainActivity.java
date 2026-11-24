@@ -8,10 +8,14 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.media.AudioManager;
+import android.media.ToneGenerator;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -91,6 +95,11 @@ public class MainActivity extends Activity {
     private boolean exiting = false;
     private boolean dialogOpen = false;
     private long examStartedAt = 0;
+    /** true sejak ujian.html memanggil enterLockMode() (soal dimulai) sampai exitLockMode() (ujian selesai). */
+    private volatile boolean examRunning = false;
+
+    private ToneGenerator alarmTone;
+    private int savedAlarmVolume = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -377,6 +386,7 @@ public class MainActivity extends Activity {
 
     private void exitApp() {
         exiting = true;
+        stopLeaveAlarm();
         try {
             web.evaluateJavascript("window.cbtSupervisorExit && window.cbtSupervisorExit()", null);
         } catch (Exception ignored) {
@@ -455,11 +465,78 @@ public class MainActivity extends Activity {
     private void reportLeave(String reason) {
         if (!inExam || exiting || dialogOpen) return;
         if (System.currentTimeMillis() - examStartedAt < LOCK_PROMPT_GRACE_MS) return;
+        if (examRunning) startLeaveAlarm();
         String js = "window.onExambroViolationDetected && window.onExambroViolationDetected(" + JSONObject.quote(reason) + ")";
         try {
             web.evaluateJavascript(js, null);
         } catch (Exception ignored) {
         }
+    }
+
+    /**
+     * Alarm keluar: HP siswa berbunyi keras dan bergetar sampai siswa kembali ke layar ujian,
+     * supaya pengawas di ruangan langsung tahu HP mana yang keluar. Memakai stream alarm sehingga
+     * tetap berbunyi saat HP dalam mode senyap/getar (kecuali "Jangan Ganggu" total).
+     */
+    private void startLeaveAlarm() {
+        if (alarmTone != null) return;
+        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        if (am != null) {
+            try {
+                savedAlarmVolume = am.getStreamVolume(AudioManager.STREAM_ALARM);
+                am.setStreamVolume(AudioManager.STREAM_ALARM, am.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0);
+            } catch (Exception ignored) {
+                // Mode "Jangan Ganggu" bisa menolak perubahan volume: bunyi tetap dicoba
+            }
+        }
+        try {
+            alarmTone = new ToneGenerator(AudioManager.STREAM_ALARM, ToneGenerator.MAX_VOLUME);
+            alarmTone.startTone(ToneGenerator.TONE_CDMA_EMERGENCY_RINGBACK);
+        } catch (Exception e) {
+            alarmTone = null;
+        }
+        Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        if (vibrator != null && vibrator.hasVibrator()) {
+            long[] pattern = {0, 700, 300};
+            if (Build.VERSION.SDK_INT >= 26) {
+                vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0));
+            } else {
+                vibrator.vibrate(pattern, 0);
+            }
+        }
+    }
+
+    private void stopLeaveAlarm() {
+        if (alarmTone != null) {
+            try {
+                alarmTone.stopTone();
+                alarmTone.release();
+            } catch (Exception ignored) {
+            }
+            alarmTone = null;
+        }
+        Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        if (vibrator != null) vibrator.cancel();
+        if (savedAlarmVolume >= 0) {
+            AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            try {
+                if (am != null) am.setStreamVolume(AudioManager.STREAM_ALARM, savedAlarmVolume, 0);
+            } catch (Exception ignored) {
+            }
+            savedAlarmVolume = -1;
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        stopLeaveAlarm();
+    }
+
+    @Override
+    protected void onDestroy() {
+        stopLeaveAlarm();
+        super.onDestroy();
     }
 
     @Override
@@ -472,6 +549,7 @@ public class MainActivity extends Activity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
+            stopLeaveAlarm();
             immersive();
         } else {
             reportLeave("Siswa membuka panel notifikasi / keluar dari layar ujian");
@@ -497,10 +575,26 @@ public class MainActivity extends Activity {
     }
 
     private class Bridge {
+        /** Dipanggil ujian.html saat soal mulai dikerjakan: sejak ini keluar aplikasi membunyikan alarm. */
+        @JavascriptInterface
+        public void enterLockMode() {
+            ui.post(() -> {
+                examRunning = true;
+                // Prompt "sematkan aplikasi?" bisa muncul lagi: beri masa tenggang yang sama seperti saat masuk
+                examStartedAt = System.currentTimeMillis();
+                try {
+                    startLockTask();
+                } catch (Exception ignored) {
+                }
+            });
+        }
+
         /** Dipanggil ujian.html setelah ujian selesai: lepaskan sematan layar. */
         @JavascriptInterface
         public void exitLockMode() {
             ui.post(() -> {
+                examRunning = false;
+                stopLeaveAlarm();
                 try {
                     stopLockTask();
                 } catch (Exception ignored) {

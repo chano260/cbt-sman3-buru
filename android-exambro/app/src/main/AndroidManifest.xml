@@ -2,9 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="id.sch.sman3buru.ujian">
 
-    <!-- Hanya internet: tanpa izin kamera, penyimpanan, atau aplikasi pendukung -->
+    <!-- Hanya internet (+ getar): tanpa izin kamera, penyimpanan, atau aplikasi pendukung -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Getar untuk alarm saat siswa keluar dari layar ujian -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:allowBackup="false"

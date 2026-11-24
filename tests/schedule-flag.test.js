@@ -1,0 +1,113 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const Database = require('better-sqlite3');
+const { initDb } = require('../src/db');
+const { createApp } = require('../src/app');
+
+async function setup(t) {
+  const db = initDb(':memory:');
+  const app = createApp(db, { enforceDefaultPasswordChange: false });
+  const server = app.listen(0);
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const login = (username, password, role) => fetch(`${base}/api/staff/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password, role })
+  }).then(r => r.json()).then(j => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${j.staffToken}` }));
+  const op = await login('operator', 'admin123', 'operator');
+  const guru = await login('guru', 'guru123', 'guru');
+  const post = (url, headers, body) => fetch(base + url, { method: 'POST', headers, body: JSON.stringify(body || {}) });
+  const flag = (id) => db.prepare('SELECT is_scheduled, is_active FROM exams WHERE id = ?').get(id);
+  return { db, base, op, guru, post, flag };
+}
+
+test('bank soal buatan guru belum terjadwal; operator menjadwalkan dari bank soal itu', async (t) => {
+  const { op, guru, post, flag } = await setup(t);
+  const bank = await post('/api/guru/exams', guru, { subject: 'Kimia', title: 'PAS Kimia', class_target: 'X 1' }).then(r => r.json());
+  assert.deepEqual(flag(bank.id), { is_scheduled: 0, is_active: 0 });
+
+  const res = await post('/api/operator/exams', op, { exam_id: bank.id, subject: 'Kimia', title: 'PAS Kimia', class_target: 'X 1', exam_date: '2026-12-01', session_name: 'Sesi 1' });
+  assert.equal(res.status, 200);
+  assert.equal(flag(bank.id).is_scheduled, 1);
+});
+
+test('jadwal baru tanpa bank soal dan aktivasi paket menandai terjadwal', async (t) => {
+  const { db, op, guru, post, flag } = await setup(t);
+  const created = await post('/api/operator/exams', op, { subject: 'Biologi', title: 'PAS Biologi', class_target: 'X 2' }).then(r => r.json());
+  assert.equal(flag(created.id).is_scheduled, 1);
+
+  const bank = await post('/api/guru/exams', guru, { subject: 'Kimia', title: 'UH Kimia', class_target: 'X 3' }).then(r => r.json());
+  await post(`/api/operator/exams/${bank.id}/activate`, op);
+  assert.deepEqual(flag(bank.id), { is_scheduled: 1, is_active: 1 });
+  assert.ok(db.prepare('SELECT COUNT(*) c FROM exams').get().c >= 3);
+});
+
+test('batalkan jadwal: paket kembali ke bank soal (soal tetap), ditolak bila ada siswa yang belum selesai', async (t) => {
+  const { db, op, post, flag, base } = await setup(t);
+  const exam = db.prepare('SELECT * FROM exams WHERE is_active = 1 LIMIT 1').get();
+  const qBefore = db.prepare('SELECT COUNT(*) c FROM questions WHERE exam_id = ?').get(exam.id).c;
+  assert.equal(flag(exam.id).is_scheduled, 1, 'ujian contoh yang aktif dianggap terjadwal');
+
+  // Siswa sedang mengerjakan -> ditolak
+  const student = db.prepare('SELECT * FROM students LIMIT 1').get();
+  await fetch(`${base}/api/ujian/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ exam_number: student.exam_number, password: student.password, token: exam.token })
+  });
+  const blocked = await post(`/api/operator/exams/${exam.id}/unschedule`, op);
+  assert.equal(blocked.status, 409);
+  assert.equal(flag(exam.id).is_scheduled, 1);
+
+  db.prepare("UPDATE exam_sessions SET status = 'FINISHED' WHERE exam_id = ?").run(exam.id);
+  const ok = await post(`/api/operator/exams/${exam.id}/unschedule`, op);
+  assert.equal(ok.status, 200);
+  assert.deepEqual(flag(exam.id), { is_scheduled: 0, is_active: 0 });
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM questions WHERE exam_id = ?').get(exam.id).c, qBefore, 'soal tidak ikut terhapus');
+
+  assert.equal((await post('/api/operator/exams/999999/unschedule', op)).status, 404);
+});
+
+test('guru tidak bisa membatalkan jadwal', async (t) => {
+  const { db, guru, post } = await setup(t);
+  const exam = db.prepare('SELECT * FROM exams WHERE is_active = 1 LIMIT 1').get();
+  assert.equal((await post(`/api/operator/exams/${exam.id}/unschedule`, guru)).status, 403);
+});
+
+test('migrasi database lama: paket aktif atau yang sudah punya sesi siswa dianggap terjadwal', () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'cbt-jadwal-')), 'lama.db');
+  const first = initDb(file);
+  const ex = (title, active) => Number(first.prepare(`INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, token, is_active)
+    VALUES (?, 'Kimia', 'X 1', '2026-11-01', '08:00', 'Sesi 1', 'ABCDE', ?)`).run(title, active).lastInsertRowid);
+  const aktif = ex('aktif', 1);
+  const pernahDipakai = ex('pernah dipakai', 0);
+  const bankSaja = ex('bank saja', 0);
+  const st = first.prepare('SELECT id FROM students LIMIT 1').get();
+  first.prepare("INSERT INTO exam_sessions (student_id, exam_id, status, started_at) VALUES (?, ?, 'FINISHED', '2026-11-01T08:00:00Z')").run(st.id, pernahDipakai);
+  first.close();
+
+  // Simulasikan database versi lama: kolom is_scheduled belum ada
+  const raw = new Database(file);
+  raw.exec('ALTER TABLE exams DROP COLUMN is_scheduled');
+  raw.close();
+
+  const db = initDb(file);
+  const f = (id) => db.prepare('SELECT is_scheduled FROM exams WHERE id = ?').get(id).is_scheduled;
+  assert.equal(f(aktif), 1);
+  assert.equal(f(pernahDipakai), 1);
+  assert.equal(f(bankSaja), 0);
+  db.close();
+});
+
+test('panel operator: daftar jadwal hanya paket terjadwal; Jadwalkan & Hapus paket ada di Bank soal masuk', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'operator.html'), 'utf8');
+  const renderJadwal = html.slice(html.indexOf("getElementById('examsTableBody').innerHTML"), html.indexOf("getElementById('banksTableBody').innerHTML"));
+  assert.match(renderJadwal, /\.filter\(e => e\.is_scheduled\)/);
+  assert.match(renderJadwal, /unscheduleExam\(/);
+  assert.doesNotMatch(renderJadwal, /confirmDeleteExam\(/, 'hapus paket (beserta soal) tidak ada di daftar jadwal');
+  const renderBanks = html.slice(html.indexOf("getElementById('banksTableBody').innerHTML"));
+  assert.match(renderBanks, /scheduleBank\(/);
+  assert.match(renderBanks, /confirmDeleteExam\(/);
+});

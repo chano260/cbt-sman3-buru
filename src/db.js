@@ -88,7 +88,9 @@ function initDb(dbPath = DEFAULT_DB_PATH) {
       token_updated_at TEXT,
       shuffle_questions INTEGER NOT NULL DEFAULT 1,
       is_active INTEGER NOT NULL DEFAULT 1,
-      teacher_id INTEGER
+      teacher_id INTEGER,
+      -- 1 = sudah dijadwalkan operator (tampil di Daftar jadwal); 0 = masih bank soal guru
+      is_scheduled INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS questions (
@@ -170,6 +172,13 @@ function initDb(dbPath = DEFAULT_DB_PATH) {
     try { db.exec(sql); } catch {}
   }
 
+  // Tanda "sudah dijadwalkan". Untuk database lama: paket yang aktif atau sudah pernah dipakai siswa
+  // dianggap jadwal; paket lain tetap sebagai bank soal guru.
+  try {
+    db.exec('ALTER TABLE exams ADD COLUMN is_scheduled INTEGER NOT NULL DEFAULT 0');
+    db.exec('UPDATE exams SET is_scheduled = 1 WHERE is_active = 1 OR id IN (SELECT DISTINCT exam_id FROM exam_sessions)');
+  } catch (e) { /* kolom sudah ada */ }
+
   const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get().c;
   if (userCount === 0) {
     const insertUser = db.prepare(`
@@ -200,8 +209,8 @@ function initDb(dbPath = DEFAULT_DB_PATH) {
     }
 
     const insertExam = db.prepare(`
-      INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, shuffle_questions, is_active, teacher_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, shuffle_questions, is_active, teacher_id, is_scheduled)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     `);
     const examInfo = insertExam.run(
       'Penilaian Akhir Semester (PAS) Ganjil',

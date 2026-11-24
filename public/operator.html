@@ -1095,7 +1095,7 @@
       renderClassOptions(data.classes || []);
 
       // Render tabel jadwal ujian (khusus penjadwalan; urusan soal di menu Bank soal masuk)
-      document.getElementById('examsTableBody').innerHTML = data.exams.map(e => {
+      document.getElementById('examsTableBody').innerHTML = data.exams.filter(e => e.is_scheduled).map(e => {
         const totalQ = Number(e.total_questions || 0);
         const safeSubject = e.subject || '';
         return `
@@ -1112,12 +1112,12 @@
           <td>
             <div class="cell-actions">
               ${!e.is_active ? `<button class="btn btn-xs ${totalQ > 0 ? 'btn-primary' : 'btn-outline'}" onclick="activateExam(${e.id}, ${totalQ})">${cbtIcon('play')}${totalQ > 0 ? 'Aktifkan' : 'Aktifkan (0 soal)'}</button>` : ''}
-              <button class="btn btn-xs btn-danger-outline" onclick="confirmDeleteExam(${e.id}, '${escJs(safeSubject)}', ${totalQ})">${cbtIcon('trash')}Hapus</button>
+              <button class="btn btn-xs btn-danger-outline" onclick="unscheduleExam(${e.id}, '${escJs(safeSubject + ' — ' + (e.title || ''))}')" title="Paket kembali ke Bank soal masuk; soal tidak dihapus">${cbtIcon('x')}Batalkan jadwal</button>
             </div>
           </td>
         </tr>
       `;
-      }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:20px;">Belum ada jadwal ujian</td></tr>';
+      }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:20px;">Belum ada jadwal ujian. Pilih bank soal di formulir di atas, atau tekan Jadwalkan di menu Bank soal masuk.</td></tr>';
 
       // Render tabel bank soal masuk (urusan butir soal)
       document.getElementById('banksTableBody').innerHTML = data.exams.map(e => {
@@ -1138,13 +1138,15 @@
           <td>${esc(e.title)}</td>
           <td><span class="badge badge-neutral">${esc(e.class_target || 'Semua Kelas')}</span></td>
           <td>${qBadge}</td>
-          <td>${e.is_active ? '<span class="badge badge-working"><span class="live-dot"></span>Aktif</span>' : '<span class="badge badge-idle">Belum aktif</span>'}<div class="cell-sub">${esc(e.exam_date || '-')} · ${esc(e.session_name)}</div></td>
+          <td>${!e.is_scheduled ? '<span class="badge badge-idle">Belum dijadwalkan</span>' : `${e.is_active ? '<span class="badge badge-working"><span class="live-dot"></span>Aktif</span>' : '<span class="badge badge-neutral">Terjadwal</span>'}<div class="cell-sub">${esc(e.exam_date || '-')} · ${esc(e.session_name)}</div>`}</td>
           <td>
             <div class="cell-actions">
               ${totalQ > 0 ? `<button class="btn btn-xs btn-outline" onclick="openPreviewQuestionsModal(${e.id})">${cbtIcon('eye')}Lihat soal</button>` : ''}
               ${totalQ === 0 ? `<button class="btn btn-xs btn-outline" onclick="openCopyQuestionsModal(${e.id}, '${escJs(safeSubject)}')">${cbtIcon('copy')}Salin soal</button>` : ''}
               <button class="btn btn-xs btn-outline" onclick="openUploadWordModal(${e.id}, '${escJs(safeSubject)}', '${escJs(safeTarget)}')">${cbtIcon('upload')}Unggah Word</button>
+              ${!e.is_scheduled ? `<button class="btn btn-xs btn-primary" onclick="scheduleBank(${e.id})">${cbtIcon('calendar')}Jadwalkan</button>` : ''}
               <a href="/guru.html" target="_blank" class="btn btn-xs btn-ghost" title="Kelola butir soal di panel guru">${cbtIcon('external')}Panel guru</a>
+              <button class="btn btn-xs btn-danger-outline" onclick="confirmDeleteExam(${e.id}, '${escJs(safeSubject)}', ${totalQ})" title="Hapus paket beserta seluruh soalnya">${cbtIcon('trash')}Hapus paket</button>
             </div>
           </td>
         </tr>
@@ -1712,12 +1714,12 @@
 
     function confirmDeleteExam(id, subject, totalQ) {
       const warnSoal = totalQ > 0
-        ? `<div class="notice notice-danger" style="margin-top:12px;text-align:left;">Paket ini berisi ${totalQ} butir soal. $1</div>`
+        ? `<div class="notice notice-danger" style="margin-top:12px;text-align:left;">Paket ini berisi ${totalQ} butir soal, dan semuanya ikut terhapus. Tindakan ini tidak dapat dibatalkan.</div>`
         : `<div class="hint">Paket ini masih kosong (0 soal)</div>`;
 
       showConfirmDelete(
-        'Hapus Jadwal Ujian',
-        `Yakin ingin menghapus jadwal ujian <b>${esc(subject)}</b>?${warnSoal}`,
+        'Hapus Paket Soal',
+        `Yakin ingin menghapus paket <b>${esc(subject)}</b> beserta jadwal, soal, dan nilai siswanya?${warnSoal}`,
         async () => {
           try {
             const res = await fetch(`/api/operator/exams/${id}`, {
@@ -1732,6 +1734,30 @@
           }
         }
       );
+    }
+
+    // Batalkan jadwal: paket kembali ke Bank soal masuk, soal tetap ada
+    async function unscheduleExam(id, subject) {
+      const ok = await cbtConfirm({
+        title: 'Batalkan jadwal?',
+        message: `Jadwal ${subject} dibatalkan dan paketnya kembali ke menu Bank soal masuk. Soal dan nilai yang sudah ada tidak dihapus.`,
+        confirmText: 'Ya, batalkan jadwal'
+      });
+      if (!ok) return;
+      const res = await fetch(`/api/operator/exams/${id}/unschedule`, { method: 'POST', headers: authHeaders() });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) cbtAlert(data.error || 'Gagal membatalkan jadwal.');
+      loadOverview();
+    }
+
+    // Dari Bank soal masuk: buka formulir Buat jadwal dengan bank soal ini sudah terpilih
+    function scheduleBank(examId) {
+      const btn = [...document.querySelectorAll('.nav-btn')].find(b => (b.getAttribute('onclick') || '').includes("'tab-exams'"));
+      switchTab('tab-exams', btn);
+      const sel = document.getElementById('exSubjectSelect');
+      sel.value = 'exam:' + examId;
+      handleSubjectDropdownChange(sel.value);
+      sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     async function deleteExam(id, subject, totalQ) {
@@ -1800,7 +1826,7 @@
         if (banner) {
           banner.style.display = 'flex';
           banner.className = 'notice notice-info';
-          banner.innerHTML = cbtIcon('info') + `<span>Jadwal baru untuk <b>${esc(subjName)}</b>. Guru mapel bisa mengunggah soal di panel guru, atau unggah file Word dari daftar jadwal di bawah.</span>`;
+          banner.innerHTML = cbtIcon('info') + `<span>Jadwal baru untuk <b>${esc(subjName)}</b>. Guru mapel bisa mengunggah soal di panel guru, atau unggah file Word dari menu Bank soal masuk.</span>`;
         }
         return;
       }

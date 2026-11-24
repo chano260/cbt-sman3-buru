@@ -1100,7 +1100,8 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
               duration_minutes = COALESCE(?, duration_minutes),
               token = ?,
               token_updated_at = ?,
-              is_active = 1
+              is_active = 1,
+              is_scheduled = 1
           WHERE id = ?
         `).run(
           title,
@@ -1132,8 +1133,8 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     }
 
     const info = db.prepare(`
-      INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, shuffle_questions, is_active, teacher_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+      INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, shuffle_questions, is_active, teacher_id, is_scheduled)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 1)
     `).run(
       title,
       subject,
@@ -1173,8 +1174,21 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     }
 
     deactivateOverlappingExams(db, examId, targetExam.class_target);
-    db.prepare('UPDATE exams SET is_active = 1, token_updated_at = ? WHERE id = ?').run(new Date().toISOString(), examId);
+    db.prepare('UPDATE exams SET is_active = 1, is_scheduled = 1, token_updated_at = ? WHERE id = ?').run(new Date().toISOString(), examId);
     res.json({ activated: examId, total_questions: qCount + autoCopied, autoCopiedQuestions: autoCopied });
+  });
+
+  // Batalkan jadwal: paket kembali menjadi bank soal guru (soal & nilai yang sudah ada tidak dihapus)
+  app.post('/api/operator/exams/:id/unschedule', requireStaffAuth(['operator']), (req, res) => {
+    const examId = Number(req.params.id);
+    const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);
+    if (!exam) return res.status(404).json({ error: 'Jadwal ujian tidak ditemukan' });
+    const unfinished = db.prepare("SELECT COUNT(*) AS c FROM exam_sessions WHERE exam_id = ? AND status != 'FINISHED'").get(examId).c;
+    if (unfinished > 0) {
+      return res.status(409).json({ error: `Jadwal tidak dapat dibatalkan: masih ada ${unfinished} siswa yang sedang mengerjakan atau terkunci pada ujian ini.` });
+    }
+    db.prepare('UPDATE exams SET is_scheduled = 0, is_active = 0 WHERE id = ?').run(examId);
+    res.json({ ok: true, id: examId });
   });
 
   app.post('/api/operator/exams/:targetId/copy-questions-from/:sourceId', requireStaffAuth(['operator']), (req, res) => {

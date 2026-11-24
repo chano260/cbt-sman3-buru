@@ -196,3 +196,41 @@ Catatan:
 - Bila password keluar diganti, siswa yang sedang memakai pengaturan lama tetap memakai password lama
   sampai SEB dibuka ulang lewat QR baru.
 - Cobalah satu iPhone sebelum hari ujian untuk memastikan SEB dan mode kunci berjalan di perangkat itu.
+
+## 8. Aplikasi Ujian Android Sekolah (Ujian CBT SMAN 3 Buru)
+
+Aplikasi ujian buatan sekolah sendiri. Tidak memerlukan aplikasi pendukung (tidak ada Simple Keyboard,
+tidak ada pindai QR); siswa memakai keyboard bawaan HP. Izin yang diminta hanya internet.
+Berjalan di Android 6.0 ke atas.
+
+**Persiapan (operator):**
+1. Bagikan file APK: `https://<domain-sekolah>/Exambro-SMAN3-Buru.apk`. Siswa memasangnya sehari sebelum ujian
+   (izinkan "pasang dari sumber tidak dikenal" bila diminta).
+2. Panel Operator → kartu **Aplikasi ujian Android** → isi **Kode masuk** (4–8 angka) → Simpan.
+   Kode ini diberitahukan pengawas di ruang ujian, boleh diganti setiap sesi.
+3. Atur **password keluar** di kartu Safe Exam Browser (bab 7). Password yang sama dipakai pengawas
+   untuk menutup aplikasi Android.
+4. Opsional: centang **Wajibkan aplikasi ujian**. Setelah dicentang, login ujian hanya bisa dilakukan dari
+   aplikasi Android sekolah atau Safe Exam Browser (iPhone/iPad); browser biasa ditolak.
+   Tanpa centang, browser biasa tetap boleh dipakai seperti sebelumnya.
+
+**Saat ujian (siswa):**
+1. Buka aplikasi **Ujian CBT SMAN 3 Buru** → masukkan kode masuk dari pengawas → **Masuk**.
+2. Bila muncul "Sematkan aplikasi / App pinned", ketuk **Mengerti / Got it** agar layar terkunci di aplikasi.
+3. Halaman login ujian langsung terbuka: login seperti biasa (nomor peserta, kata sandi, token).
+4. Tangkapan layar diblokir. Keluar ke Home, membuka aplikasi lain, atau layar belah dicatat sebagai pelanggaran
+   seperti biasa.
+
+**Keluar aplikasi (pengawas):**
+- Ketuk **Keluar** di bilah atas → masukkan password keluar → **Lanjut**. Aplikasi tertutup dan kunci layar lepas.
+  Keluar oleh pengawas dicatat server sebagai "keluar oleh pengawas", bukan pelanggaran, dan sesi tidak dikunci.
+- Bila internet putus, aplikasi tetap bisa ditutup dengan password yang sudah pernah dipakai di HP itu.
+  Bila tetap tidak bisa: tahan tombol **Kembali + Ringkasan (Recent)** bersamaan untuk melepas sematan,
+  lalu tutup aplikasi.
+- Pengaturan tersembunyi (alamat server): ketuk logo di layar kode 5 kali. Biasanya tidak perlu diubah.
+
+**PENTING – simpan cadangan kunci tanda tangan APK.**
+Folder `android-exambro/keystore/` (file `ujian-release.jks` dan `keystore-password.txt`) tidak ikut git.
+Salin ke flashdisk/Drive sekolah. Tanpa file ini, versi aplikasi berikutnya tidak bisa dipasang menimpa
+versi lama di HP siswa (siswa harus hapus aplikasi lama dulu).
+Membangun ulang APK: `powershell -ExecutionPolicy Bypass -File build-apk.ps1` (butuh Android SDK + JDK).

@@ -858,7 +858,7 @@
       const card = document.getElementById('activeQuestionCard');
       if (questions.length === 0) {
         if (card) {
-          const subj = examData?.exam?.subject || 'Mata Pelajaran Ini';
+          const subj = (examData && examData.exam && examData.exam.subject) || 'Mata Pelajaran Ini';
           card.innerHTML = `
             <div style="text-align:center;padding:36px 16px;">
               <div style="font-size:18px;font-weight:600;color:#92400e;margin-bottom:8px;">Paket Ujian Ini Belum Memiliki Butir Soal</div>
@@ -1140,29 +1140,44 @@
           hideLockedScreen();
           document.getElementById('reverifyTokenOverlay').style.display = 'flex';
         }
-      } catch {}
+      } catch (e) {}
     }
+
+    // Keluar aplikasi oleh pengawas (password benar di aplikasi Android): bukan pelanggaran.
+    // Deteksi keluar dimatikan dulu, lalu server mencatat "keluar oleh pengawas" tanpa mengunci sesi.
+    window.__cbtExiting = false;
+    window.cbtSupervisorExit = function () {
+      window.__cbtExiting = true;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      if (!sessionId) return Promise.resolve();
+      return fetch('/api/ujian/supervisor-exit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: sessionId })
+      }).catch(function () {});
+    };
 
     // Laporan pelanggaran dari aplikasi Android Exambro (tombol Home, layar belah, dll.)
     window.onExambroViolationDetected = function (reason) {
-      if (!examActive) return;
+      if (!examActive || window.__cbtExiting) return;
       reportExamViolation(reason || 'Terdeteksi keluar dari aplikasi Exambro');
     };
 
     function handleVisibilityChange() {
-      if (document.hidden && examActive) {
+      if (document.hidden && examActive && !window.__cbtExiting) {
         reportExamViolation('Pindah tab atau meminimalkan aplikasi');
       }
     }
 
     function handleWindowBlur() {
-      if (examActive) {
+      if (examActive && !window.__cbtExiting) {
         reportExamViolation('Keluar dari layar aplikasi ujian');
       }
     }
 
     async function reportExamViolation(reason) {
-      if (!examActive || !sessionId) return;
+      if (!examActive || !sessionId || window.__cbtExiting) return;
       showLockedScreen(reason);
       await fetch('/api/ujian/violation', {
         method: 'POST',
@@ -1188,7 +1203,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId })
         });
-      } catch {}
+      } catch (e) {}
       hideLockedScreen();
       document.getElementById('reverifyTokenOverlay').style.display = 'none';
       await loadExamSession();

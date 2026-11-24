@@ -944,6 +944,99 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     res.json(qrBundle);
   });
 
+  // ---------- Aplikasi ujian Android sekolah ----------
+  // Kode masuk aplikasi (diatur operator, disimpan ter-hash), tiket aplikasi 12 jam di memori,
+  // dan sakelar "Wajibkan aplikasi ujian" (bawaan mati, untuk masa peralihan).
+  const APP_TICKET_TTL_MS = 12 * 60 * 60 * 1000;
+  const APP_CODE_MAX_FAILS = 10;
+  const APP_CODE_WINDOW_MS = 15 * 60 * 1000;
+  const appTickets = new Map();
+  const appCodeFailures = new Map();
+
+  function getSetting(key) {
+    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+    return row ? row.value : null;
+  }
+  function setSetting(key, value) {
+    db.prepare(`
+      INSERT INTO settings (key, value) VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `).run(key, String(value));
+  }
+  function appSettingsState() {
+    return { codeSet: !!getSetting('app_code_hash'), requireApp: getSetting('require_app') === '1' };
+  }
+  function readCookie(req, name) {
+    const raw = String(req.headers.cookie || '');
+    for (const part of raw.split(';')) {
+      const i = part.indexOf('=');
+      if (i > 0 && part.slice(0, i).trim() === name) return decodeURIComponent(part.slice(i + 1).trim());
+    }
+    return '';
+  }
+  function hasValidAppTicket(req) {
+    const ticket = String(req.headers['x-app-ticket'] || '') || readCookie(req, 'cbt_app');
+    if (!ticket) return false;
+    const exp = appTickets.get(ticket);
+    if (!exp) return false;
+    if (Date.now() > exp) { appTickets.delete(ticket); return false; }
+    return true;
+  }
+  function isSafeExamBrowser(req) {
+    return /\bSEB\/\d/.test(String(req.headers['user-agent'] || ''));
+  }
+  function requireAppIfEnabled(req, res, next) {
+    if (getSetting('require_app') !== '1') return next();
+    if (hasValidAppTicket(req) || isSafeExamBrowser(req)) return next();
+    return res.status(403).json({ error: 'Ujian hanya bisa dibuka lewat aplikasi ujian sekolah (atau Safe Exam Browser untuk iPhone/PC).' });
+  }
+
+  app.get('/api/operator/app-settings', requireStaffAuth(['operator']), (req, res) => {
+    res.json(appSettingsState());
+  });
+
+  app.post('/api/operator/app-settings', requireStaffAuth(['operator']), (req, res) => {
+    const { code, requireApp } = req.body || {};
+    if (code !== undefined) {
+      const c = String(code).trim();
+      if (!/^\d{4,8}$/.test(c)) return res.status(400).json({ error: 'Kode masuk aplikasi harus 4–8 digit angka.' });
+      setSetting('app_code_hash', hashPassword(c));
+    }
+    if (requireApp !== undefined) setSetting('require_app', requireApp ? '1' : '0');
+    res.json({ ok: true, ...appSettingsState() });
+  });
+
+  app.post('/api/app/verify-code', (req, res) => {
+    const key = String(req.ip || req.socket.remoteAddress || '');
+    const fail = appCodeFailures.get(key);
+    if (fail && fail.count >= APP_CODE_MAX_FAILS && Date.now() - fail.firstAt < APP_CODE_WINDOW_MS) {
+      return res.status(429).json({ error: 'Terlalu banyak percobaan kode salah. Tunggu beberapa menit.' });
+    }
+    const hash = getSetting('app_code_hash');
+    if (!hash) return res.status(404).json({ error: 'Kode masuk aplikasi belum diatur operator.' });
+    const code = String((req.body || {}).code || '').trim();
+    if (!verifyPassword(code, hash)) {
+      const cur = (fail && Date.now() - fail.firstAt < APP_CODE_WINDOW_MS) ? fail : { count: 0, firstAt: Date.now() };
+      cur.count++;
+      appCodeFailures.set(key, cur);
+      return res.status(401).json({ error: 'Kode masuk salah.' });
+    }
+    appCodeFailures.delete(key);
+    const ticket = randomToken(24);
+    appTickets.set(ticket, Date.now() + APP_TICKET_TTL_MS);
+    res.setHeader('Set-Cookie', `cbt_app=${ticket}; Path=/; Max-Age=${APP_TICKET_TTL_MS / 1000}; HttpOnly; SameSite=Lax`);
+    res.json({ ok: true, ticket, expiresInSec: APP_TICKET_TTL_MS / 1000 });
+  });
+
+  app.post('/api/app/verify-quit', (req, res) => {
+    const hash = getSetting('seb_quit_hash');
+    if (!hash) return res.status(404).json({ error: 'Password pengawas (password keluar SEB) belum diatur operator.' });
+    const pw = String((req.body || {}).password || '').trim();
+    const given = crypto.createHash('sha256').update(pw, 'utf8').digest('hex');
+    if (!safeEqual(given, hash)) return res.status(401).json({ error: 'Password pengawas salah.' });
+    res.json({ ok: true, hash });
+  });
+
   // Password keluar Safe Exam Browser (disimpan sebagai hash SHA-256, password asli tidak disimpan)
   app.post('/api/operator/seb-settings', requireStaffAuth(['operator']), async (req, res) => {
     const pw = String((req.body || {}).quitPassword || '').trim();
@@ -2064,7 +2157,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
   }
 
   // Masuk langsung ke soal ("Siap Mengikuti Ujian") dengan verifikasi 4 digit terakhir NISN
-  app.post('/api/ujian/start-direct', (req, res) => {
+  app.post('/api/ujian/start-direct', requireAppIfEnabled, (req, res) => {
     const { studentId, name, nisnLast4, device_info, token } = req.body || {};
     const pin = String(nisnLast4 || '').trim();
     let student = null;
@@ -2130,7 +2223,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     res.json({ status: 'WORKING', need_token_reverify: 0 });
   });
 
-  app.post('/api/ujian/login', (req, res) => {
+  app.post('/api/ujian/login', requireAppIfEnabled, (req, res) => {
     const { exam_number, password, token, device_info } = req.body || {};
     const queryNo = String(exam_number || '').trim();
     const queryPass = String(password || '').trim();
@@ -2433,6 +2526,13 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     `).run(newCount, violationReason, new Date().toISOString(), session.id);
 
     res.json({ status: 'LOCKED', violation_count: newCount, reason: violationReason });
+  });
+
+  // Keluar aplikasi oleh pengawas (password benar di aplikasi): dicatat, bukan pelanggaran
+  app.post('/api/ujian/supervisor-exit', requireStudentSession, (req, res) => {
+    const now = new Date().toISOString();
+    db.prepare('UPDATE exam_sessions SET supervisor_exit_at = ?, last_activity_at = ? WHERE id = ?').run(now, now, req.examSession.id);
+    res.json({ ok: true, supervisor_exit_at: now });
   });
 
   app.post('/api/ujian/finish', requireStudentSession, (req, res) => {

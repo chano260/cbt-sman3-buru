@@ -1,31 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="id.sch.sman3buru.exambro">
+    package="id.sch.sman3buru.ujian">
 
+    <!-- Hanya internet: tanpa izin kamera, penyimpanan, atau aplikasi pendukung -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <!-- Sengaja TIDAK meminta izin CAMERA: foto diambil lewat aplikasi kamera bawaan
-         (ACTION_IMAGE_CAPTURE). Jika izin CAMERA dideklarasikan tetapi belum diberikan,
-         Android justru menolak membuka kamera. -->
-
-    <!-- Android 11+: agar aplikasi kamera & galeri terlihat oleh Exambro -->
-    <queries>
-        <intent>
-            <action android:name="android.media.action.IMAGE_CAPTURE" />
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.GET_CONTENT" />
-            <data android:mimeType="image/*" />
-        </intent>
-    </queries>
 
     <application
         android:allowBackup="false"
-        android:label="Exambro SMAN 3 Buru"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
-        android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
+        android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar.Fullscreen">
 
         <activity
             android:name=".MainActivity"
@@ -34,18 +21,12 @@
             android:supportsPictureInPicture="false"
             android:launchMode="singleTask"
             android:screenOrientation="portrait"
-            android:configChanges="orientation|screenSize|keyboardHidden">
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|keyboardHidden|keyboard|navigation|uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <!-- Penyimpanan sementara foto lembar jawaban esai dari aplikasi kamera -->
-        <provider
-            android:name=".PhotoProvider"
-            android:authorities="id.sch.sman3buru.exambro.photos"
-            android:exported="false"
-            android:grantUriPermissions="true" />
     </application>
 </manifest>

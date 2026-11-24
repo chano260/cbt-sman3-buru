@@ -4,15 +4,15 @@ plugins {
 }
 
 android {
-    namespace = "id.sch.sman3buru.exambro"
-    compileSdk = 34
+    namespace = "id.sch.sman3buru.ujian"
+    compileSdk = 35
 
     defaultConfig {
-        applicationId = "id.sch.sman3buru.exambro"
+        applicationId = "id.sch.sman3buru.ujian"
         minSdk = 23
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        targetSdk = 35
+        versionCode = 2
+        versionName = "2.0.0"
     }
 
     buildTypes {

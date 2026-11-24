@@ -118,11 +118,11 @@ test('P2-6: token custom operator divalidasi (4-8 huruf/angka) dan pesan error t
 });
 
 test('P2-7: proyek Android hanya punya satu MainActivity (Java, yang dirilis) dengan proteksi lengkap', () => {
-  const srcDir = path.join(__dirname, '..', 'android-exambro', 'app', 'src', 'main', 'java', 'id', 'sch', 'sman3buru', 'exambro');
+  const srcDir = path.join(__dirname, '..', 'android-exambro', 'app', 'src', 'main', 'java', 'id', 'sch', 'sman3buru', 'ujian');
   const files = fs.readdirSync(srcDir).filter(f => /^MainActivity\.(java|kt)$/.test(f));
   assert.deepEqual(files, ['MainActivity.java']);
   const java = fs.readFileSync(path.join(srcDir, 'MainActivity.java'), 'utf8');
-  for (const needle of ['FLAG_SECURE', 'startLockTask()', 'X-Exambro-App', 'AndroidExambro']) {
+  for (const needle of ['FLAG_SECURE', 'startLockTask()', 'X-App-Ticket', 'AndroidExambro', 'cbtSupervisorExit']) {
     assert.ok(java.includes(needle), `MainActivity.java harus memuat ${needle}`);
   }
 });

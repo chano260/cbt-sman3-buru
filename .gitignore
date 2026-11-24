@@ -22,3 +22,6 @@ graphify-out/
 # Backup database otomatis
 backups/
 data/
+
+# Keystore & password tanda tangan APK (simpan cadangannya di tempat aman, jangan di-commit)
+android-exambro/keystore/

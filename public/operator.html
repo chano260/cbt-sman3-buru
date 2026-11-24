@@ -149,6 +149,35 @@
           </div>
         </div>
 
+        <!-- APLIKASI UJIAN ANDROID SEKOLAH -->
+        <div class="card" id="appCard">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Aplikasi ujian Android</div>
+              <p class="card-sub">Siswa membuka aplikasi "Ujian CBT SMAN 3 Buru", memasukkan kode masuk, lalu langsung ke halaman login ujian. Tanpa scan QR dan tanpa aplikasi keyboard tambahan.</p>
+            </div>
+            <a href="/Exambro-SMAN3-Buru.apk" download class="btn btn-sm btn-outline"><svg class="icon"><use href="#i-download"></use></svg>Unduh APK</a>
+          </div>
+          <div class="form-grid" style="margin-bottom:0;">
+            <div class="form-group">
+              <label for="inpAppCode">Kode masuk aplikasi (4–8 angka)</label>
+              <div class="settings-row">
+                <input id="inpAppCode" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" class="input input-sm" autocomplete="off" placeholder="Misal 6 angka">
+                <button class="btn btn-primary btn-sm nowrap" onclick="saveAppCode()"><svg class="icon"><use href="#i-save"></use></svg>Simpan</button>
+              </div>
+              <div class="hint" id="appCodeStatus">Memuat...</div>
+            </div>
+            <div class="form-group">
+              <label class="field-label">Akses ujian</label>
+              <label class="check-row" style="align-items:center;">
+                <input type="checkbox" id="chkRequireApp" onchange="saveRequireApp(this.checked)">
+                <span><b>Wajibkan aplikasi ujian</b>: login dari Chrome/browser biasa ditolak. Aplikasi sekolah dan Safe Exam Browser (iPhone/PC) tetap bisa.</span>
+              </label>
+              <div class="hint">Biarkan mati selama siswa masih memakai SMANTRI CBT.</div>
+            </div>
+          </div>
+        </div>
+
         <!-- QR UNTUK IPHONE / IPAD (SAFE EXAM BROWSER) -->
         <div class="card" id="sebCard">
           <div class="qr-panel">
@@ -828,6 +857,7 @@
         document.getElementById('opExamUrlText').textContent = data.qrPayload || data.examUrl;
       }
       renderSebQr(data);
+      loadAppSettings();
       const inpPub = document.getElementById('inpPublicUrl');
       if (inpPub && document.activeElement !== inpPub) {
         inpPub.value = data.publicUrl || '';
@@ -1119,6 +1149,54 @@
       if (!ok) return;
       await fetch('/api/operator/token', { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: '{}' });
       loadOverview();
+    }
+
+    function renderAppSettings(st) {
+      const status = document.getElementById('appCodeStatus');
+      if (!status) return;
+      status.textContent = st.codeSet
+        ? 'Kode sudah diatur. Isi kolom ini hanya bila ingin mengganti kode (siswa yang sudah masuk tidak terganggu).'
+        : 'Belum diatur. Aplikasi tidak bisa dibuka siswa sebelum kode masuk disimpan.';
+      document.getElementById('chkRequireApp').checked = !!st.requireApp;
+    }
+
+    async function loadAppSettings() {
+      try {
+        const res = await fetch('/api/operator/app-settings', { headers: authHeaders() });
+        if (res.ok) renderAppSettings(await res.json());
+      } catch { /* abaikan: dicoba lagi saat penyegaran berikutnya */ }
+    }
+
+    async function postAppSettings(body) {
+      const res = await fetch('/api/operator/app-settings', {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { cbtAlert(data.error || 'Gagal menyimpan pengaturan aplikasi.', 'error'); return null; }
+      renderAppSettings(data);
+      return data;
+    }
+
+    async function saveAppCode() {
+      const inp = document.getElementById('inpAppCode');
+      const code = inp.value.trim();
+      if (!/^\d{4,8}$/.test(code)) { cbtAlert('Kode masuk aplikasi harus 4–8 digit angka.', 'warning'); return; }
+      if (await postAppSettings({ code })) {
+        inp.value = '';
+        cbtAlert('Kode masuk aplikasi tersimpan. Bagikan kode ini ke pengawas ruang.', 'success');
+      }
+    }
+
+    async function saveRequireApp(on) {
+      const ok = on ? await cbtConfirm({
+        title: 'Wajibkan aplikasi ujian?',
+        message: 'Login ujian dari Chrome/browser biasa dan SMANTRI CBT akan ditolak. Hanya aplikasi ujian sekolah dan Safe Exam Browser yang bisa dipakai.',
+        confirmText: 'Ya, wajibkan'
+      }) : true;
+      if (!ok) { document.getElementById('chkRequireApp').checked = false; return; }
+      await postAppSettings({ requireApp: on });
     }
 
     function renderSebQr(data) {

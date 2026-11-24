@@ -163,7 +163,8 @@ function initDb(dbPath = DEFAULT_DB_PATH) {
     "ALTER TABLE questions ADD COLUMN audio_data TEXT",
     "ALTER TABLE students ADD COLUMN birth_info TEXT",
     "ALTER TABLE exam_sessions ADD COLUMN session_token TEXT",
-    "ALTER TABLE exams ADD COLUMN prev_token TEXT"
+    "ALTER TABLE exams ADD COLUMN prev_token TEXT",
+    "ALTER TABLE exam_sessions ADD COLUMN supervisor_exit_at TEXT"
   ];
   for (const sql of safeAlter) {
     try { db.exec(sql); } catch {}

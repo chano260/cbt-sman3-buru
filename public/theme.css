@@ -422,6 +422,8 @@
 
 .ui-v2 .input-sm,
 .ui-v2 select.input-sm { min-height: 32px; padding: 4px 10px; font-size: 13px; border-radius: 8px; }
+/* Kotak cari di kepala kartu tabel (panel operator) */
+.ui-v2 .search-box { width: min(320px, 100%); flex: 0 1 320px; }
 
 .ui-v2 .form-grid { gap: 16px 20px; margin-bottom: 20px; }
 
@@ -842,20 +844,23 @@
     border-top: 1px solid var(--hairline);
     border-bottom: 0;
     box-shadow: 0 -4px 16px rgba(16, 24, 40, 0.06);
-    overflow: visible;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
     -webkit-mask-image: none;
     mask-image: none;
   }
 
   .ui-v2 .app-shell > .sidebar .nav-btn {
-    flex: 1 1 0;
-    min-width: 0;
+    /* Tiap menu selebar labelnya; bila tidak muat (panel operator 8 menu) baris bisa digeser */
+    flex: 1 0 auto;
+    min-width: 52px;
     width: auto;
     flex-direction: column;
     justify-content: center;
     gap: 4px;
     min-height: 52px;
-    padding: 4px 2px;
+    padding: 4px 6px;
     border-radius: 12px;
     background: none;
     color: var(--muted);
@@ -866,7 +871,14 @@
   }
 
   .ui-v2 .app-shell > .sidebar .nav-btn > span:not(.nav-icon) { display: none; }
-  .ui-v2 .app-shell > .sidebar .nav-btn::after { content: attr(data-short); }
+  .ui-v2 .app-shell > .sidebar .nav-btn::after {
+    content: attr(data-short);
+    /* Panel operator punya 8 menu: label kecil & dipotong rapi agar tidak saling menempel di HP */
+    font-size: 10px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
   .ui-v2 .app-shell > .sidebar .nav-btn .nav-icon {
     width: auto;

@@ -57,7 +57,10 @@
       <button class="nav-btn" onclick="switchTab('tab-print', this)" data-short="Cetak"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-printer"></use></svg></span><span>Cetak dokumen</span></button>
       <button class="nav-btn" onclick="switchTab('tab-students', this)" data-short="Siswa"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-users"></use></svg></span><span>Data siswa & kelas</span></button>
       <button class="nav-btn" onclick="switchTab('tab-exams', this)" data-short="Jadwal"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-calendar"></use></svg></span><span>Jadwal & sesi ujian</span></button>
-      <button class="nav-btn" onclick="switchTab('tab-staff', this)" data-short="Akun"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-shield"></use></svg></span><span>Akun guru & pengawas</span></button>
+      <button class="nav-btn" onclick="switchTab('tab-banks', this)" data-short="Soal"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-file"></use></svg></span><span>Bank soal masuk</span></button>
+      <button class="nav-btn" onclick="switchTab('tab-staff-guru', this)" data-short="Guru"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-book"></use></svg></span><span>Akun guru</span></button>
+      <button class="nav-btn" onclick="switchTab('tab-staff-pengawas', this)" data-short="Pengawas"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-eye"></use></svg></span><span>Akun pengawas</span></button>
+      <button class="nav-btn" onclick="switchTab('tab-staff-operator', this)" data-short="Operator"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#i-shield"></use></svg></span><span>Akun operator</span></button>
       <div class="sidebar-foot">
         <span class="sidebar-foot-avatar" aria-hidden="true"><svg class="icon"><use href="#i-shield"></use></svg></span>
         <div class="sidebar-foot-text">
@@ -354,6 +357,7 @@
         <div class="card">
           <div class="card-header">
             <div class="card-title">Siswa terdaftar</div>
+            <input id="studentSearch" class="input input-sm search-box" type="search" placeholder="Cari nama, no. peserta, NISN, kelas, ruang" oninput="filterTable('studentSearch', 'studentsTableBody')">
           </div>
           <div class="table-wrap">
             <table>
@@ -430,7 +434,11 @@
 
         <div class="card">
           <div class="card-header">
-            <div class="card-title">Daftar jadwal ujian</div>
+            <div>
+              <div class="card-title">Daftar jadwal ujian</div>
+              <p class="card-sub">Butir soal dikelola di menu Bank soal masuk</p>
+            </div>
+            <input id="examSearch" class="input input-sm search-box" type="search" placeholder="Cari mapel, kelas, sesi, token" oninput="filterTable('examSearch', 'examsTableBody')">
           </div>
           <div class="table-wrap">
             <table>
@@ -439,8 +447,7 @@
                   <th>Mata pelajaran & guru</th>
                   <th>Nama ujian</th>
                   <th>Kelas</th>
-                  <th>Bank soal</th>
-                  <th>Sesi & durasi</th>
+                  <th>Tanggal & sesi</th>
                   <th>Token</th>
                   <th>Status</th>
                   <th>Aksi</th>
@@ -452,9 +459,88 @@
         </div>
       </section>
 
-      <!-- TAB 5: AKUN GURU & PENGAWAS -->
-      <section id="tab-staff" class="tab-pane" style="display:none;">
+      <!-- BANK SOAL MASUK DARI GURU -->
+      <section id="tab-banks" class="tab-pane" style="display:none;">
         <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Bank soal masuk</div>
+              <p class="card-sub">Paket soal yang dibuat guru. Lihat, unggah, atau salin soal di sini; penjadwalan di menu Jadwal & sesi ujian</p>
+            </div>
+            <input id="bankSearch" class="input input-sm search-box" type="search" placeholder="Cari mapel, guru, kelas" oninput="filterTable('bankSearch', 'banksTableBody')">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mata pelajaran & guru</th>
+                  <th>Nama paket</th>
+                  <th>Kelas</th>
+                  <th>Jumlah soal</th>
+                  <th>Jadwal</th>
+                  <th>Aksi soal</th>
+                </tr>
+              </thead>
+              <tbody id="banksTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB: AKUN GURU -->
+      <section id="tab-staff-guru" class="tab-pane" style="display:none;">
+        <div class="staff-forms-slot"></div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Akun guru <span class="badge badge-neutral" id="staffGuruCount"></span></div>
+            <input id="staffGuruSearch" class="input input-sm search-box" type="search" placeholder="Cari nama, username, mapel" oninput="filterTable('staffGuruSearch', 'staffGuruBody')">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nama lengkap</th><th>Username</th><th>Mata pelajaran</th><th>Aksi</th></tr></thead>
+              <tbody id="staffGuruBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB: AKUN PENGAWAS -->
+      <section id="tab-staff-pengawas" class="tab-pane" style="display:none;">
+        <div class="staff-forms-slot"></div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Akun pengawas <span class="badge badge-neutral" id="staffPengawasCount"></span></div>
+            <input id="staffPengawasSearch" class="input input-sm search-box" type="search" placeholder="Cari nama, username, ruang" oninput="filterTable('staffPengawasSearch', 'staffPengawasBody')">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nama lengkap</th><th>Username</th><th>Ruang tugas</th><th>Aksi</th></tr></thead>
+              <tbody id="staffPengawasBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB: AKUN OPERATOR -->
+      <section id="tab-staff-operator" class="tab-pane" style="display:none;">
+        <div class="staff-forms-slot"></div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Akun operator <span class="badge badge-neutral" id="staffOperatorCount"></span></div>
+            <input id="staffOperatorSearch" class="input input-sm search-box" type="search" placeholder="Cari nama atau username" oninput="filterTable('staffOperatorSearch', 'staffOperatorBody')">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nama lengkap</th><th>Username</th><th>Aksi</th></tr></thead>
+              <tbody id="staffOperatorBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Formulir akun bersama: dipindah ke menu akun yang sedang dibuka (lihat placeStaffForms) -->
+      <div id="staffFormsHome" style="display:none;">
+        <div class="card" id="staffImportCard">
           <div class="card-header">
             <div>
               <div class="card-title">Impor akun guru & pengawas dari Excel</div>
@@ -466,16 +552,16 @@
             <input type="file" id="staffExcelInput" accept=".xlsx,.xls" class="input" style="max-width:340px;">
             <button class="btn btn-primary" id="btnImportStaff" onclick="importStaffExcel()"><svg class="icon"><use href="#i-upload"></use></svg>Unggah & impor</button>
           </div>
-          <div class="hint">Kolom: Peran (guru/pengawas), Nama Lengkap, Username, Password, Mapel / Ruang. Username yang sudah ada akan diperbarui; password kosong = password lama tetap. Akun operator tidak bisa diubah lewat impor.</div>
+          <div class="hint">Kolom: Peran (guru/pengawas), Nama Lengkap, Username, Password, Mapel / Ruang. Satu file bisa berisi guru dan pengawas sekaligus. Username yang sudah ada akan diperbarui; password kosong = password lama tetap. Akun operator tidak bisa diubah lewat impor.</div>
           <div id="staffImportMsg" style="display:none;margin-top:12px;"></div>
         </div>
 
-        <div class="card">
+        <div class="card" id="staffAddCard">
           <div class="card-header">
-            <div class="card-title">Tambah akun guru / pengawas</div>
+            <div class="card-title" id="staffAddTitle">Tambah akun</div>
           </div>
           <div class="form-grid">
-            <div class="form-group">
+            <div class="form-group" style="display:none;">
               <label for="stfRole">Peran</label>
               <select id="stfRole">
                 <option value="guru">Guru mata pelajaran</option>
@@ -495,35 +581,15 @@
               <label for="stfPass">Password</label>
               <input id="stfPass" class="input" value="buru123">
             </div>
-            <div class="form-group">
-              <label for="stfMeta">Mata pelajaran / ruang tugas</label>
-              <input id="stfMeta" class="input" placeholder="Biologi atau Ruang 01">
-              <div class="hint">Guru dengan dua mapel: pisahkan dengan koma, misal <code>Matematika, Fisika</code></div>
+            <div class="form-group" id="stfMetaGroup">
+              <label for="stfMeta" id="stfMetaLabel">Mata pelajaran</label>
+              <input id="stfMeta" class="input" placeholder="Biologi">
+              <div class="hint" id="stfMetaHint">Guru dengan dua mapel: pisahkan dengan koma, misal <code>Matematika, Fisika</code></div>
             </div>
           </div>
           <button class="btn btn-primary" onclick="addStaff()"><svg class="icon"><use href="#i-plus"></use></svg>Simpan akun</button>
         </div>
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Akun operator, guru & pengawas</div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Peran</th>
-                  <th>Nama lengkap</th>
-                  <th>Username</th>
-                  <th>Mapel / ruang tugas</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody id="staffTableBody"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+      </div>
     </main>
   </div>
 
@@ -792,6 +858,72 @@
       if (btn) btn.classList.add('active');
       if (tabId === 'tab-print') loadPrintData();
       if (tabId === 'tab-dashboard') loadOverview();
+      const staffRole = { 'tab-staff-guru': 'guru', 'tab-staff-pengawas': 'pengawas', 'tab-staff-operator': 'operator' }[tabId];
+      if (staffRole) placeStaffForms(staffRole);
+    }
+
+    // Satu formulir tambah akun & satu kartu impor Excel dipakai bersama oleh tiga menu akun:
+    // dipindah ke menu yang dibuka, dengan peran sudah terisi sesuai menu tersebut.
+    function placeStaffForms(role) {
+      const slot = document.querySelector(`#tab-staff-${role} .staff-forms-slot`);
+      const importCard = document.getElementById('staffImportCard');
+      const addCard = document.getElementById('staffAddCard');
+      if (!slot) return;
+      // Impor Excel hanya untuk guru & pengawas (akun operator tidak bisa diimpor)
+      if (role === 'operator') document.getElementById('staffFormsHome').appendChild(importCard);
+      else slot.appendChild(importCard);
+      slot.appendChild(addCard);
+      document.getElementById('stfRole').value = role;
+      document.getElementById('staffAddTitle').textContent =
+        ({ guru: 'Tambah akun guru', pengawas: 'Tambah akun pengawas', operator: 'Tambah akun operator' })[role];
+      document.getElementById('stfMetaGroup').style.display = role === 'operator' ? 'none' : '';
+      document.getElementById('stfMetaLabel').textContent = role === 'guru' ? 'Mata pelajaran' : 'Ruang tugas';
+      document.getElementById('stfMeta').placeholder = role === 'guru' ? 'Biologi' : 'Ruang 01';
+      document.getElementById('stfMetaHint').style.display = role === 'guru' ? '' : 'none';
+      document.getElementById('stfUser').placeholder = ({ guru: 'guru_biologi', pengawas: 'pengawas_r01', operator: 'operator2' })[role];
+    }
+
+    // ===== Kotak cari: menyaring baris tabel langsung saat mengetik =====
+    const SEARCH_TABLES = [
+      ['studentSearch', 'studentsTableBody'],
+      ['examSearch', 'examsTableBody'],
+      ['bankSearch', 'banksTableBody'],
+      ['staffGuruSearch', 'staffGuruBody'],
+      ['staffPengawasSearch', 'staffPengawasBody'],
+      ['staffOperatorSearch', 'staffOperatorBody']
+    ];
+
+    function normSearch(v) {
+      return String(v || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+
+    function filterTable(inputId, tbodyId) {
+      const input = document.getElementById(inputId);
+      const body = document.getElementById(tbodyId);
+      if (!input || !body) return;
+      // Semua kata harus ada (urutan bebas), misal "xii ipa ruang 2"
+      const words = normSearch(input.value).split(' ').filter(Boolean);
+      const old = body.querySelector('tr.search-empty');
+      if (old) old.remove();
+      let shown = 0;
+      let total = 0;
+      body.querySelectorAll('tr').forEach(tr => {
+        if (tr.querySelector('td[colspan]')) return; // baris "belum ada data"
+        total++;
+        const text = normSearch(tr.textContent);
+        const match = words.every(w => text.includes(w));
+        tr.style.display = match ? '' : 'none';
+        if (match) shown++;
+      });
+      if (words.length && total > 0 && shown === 0) {
+        const cols = (body.closest('table').querySelectorAll('thead th') || []).length || 1;
+        body.insertAdjacentHTML('beforeend', `<tr class="search-empty"><td colspan="${cols}" class="text-muted" style="text-align:center;padding:20px;">Tidak ada yang cocok dengan "${esc(input.value.trim())}"</td></tr>`);
+      }
+    }
+
+    // Dipanggil setelah tabel dirender ulang, supaya kata pencarian tetap berlaku
+    function applyAllSearches() {
+      SEARCH_TABLES.forEach(([inputId, tbodyId]) => filterTable(inputId, tbodyId));
     }
 
     async function loadBackupStatus() {
@@ -962,8 +1094,33 @@
       renderSubjectOptions(data.exams || [], data.teachers || []);
       renderClassOptions(data.classes || []);
 
-      // Render tabel jadwal ujian
+      // Render tabel jadwal ujian (khusus penjadwalan; urusan soal di menu Bank soal masuk)
       document.getElementById('examsTableBody').innerHTML = data.exams.map(e => {
+        const totalQ = Number(e.total_questions || 0);
+        const safeSubject = e.subject || '';
+        return `
+        <tr>
+          <td>
+            <div class="cell-name">${esc(e.subject)}</div>
+            <div class="cell-sub">${esc(e.teacher_name || 'Guru mapel')}</div>
+          </td>
+          <td>${esc(e.title)}<div class="cell-sub">${totalQ > 0 ? `${totalQ} soal` : '<span style="color:var(--red);">0 soal</span>'}</div></td>
+          <td><span class="badge badge-neutral">${esc(e.class_target || 'Semua Kelas')}</span></td>
+          <td class="nowrap">${esc(e.exam_date || '-')}<div class="cell-sub">${esc(e.session_name)} · ${e.duration_minutes} menit</div></td>
+          <td><span class="tag-mono">${esc(e.token)}</span></td>
+          <td>${e.is_active ? '<span class="badge badge-working"><span class="live-dot"></span>Aktif</span>' : '<span class="badge badge-idle">Nonaktif</span>'}</td>
+          <td>
+            <div class="cell-actions">
+              ${!e.is_active ? `<button class="btn btn-xs ${totalQ > 0 ? 'btn-primary' : 'btn-outline'}" onclick="activateExam(${e.id}, ${totalQ})">${cbtIcon('play')}${totalQ > 0 ? 'Aktifkan' : 'Aktifkan (0 soal)'}</button>` : ''}
+              <button class="btn btn-xs btn-danger-outline" onclick="confirmDeleteExam(${e.id}, '${escJs(safeSubject)}', ${totalQ})">${cbtIcon('trash')}Hapus</button>
+            </div>
+          </td>
+        </tr>
+      `;
+      }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:20px;">Belum ada jadwal ujian</td></tr>';
+
+      // Render tabel bank soal masuk (urusan butir soal)
+      document.getElementById('banksTableBody').innerHTML = data.exams.map(e => {
         const totalQ = Number(e.total_questions || 0);
         const pgQ = Number(e.pg_count || 0);
         const esaiQ = Number(e.esai_count || 0);
@@ -972,7 +1129,6 @@
         const qBadge = totalQ > 0
           ? `<span class="badge badge-neutral" title="${pgQ} PG, ${esaiQ} esai">${totalQ} soal · ${pgQ} PG${esaiQ > 0 ? `, ${esaiQ} esai` : ''}</span>`
           : `<span class="badge badge-locked">0 soal</span>`;
-
         return `
         <tr>
           <td>
@@ -981,41 +1137,43 @@
           </td>
           <td>${esc(e.title)}</td>
           <td><span class="badge badge-neutral">${esc(e.class_target || 'Semua Kelas')}</span></td>
+          <td>${qBadge}</td>
+          <td>${e.is_active ? '<span class="badge badge-working"><span class="live-dot"></span>Aktif</span>' : '<span class="badge badge-idle">Belum aktif</span>'}<div class="cell-sub">${esc(e.exam_date || '-')} · ${esc(e.session_name)}</div></td>
           <td>
-            ${qBadge}
-            <div class="cell-actions" style="margin-top:6px;">
+            <div class="cell-actions">
               ${totalQ > 0 ? `<button class="btn btn-xs btn-outline" onclick="openPreviewQuestionsModal(${e.id})">${cbtIcon('eye')}Lihat soal</button>` : ''}
               ${totalQ === 0 ? `<button class="btn btn-xs btn-outline" onclick="openCopyQuestionsModal(${e.id}, '${escJs(safeSubject)}')">${cbtIcon('copy')}Salin soal</button>` : ''}
               <button class="btn btn-xs btn-outline" onclick="openUploadWordModal(${e.id}, '${escJs(safeSubject)}', '${escJs(safeTarget)}')">${cbtIcon('upload')}Unggah Word</button>
-            </div>
-          </td>
-          <td class="nowrap">${esc(e.session_name)}<div class="cell-sub">${e.duration_minutes} menit</div></td>
-          <td><span class="tag-mono">${esc(e.token)}</span></td>
-          <td>${e.is_active ? '<span class="badge badge-working"><span class="live-dot"></span>Aktif</span>' : '<span class="badge badge-idle">Nonaktif</span>'}</td>
-          <td>
-            <div class="cell-actions">
-              ${!e.is_active ? `<button class="btn btn-xs ${totalQ > 0 ? 'btn-primary' : 'btn-outline'}" onclick="activateExam(${e.id}, ${totalQ})">${cbtIcon('play')}${totalQ > 0 ? 'Aktifkan' : 'Aktifkan (0 soal)'}</button>` : ''}
-              <button class="btn btn-xs btn-danger-outline" onclick="confirmDeleteExam(${e.id}, '${escJs(safeSubject)}', ${totalQ})">${cbtIcon('trash')}Hapus</button>
               <a href="/guru.html" target="_blank" class="btn btn-xs btn-ghost" title="Kelola butir soal di panel guru">${cbtIcon('external')}Panel guru</a>
             </div>
           </td>
         </tr>
       `;
-      }).join('');
+      }).join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:20px;">Belum ada bank soal dari guru</td></tr>';
 
-      // Render tabel staf
-      document.getElementById('staffTableBody').innerHTML = data.staff.map(u => `
+      // Render tabel akun, dipisah per peran (menu Akun guru / Akun pengawas / Akun operator)
+      const staffRow = (u, metaText) => `
         <tr>
-          <td><span class="badge ${u.role === 'operator' ? 'badge-working' : 'badge-neutral'}">${({ operator: 'Operator', guru: 'Guru', pengawas: 'Pengawas' })[u.role] || esc(u.role)}</span></td>
           <td class="cell-name">${esc(u.full_name)}</td>
           <td><code>${esc(u.username)}</code></td>
-          <td>${esc(u.subject || u.room || '-')}</td>
+          ${metaText === null ? '' : `<td>${esc(metaText || '-')}</td>`}
           <td class="cell-actions">
             <button class="btn btn-xs btn-outline" onclick="openEditStaffModal(${u.id}, '${escJs(u.full_name)}', '${escJs(u.username)}', '${u.role}', '${escJs(u.subject || u.room || '')}')">${cbtIcon('pencil')}Ubah</button>
             ${u.role !== 'operator' ? `<button class="btn btn-xs btn-danger-outline" onclick="confirmDeleteStaff(${u.id}, '${escJs(u.full_name)}', '${u.role}')">${cbtIcon('trash')}Hapus</button>` : ''}
           </td>
         </tr>
-      `).join('');
+      `;
+      const emptyRow = (cols, text) => `<tr><td colspan="${cols}" class="text-muted" style="text-align:center;padding:20px;">${text}</td></tr>`;
+      const staff = data.staff || [];
+      document.getElementById('staffGuruBody').innerHTML = staff.filter(u => u.role === 'guru').map(u => staffRow(u, u.subject)).join('') || emptyRow(4, 'Belum ada akun guru');
+      document.getElementById('staffPengawasBody').innerHTML = staff.filter(u => u.role === 'pengawas').map(u => staffRow(u, u.room)).join('') || emptyRow(4, 'Belum ada akun pengawas');
+      document.getElementById('staffOperatorBody').innerHTML = staff.filter(u => u.role === 'operator').map(u => staffRow(u, null)).join('') || emptyRow(3, 'Belum ada akun operator');
+
+      document.getElementById('staffGuruCount').textContent = staff.filter(u => u.role === 'guru').length;
+      document.getElementById('staffPengawasCount').textContent = staff.filter(u => u.role === 'pengawas').length;
+      document.getElementById('staffOperatorCount').textContent = staff.filter(u => u.role === 'operator').length;
+
+      applyAllSearches();
     }
 
     function renderMonitoringTable() {

@@ -148,7 +148,7 @@ database asli dengan siswa palsu. Tekan **Ctrl+C** untuk berhenti; server tes ik
 
 ## 6. Impor Akun Guru & Pengawas dari Excel
 
-Panel Operator → **Akun guru & pengawas** → kotak **Impor akun guru & pengawas dari Excel**.
+Panel Operator → menu **Akun guru** atau **Akun pengawas** → kotak **Impor akun guru & pengawas dari Excel**.
 
 1. Klik **Unduh template Excel**. File berisi contoh baris dan lembar **Petunjuk**.
 2. Isi satu baris per akun:

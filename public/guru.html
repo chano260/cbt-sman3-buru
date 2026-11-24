@@ -25,6 +25,17 @@
     .ui-v2 .empty-state .icon-tile { margin: 0 auto 12px; }
     .ui-v2 .empty-title { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
     .ui-v2 .empty-text { font-size: 13px; color: var(--muted); max-width: 440px; margin: 0 auto 16px; }
+    .ui-v2 .q-item { cursor: pointer; }
+    .ui-v2 .q-item.is-previewed { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12); }
+    /* Pratinjau di samping daftar soal: hanya di layar lebar (HP tetap pakai tombol Pratinjau ujian) */
+    .ui-v2 .side-preview { display: none; }
+    @media (min-width: 1200px) {
+      .ui-v2 .bank-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+      .ui-v2 .bank-layout > .card { margin-bottom: 0; }
+      .ui-v2 .side-preview { display: block; position: sticky; top: 16px; }
+      .ui-v2 .side-preview-frame { width: 100%; height: min(760px, calc(100vh - 110px)); border: 8px solid #1f2937; border-radius: 28px; background: #fff; display: block; }
+      .ui-v2 .side-preview-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--dark); }
+    }
   </style>
 </head>
 <body class="ui-v2">
@@ -172,7 +183,8 @@
           <button class="btn btn-primary" onclick="addManualQuestion()"><svg class="icon"><use href="#i-plus"></use></svg>Simpan soal</button>
         </div>
 
-        <!-- DAFTAR BANK SOAL -->
+        <!-- DAFTAR BANK SOAL + PRATINJAU DI SAMPING -->
+        <div class="bank-layout">
         <div class="card">
           <div class="card-header">
             <div>
@@ -182,6 +194,15 @@
             <button class="btn btn-soft" onclick="openExamPreview()"><svg class="icon"><use href="#i-eye"></use></svg>Pratinjau ujian</button>
           </div>
           <div id="questionsListContainer" style="display:flex;flex-direction:column;gap:12px;"></div>
+        </div>
+        <aside class="side-preview" aria-label="Pratinjau layar siswa">
+          <div class="side-preview-head">
+            <span>Pratinjau layar siswa</span>
+            <button class="btn btn-xs btn-ghost" onclick="refreshSidePreview(previewFocusId)" title="Muat ulang pratinjau"><svg class="icon"><use href="#i-refresh"></use></svg>Muat ulang</button>
+          </div>
+          <iframe id="sidePreviewFrame" class="side-preview-frame" title="Pratinjau layar siswa"></iframe>
+          <p class="card-sub" style="margin-top:8px;">Klik soal di daftar untuk melihatnya di sini. Jawaban tidak disimpan.</p>
+        </aside>
         </div>
       </section>
 
@@ -631,6 +652,7 @@
 
     function onExamChange() {
       currentExamId = Number(document.getElementById('examSelector').value);
+      previewFocusId = null;
       loadQuestions();
       loadScores();
     }
@@ -667,6 +689,43 @@
 
     let questionsById = new Map();
     let editingQuestionId = null;
+
+    // ===== Pratinjau di samping daftar soal (layar lebar saja) =====
+    const sidePreviewMq = window.matchMedia('(min-width: 1200px)');
+    let previewFocusId = null;
+    let sidePreviewExamId = null;
+
+    // Muat (atau muat ulang) pratinjau samping; focusId = soal yang ditampilkan
+    function refreshSidePreview(focusId) {
+      const frame = document.getElementById('sidePreviewFrame');
+      if (!frame || !sidePreviewMq.matches || !currentExamId) return;
+      const win = frame.contentWindow;
+      if (sidePreviewExamId === currentExamId && win && typeof win.previewReload === 'function') {
+        win.previewReload(focusId);
+        return;
+      }
+      sidePreviewExamId = currentExamId;
+      frame.src = `/ujian.html?pratinjau=${currentExamId}&samping=1${focusId ? '&soal=' + focusId : ''}`;
+    }
+
+    function previewQuestion(qId) {
+      previewFocusId = qId;
+      document.querySelectorAll('#questionsListContainer .q-item').forEach(el => {
+        el.classList.toggle('is-previewed', Number(el.dataset.qid) === qId);
+      });
+      const frame = document.getElementById('sidePreviewFrame');
+      const win = frame && frame.contentWindow;
+      if (sidePreviewMq.matches && win && typeof win.previewJumpTo === 'function' && sidePreviewExamId === currentExamId) {
+        win.previewJumpTo(qId);
+      } else {
+        refreshSidePreview(qId);
+      }
+    }
+
+    // Layar dilebarkan (mis. jendela dimaksimalkan): baru muat pratinjau saat itu
+    const onSidePreviewMqChange = () => { if (sidePreviewMq.matches) refreshSidePreview(previewFocusId); };
+    if (sidePreviewMq.addEventListener) sidePreviewMq.addEventListener('change', onSidePreviewMqChange);
+    else if (sidePreviewMq.addListener) sidePreviewMq.addListener(onSidePreviewMqChange);
 
     function toggleEditPgFields() {
       const isPg = document.getElementById('editQType').value === 'PG';
@@ -733,8 +792,11 @@
           errEl.style.display = 'block';
           return;
         }
+        const savedId = editingQuestionId;
         closeEditQuestion();
-        await loadQuestions();
+        previewFocusId = savedId;
+        await loadQuestions({ skipPreview: true });
+        refreshSidePreview(savedId);
       } catch (err) {
         errEl.textContent = 'Gagal terhubung ke server: ' + err.message;
         errEl.style.display = 'block';
@@ -751,7 +813,7 @@
       if (!win) window.location.href = url; // tab baru diblokir: buka di tab ini (kembali dengan tombol Back)
     }
 
-    async function loadQuestions() {
+    async function loadQuestions(opts = {}) {
       if (!currentExamId || !staffToken) return;
       const res = await fetch(`/api/guru/exams/${currentExamId}/questions`, { headers: authHeaders() });
       if (!res.ok) return;
@@ -796,7 +858,7 @@
 
         if (q.type === 'ESAI') {
           return `
-            <div class="q-item is-essay">
+            <div class="q-item is-essay${q.id === previewFocusId ? ' is-previewed' : ''}" data-qid="${q.id}" onclick="previewQuestion(${q.id})">
               <div class="q-head">
                 <span class="row"><span class="tag-mono">${q.number}</span><span class="badge badge-warn">Esai · dijawab di kertas</span></span>
                 ${mediaActionBtns}
@@ -807,7 +869,7 @@
           `;
         }
         return `
-          <div class="q-item">
+          <div class="q-item${q.id === previewFocusId ? ' is-previewed' : ''}" data-qid="${q.id}" onclick="previewQuestion(${q.id})">
             <div class="q-head">
               <span class="row"><span class="tag-mono">${q.number}</span><span class="badge badge-neutral">Pilihan ganda</span><span class="badge badge-working">Kunci ${esc(q.answer_key)}</span></span>
               ${mediaActionBtns}
@@ -824,6 +886,8 @@
           </div>
         `;
       }).join('');
+      // Pratinjau samping ikut diperbarui (ganti paket, impor, tambah/hapus soal, ganti gambar)
+      if (!opts.skipPreview) refreshSidePreview(previewFocusId);
     }
 
     async function uploadQuestionMedia(questionId, kind, inputEl) {

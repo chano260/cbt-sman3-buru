@@ -744,30 +744,57 @@
       }
     }
 
-    async function startPreviewMode() {
+    // Ambil soal paket untuk pratinjau; focusId = id soal yang ingin langsung ditampilkan
+    async function loadPreviewQuestions(focusId) {
       const guruToken = sessionStorage.getItem('cbt_guru_token') || '';
       const res = await nativeFetch(`/api/guru/exams/${PREVIEW_EXAM_ID}/questions`, {
         headers: { Authorization: 'Bearer ' + guruToken }
       });
       if (!res.ok) {
         await cbtAlert('Pratinjau hanya bisa dibuka dari tombol "Pratinjau ujian" di panel guru setelah login.', 'warning', 'Pratinjau');
-        return;
+        return null;
       }
       const data = await res.json();
       const all = data.questions || [];
       // Urutan sama seperti di layar siswa: pilihan ganda dulu, lalu esai (tanpa pengacakan)
       questions = all.filter(q => q.type === 'PG').concat(all.filter(q => q.type === 'ESAI'));
       examData = { exam: data.exam };
+      const idx = focusId ? questions.findIndex(q => q.id === Number(focusId)) : -1;
+      currentIndex = idx >= 0 ? idx : Math.min(currentIndex, Math.max(0, questions.length - 1));
+      remainingSeconds = (Number(data.exam.duration_minutes) || 90) * 60;
+      return data;
+    }
+
+    // Dipanggil panel guru (pratinjau di samping daftar soal, halaman asal yang sama)
+    window.previewJumpTo = function (questionId) {
+      if (!PREVIEW_EXAM_ID) return;
+      const idx = questions.findIndex(q => q.id === Number(questionId));
+      if (idx >= 0) jumpToQuestion(idx);
+    };
+    window.previewReload = function (questionId) {
+      if (!PREVIEW_EXAM_ID) return;
+      return loadPreviewQuestions(questionId).then(function (data) {
+        if (!data) return;
+        updateTimerDisplay();
+        renderDrawerNumbers();
+        renderCurrentQuestion();
+      });
+    };
+
+    async function startPreviewMode() {
       answers = {};
       essayAnswered = {};
       currentIndex = 0;
-      remainingSeconds = (Number(data.exam.duration_minutes) || 90) * 60;
+      const data = await loadPreviewQuestions(new URLSearchParams(window.location.search).get('soal'));
+      if (!data) return;
       document.getElementById('hdrStudentName').textContent = 'Pratinjau guru · jawaban tidak disimpan';
       document.getElementById('hdrExamInfo').textContent = `${data.exam.subject} • ${data.exam.title || ''}`;
       document.title = 'Pratinjau · ' + data.exam.subject;
       const banner = document.createElement('div');
       banner.id = 'previewBanner';
-      banner.textContent = 'MODE PRATINJAU — tampilan sama dengan siswa, jawaban tidak disimpan';
+      banner.textContent = new URLSearchParams(window.location.search).get('samping')
+        ? 'PRATINJAU · jawaban tidak disimpan'
+        : 'MODE PRATINJAU — tampilan sama dengan siswa, jawaban tidak disimpan';
       banner.style.cssText = 'background:#b45309;color:#fff;text-align:center;font-size:12px;font-weight:700;padding:6px 10px;';
       const examScreen = document.getElementById('screenExam');
       examScreen.insertBefore(banner, examScreen.firstChild);

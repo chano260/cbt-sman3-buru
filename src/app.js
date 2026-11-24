@@ -1659,6 +1659,38 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     res.json({ ok: true, id: Number(info.lastInsertRowid), title: finalTitle, subject, token });
   });
 
+  // Ubah data paket: nama, kelas, durasi. Mapel tidak diubah (hak akses guru ditentukan dari mapel).
+  app.put('/api/guru/exams/:id', requireStaffAuth(['guru', 'operator']), (req, res) => {
+    const examId = Number(req.params.id);
+    const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);
+    if (!exam) return res.status(404).json({ error: 'Paket ujian tidak ditemukan' });
+    if (!teacherCanAccessExam(req.staffUser, exam)) {
+      return res.status(403).json({ error: 'Akses ditolak: Anda tidak memiliki akses ke paket ujian ini.' });
+    }
+    const body = req.body || {};
+    const title = String(body.title || '').trim();
+    if (!title) return res.status(400).json({ error: 'Nama paket ujian wajib diisi.' });
+    const classTarget = String(body.class_target || '').trim() || 'Semua Kelas';
+    const duration = Number(body.duration_minutes);
+    if (!Number.isInteger(duration) || duration < 1 || duration > 600) {
+      return res.status(400).json({ error: 'Durasi pengerjaan harus 1–600 menit.' });
+    }
+
+    // Paket yang sedang aktif tidak boleh menabrak kelas ujian aktif lain (siswa bingung paket mana yang keluar)
+    if (exam.is_active) {
+      const clash = db.prepare('SELECT id, subject, title, class_target FROM exams WHERE is_active = 1 AND id != ?').all(examId)
+        .find(e => classTargetsOverlap(e.class_target, classTarget));
+      if (clash) {
+        return res.status(409).json({
+          error: `Paket ini sedang aktif, dan kelas ${classTarget} bentrok dengan ujian aktif lain: ${clash.subject} — ${clash.title} (${clash.class_target}). Minta operator menonaktifkan salah satunya dulu.`
+        });
+      }
+    }
+
+    db.prepare('UPDATE exams SET title = ?, class_target = ?, duration_minutes = ? WHERE id = ?').run(title, classTarget, duration, examId);
+    res.json({ ok: true, exam: db.prepare('SELECT id, title, subject, class_target, duration_minutes, is_active FROM exams WHERE id = ?').get(examId) });
+  });
+
   app.delete('/api/guru/exams/:id', requireStaffAuth(['guru', 'operator']), (req, res) => {
     const examId = Number(req.params.id);
     const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);

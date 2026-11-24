@@ -91,6 +91,7 @@
             <select id="examSelector" class="input" onchange="onExamChange()"></select>
           </div>
           <button class="btn btn-primary" onclick="openCreateBankSoalModal()"><svg class="icon"><use href="#i-plus"></use></svg>Buat bank soal</button>
+          <button class="btn btn-outline" onclick="openEditBankSoalModal()" title="Ubah kelas, nama paket, atau durasi"><svg class="icon"><use href="#i-pencil"></use></svg>Ubah paket</button>
           <button class="btn btn-danger-outline" onclick="deleteCurrentBankSoal()" title="Hapus paket bank soal yang sedang dipilih"><svg class="icon"><use href="#i-trash"></use></svg>Hapus paket</button>
         </div>
         <div class="row">
@@ -249,6 +250,37 @@
       <div class="modal-actions">
         <button class="btn btn-outline" type="button" onclick="closeCreateBankSoalModal()">Batal</button>
         <button class="btn btn-primary" type="button" onclick="submitCreateBankSoal()">Simpan & mulai buat soal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL UBAH PAKET BANK SOAL -->
+  <div id="modalEditBankSoal" class="modal-overlay" style="z-index:125;">
+    <div class="card modal-card" style="max-width:480px;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Ubah paket bank soal</div>
+          <p class="card-sub" id="editBkSubjectInfo">Mata pelajaran tidak dapat diubah</p>
+        </div>
+        <button class="btn btn-sm btn-ghost" onclick="closeEditBankSoalModal()" aria-label="Tutup"><svg class="icon"><use href="#i-x"></use></svg></button>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label for="editBkTitle">Nama paket ujian</label>
+        <input id="editBkTitle" class="input">
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label for="editBkClass">Kelas</label>
+        <input id="editBkClass" class="input" placeholder="X 1, X 2 atau Semua Kelas">
+        <div class="hint">Pisahkan beberapa kelas dengan koma. Kosongkan untuk Semua Kelas.</div>
+      </div>
+      <div class="form-group">
+        <label for="editBkDuration">Durasi pengerjaan (menit)</label>
+        <input id="editBkDuration" type="number" min="1" max="600" class="input">
+      </div>
+      <div id="editBkError" style="color:var(--red);font-size:13px;font-weight:600;margin-top:10px;display:none;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" type="button" onclick="closeEditBankSoalModal()">Batal</button>
+        <button class="btn btn-primary" type="button" id="btnSaveEditBk" onclick="submitEditBankSoal()">Simpan perubahan</button>
       </div>
     </div>
   </div>
@@ -531,6 +563,7 @@
         return;
       }
 
+      examsById = new Map(data.exams.map(e => [e.id, e]));
       sel.innerHTML = data.exams.map(e => `
         <option value="${e.id}">[${esc(e.subject)}] ${esc(e.title)} (${esc(e.class_target || 'Semua Kelas')}) — ${e.totalCount || 0} Soal (${e.pgCount || 0} PG, ${e.esaiCount || 0} Esai)</option>
       `).join('');
@@ -541,6 +574,59 @@
       sel.value = currentExamId;
       loadQuestions();
       loadScores();
+    }
+
+    let examsById = new Map();
+    let editingExamId = null;
+
+    function openEditBankSoalModal() {
+      const exam = examsById.get(currentExamId);
+      if (!exam) return cbtAlert('Pilih paket bank soal yang ingin diubah terlebih dahulu.', 'warning');
+      editingExamId = exam.id;
+      document.getElementById('editBkSubjectInfo').textContent = `Mata pelajaran: ${exam.subject} (tidak dapat diubah)`;
+      document.getElementById('editBkTitle').value = exam.title || '';
+      document.getElementById('editBkClass').value = exam.class_target || 'Semua Kelas';
+      document.getElementById('editBkDuration').value = exam.duration_minutes || 90;
+      document.getElementById('editBkError').style.display = 'none';
+      document.getElementById('modalEditBankSoal').style.display = 'flex';
+      document.getElementById('editBkClass').focus();
+    }
+
+    function closeEditBankSoalModal() {
+      document.getElementById('modalEditBankSoal').style.display = 'none';
+      editingExamId = null;
+    }
+
+    async function submitEditBankSoal() {
+      const errEl = document.getElementById('editBkError');
+      errEl.style.display = 'none';
+      const btn = document.getElementById('btnSaveEditBk');
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/guru/exams/${editingExamId}`, {
+          method: 'PUT',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            title: document.getElementById('editBkTitle').value,
+            class_target: document.getElementById('editBkClass').value,
+            duration_minutes: Number(document.getElementById('editBkDuration').value)
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          errEl.textContent = data.error || 'Gagal menyimpan perubahan paket.';
+          errEl.style.display = 'block';
+          return;
+        }
+        closeEditBankSoalModal();
+        await loadExams();
+        cbtAlert(`Paket diperbarui. Kelas: ${data.exam.class_target}.`, 'success');
+      } catch (err) {
+        errEl.textContent = 'Gagal terhubung ke server: ' + err.message;
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+      }
     }
 
     function onExamChange() {

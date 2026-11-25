@@ -438,7 +438,7 @@
               <input id="exDuration" type="number" class="input" value="90">
             </div>
           </div>
-          <button class="btn btn-primary" onclick="createExam()"><svg class="icon"><use href="#i-plus"></use></svg>Buat & aktifkan jadwal</button>
+          <button class="btn btn-primary" onclick="createExam()"><svg class="icon"><use href="#i-plus"></use></svg>Simpan jadwal</button>
         </div>
 
         <div class="card">
@@ -449,6 +449,7 @@
             </div>
             <input id="examSearch" class="input input-sm search-box" type="search" placeholder="Cari mapel, kelas, sesi, token" oninput="filterTable('examSearch', 'examsTableBody')">
           </div>
+          <div id="sessionActivateBar" class="session-bar"></div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -1113,6 +1114,8 @@
       renderSubjectOptions(data.exams || [], data.teachers || []);
       renderClassOptions(data.classes || []);
 
+      renderSessionActivateBar(data.exams.filter(e => e.is_scheduled));
+
       // Render tabel jadwal ujian (khusus penjadwalan; urusan soal di menu Bank soal masuk)
       document.getElementById('examsTableBody').innerHTML = data.exams.filter(e => e.is_scheduled).map(e => {
         const totalQ = Number(e.total_questions || 0);
@@ -1126,8 +1129,8 @@
           <td>${esc(e.title)}<div class="cell-sub">${totalQ > 0 ? `${totalQ} soal` : '<span style="color:var(--red);">0 soal</span>'}</div></td>
           <td><span class="badge badge-neutral">${esc(e.class_target || 'Semua Kelas')}</span></td>
           <td class="nowrap">${esc(e.exam_date || '-')}<div class="cell-sub">${esc(e.session_name)} · ${e.duration_minutes} menit</div></td>
-          <td><span class="tag-mono">${esc(e.token)}</span></td>
-          <td>${e.is_active ? '<span class="badge badge-working"><span class="live-dot"></span>Aktif</span>' : '<span class="badge badge-idle">Nonaktif</span>'}</td>
+          <td>${e.is_active ? `<span class="tag-mono">${esc(e.token)}</span>` : '<span class="cell-sub">Belum aktif</span>'}</td>
+          <td>${e.is_active ? '<span class="badge badge-working"><span class="live-dot"></span>Aktif</span>' : '<span class="badge badge-idle">Terjadwal</span>'}</td>
           <td>
             <div class="cell-actions">
               ${!e.is_active ? `<button class="btn btn-xs ${totalQ > 0 ? 'btn-primary' : 'btn-outline'}" onclick="activateExam(${e.id}, ${totalQ})">${cbtIcon('play')}${totalQ > 0 ? 'Aktifkan' : 'Aktifkan (0 soal)'}</button>` : ''}
@@ -1688,11 +1691,65 @@
         document.getElementById('selectedBankSoalId').value = '';
         const banner = document.getElementById('subjectStatusBanner');
         if (banner) banner.style.display = 'none';
+        const saved = await res.json();
         loadOverview();
+        if (!saved.is_active) {
+          cbtAlert('Jadwal tersimpan. Pada hari ujian, tekan Aktifkan di daftar jadwal; token ujian keluar saat itu.', 'success');
+        }
       } else {
         const err = await res.json();
-        cbtAlert(err.error || 'Gagal membuat/mengaktifkan jadwal ujian');
+        cbtAlert(err.error || 'Gagal menyimpan jadwal ujian');
       }
+    }
+
+    // Hari ujian: satu tombol per tanggal + sesi untuk mengaktifkan semua jadwal di sesi itu
+    function formatHariTanggal(dateStr) {
+      const d = new Date(`${dateStr}T00:00:00`);
+      if (isNaN(d)) return dateStr || '-';
+      return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function renderSessionActivateBar(scheduled) {
+      const groups = new Map();
+      for (const e of scheduled) {
+        const key = `${e.exam_date || ''}|${e.session_name || ''}`;
+        if (!groups.has(key)) groups.set(key, { date: e.exam_date || '', session: e.session_name || '', total: 0, active: 0 });
+        const g = groups.get(key);
+        g.total++;
+        if (e.is_active) g.active++;
+      }
+      const list = [...groups.values()].sort((a, b) => a.date.localeCompare(b.date) || a.session.localeCompare(b.session, 'id', { numeric: true }));
+      document.getElementById('sessionActivateBar').innerHTML = list.map(g => `
+        <div class="session-chip">
+          <div>
+            <div class="cell-name">${esc(formatHariTanggal(g.date))} · ${esc(g.session)}</div>
+            <div class="cell-sub">${g.total} jadwal${g.active ? ` · ${g.active} aktif` : ''}</div>
+          </div>
+          ${g.active === g.total
+            ? '<span class="badge badge-working"><span class="live-dot"></span>Semua aktif</span>'
+            : `<button class="btn btn-xs btn-primary" onclick="activateSession('${escJs(g.date)}', '${escJs(g.session)}', ${g.total})">${cbtIcon('play')}Aktifkan semua</button>`}
+        </div>`).join('');
+    }
+
+    async function activateSession(date, session, total) {
+      const ok = await cbtConfirm({
+        title: 'Aktifkan semua jadwal sesi ini?',
+        message: `${formatHariTanggal(date)} · ${session}\n${total} jadwal akan aktif dan tokennya keluar. Ujian aktif lain di kelas yang sama (misalnya sesi sebelumnya) akan berhenti.`,
+        confirmText: 'Ya, aktifkan semua'
+      });
+      if (!ok) return;
+      const res = await fetch('/api/operator/exams/activate-session', {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ exam_date: date, session_name: session })
+      });
+      const data = await res.json();
+      loadOverview();
+      if (!res.ok) return cbtAlert(data.error || 'Gagal mengaktifkan jadwal sesi ini');
+      const notes = [`${data.activated.length} jadwal aktif. Token tampil di daftar jadwal dan di menu Pantauan & token.`];
+      if (data.autoCopiedQuestions > 0) notes.push(`${data.autoCopiedQuestions} butir soal disalin otomatis dari bank soal.`);
+      if (data.emptyExams && data.emptyExams.length) notes.push(`Perhatian, masih 0 soal: ${data.emptyExams.join(', ')}.`);
+      cbtAlert(notes.join('\n'), data.emptyExams && data.emptyExams.length ? undefined : 'success');
     }
 
     async function activateExam(id, totalQ) {

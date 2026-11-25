@@ -45,10 +45,13 @@ test('P1-1: ujian untuk kelas berbeda bisa aktif bersamaan; hanya target kelas y
   const op = await ctx.staff('operator', 'admin123');
   const x = await ctx.post('/api/operator/exams', { title: 'Kimia IPA 1', subject: 'Kimia', class_target: 'XII IPA 1' }, op);
   const y = await ctx.post('/api/operator/exams', { title: 'Fisika IPA 2', subject: 'Fisika', class_target: 'XII IPA 2' }, op);
+  await ctx.post(`/api/operator/exams/${x.body.id}/activate`, {}, op);
+  await ctx.post(`/api/operator/exams/${y.body.id}/activate`, {}, op);
   assert.deepEqual(activeIds(ctx.db), [x.body.id, y.body.id]);
 
   // Target "Semua Kelas" bentrok dengan semua kelas
   const z = await ctx.post('/api/operator/exams', { title: 'Umum', subject: 'Kimia', class_target: 'Semua Kelas' }, op);
+  await ctx.post(`/api/operator/exams/${z.body.id}/activate`, {}, op);
   assert.deepEqual(activeIds(ctx.db), [z.body.id]);
 
   // Aktivasi lewat tombol "Aktifkan" juga paralel per kelas
@@ -213,6 +216,7 @@ test('P1-11: overview operator mengirim semua ujian aktif paralel beserta token 
   const ctx = setup(t);
   const op = await ctx.staff('operator', 'admin123');
   const fis = await ctx.post('/api/operator/exams', { title: 'PAS Fisika', subject: 'Fisika', class_target: 'XII IPA 2' }, op);
+  await ctx.post(`/api/operator/exams/${fis.body.id}/activate`, {}, op);
   const ov = await ctx.get('/api/operator/overview', op);
   assert.equal(ov.status, 200);
   assert.ok(Array.isArray(ov.body.activeExams), 'activeExams harus ada');
@@ -234,7 +238,8 @@ test('P1-10: panel pengawas menampilkan semua ujian aktif untuk siswa di ruangny
   // Ruang 01 berisi XII IPA 1; tambahkan satu siswa XII IPA 2 ke Ruang 01
   const st = ctx.db.prepare("SELECT * FROM students WHERE class_name = 'XII IPA 2' LIMIT 1").get();
   ctx.db.prepare("UPDATE students SET room = 'Ruang 01' WHERE id = ?").run(st.id);
-  await ctx.post('/api/operator/exams', { title: 'Fisika IPA 2', subject: 'Fisika', class_target: 'XII IPA 2' }, op);
+  const fis = await ctx.post('/api/operator/exams', { title: 'Fisika IPA 2', subject: 'Fisika', class_target: 'XII IPA 2' }, op);
+  await ctx.post(`/api/operator/exams/${fis.body.id}/activate`, {}, op);
 
   const pw = await ctx.staff('pengawas', 'pengawas123');
   const room = await ctx.get('/api/pengawas/room', pw);

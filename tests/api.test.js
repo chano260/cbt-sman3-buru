@@ -659,8 +659,10 @@ test('Teacher can create Bank Soal in guru panel, and Operator can select from d
     })
   }).then(r => r.json());
   assert.equal(schedRes.id, newExamId);
+  assert.equal(db.prepare('SELECT is_active FROM exams WHERE id = ?').get(newExamId).is_active, 0, 'dijadwalkan dulu, belum aktif');
+  await fetch(`${base}/api/operator/exams/${newExamId}/activate`, { method: 'POST', headers: { 'Authorization': `Bearer ${opAuth.staffToken}` } });
 
-  // 7. Jadwal sekarang sudah aktif di server
+  // 7. Setelah tombol Aktifkan, jadwal aktif di server
   const afterActive = db.prepare('SELECT * FROM exams WHERE id = ?').get(newExamId);
   assert.equal(afterActive.is_active, 1);
   assert.equal(afterActive.session_name, 'Sesi 1 (08:00 WIT)');
@@ -858,6 +860,7 @@ test('Operator can copy questions between exam packages, auto-copies questions w
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${opAuth.staffToken}` },
     body: JSON.stringify({ title: 'Bank Soal Matematika Asli', subject: 'Matematika Peminatan', class_target: 'XII IPA 1' })
   }).then(r => r.json());
+  await fetch(`${base}/api/operator/exams/${examA.id}/activate`, { method: 'POST', headers: { 'Authorization': `Bearer ${opAuth.staffToken}` } });
 
   await fetch(`${base}/api/guru/exams/${examA.id}/questions`, {
     method: 'POST',

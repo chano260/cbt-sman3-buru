@@ -179,3 +179,98 @@ test('panel operator: kartu token menampilkan "belum ada ujian aktif" dan tombol
   assert.match(html, /Belum ada ujian aktif/);
   assert.match(html, /getElementById\('btnRefreshToken'\)\.disabled = !data\.activeExam/);
 });
+
+test('menjadwalkan tidak langsung mengaktifkan: banyak mapel untuk kelas yang sama tetap terjadwal semua', async (t) => {
+  const { db, op, post, flag } = await setup(t);
+  db.prepare('UPDATE exams SET is_active = 0').run();
+  const ids = [];
+  for (const subject of ['Kimia', 'Fisika', 'Biologi', 'Matematika', 'Sejarah']) {
+    const r = await post('/api/operator/exams', op, { subject, title: `ASAS ${subject}`, class_target: 'X E 1', exam_date: '2026-12-01' }).then(r => r.json());
+    ids.push(r.id);
+  }
+  for (const id of ids) assert.deepEqual(flag(id), { is_scheduled: 1, is_active: 0 }, 'jadwal tersimpan tanpa aktif');
+
+  // Hari ujian: operator menekan Aktifkan -> hanya ujian kelas itu yang bentrok yang berhenti, jadwal lain tetap ada
+  await post(`/api/operator/exams/${ids[0]}/activate`, op);
+  await post(`/api/operator/exams/${ids[1]}/activate`, op);
+  assert.deepEqual(flag(ids[0]), { is_scheduled: 1, is_active: 0 });
+  assert.deepEqual(flag(ids[1]), { is_scheduled: 1, is_active: 1 });
+  for (const id of ids.slice(2)) assert.equal(flag(id).is_scheduled, 1);
+});
+
+test('menjadwalkan ulang paket yang sedang aktif tidak mengganti tokennya', async (t) => {
+  const { db, op, post, flag } = await setup(t);
+  const exam = db.prepare('SELECT * FROM exams WHERE is_active = 1 LIMIT 1').get();
+  await post('/api/operator/exams', op, { exam_id: exam.id, subject: exam.subject, session_name: 'Sesi 2' });
+  assert.equal(flag(exam.id).is_active, 1, 'ujian yang sedang berjalan tidak dimatikan');
+  assert.equal(db.prepare('SELECT token FROM exams WHERE id = ?').get(exam.id).token, exam.token);
+});
+
+test('panel operator: jadwal yang belum aktif tidak menampilkan token dan berstatus Terjadwal', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'operator.html'), 'utf8');
+  const renderJadwal = html.slice(html.indexOf("getElementById('examsTableBody').innerHTML"), html.indexOf("getElementById('banksTableBody').innerHTML"));
+  assert.match(renderJadwal, /e\.is_active \? `<span class="tag-mono">\$\{esc\(e\.token\)\}<\/span>` : /);
+  assert.match(renderJadwal, />Terjadwal</);
+  assert.match(html, /Jadwal tersimpan/);
+});
+
+test('aktifkan sekaligus per tanggal + sesi: semua jadwal sesi itu aktif, sesi lain tetap terjadwal', async (t) => {
+  const { db, op, post, flag } = await setup(t);
+  db.prepare('UPDATE exams SET is_active = 0').run();
+  const make = (subject, cls, date, sesi) => post('/api/operator/exams', op, { subject, title: `ASAS ${subject}`, class_target: cls, exam_date: date, session_name: sesi }).then(r => r.json()).then(j => j.id);
+  const kimia1 = await make('Kimia', 'X E 1', '2026-12-07', 'Sesi 1');
+  const fisika2 = await make('Fisika', 'X E 2', '2026-12-07', 'Sesi 1');
+  const bio1 = await make('Biologi', 'X E 1', '2026-12-07', 'Sesi 2');
+  const selasa = await make('Sejarah', 'X E 1', '2026-12-08', 'Sesi 1');
+
+  const r1 = await post('/api/operator/exams/activate-session', op, { exam_date: '2026-12-07', session_name: 'Sesi 1' });
+  assert.equal(r1.status, 200);
+  assert.deepEqual((await r1.json()).activated.sort(), [kimia1, fisika2].sort());
+  assert.equal(flag(kimia1).is_active, 1);
+  assert.equal(flag(fisika2).is_active, 1);
+  assert.equal(flag(bio1).is_active, 0);
+  assert.equal(flag(selasa).is_active, 0);
+  const tokens = db.prepare('SELECT token FROM exams WHERE id IN (?, ?)').all(kimia1, fisika2);
+  assert.ok(tokens.every(x => /^[A-Z0-9]{5}$/.test(x.token)), 'setiap jadwal punya token');
+
+  // Sesi 2: Biologi X E 1 aktif, Kimia X E 1 (sesi 1) berhenti, Fisika X E 2 tidak terganggu
+  await post('/api/operator/exams/activate-session', op, { exam_date: '2026-12-07', session_name: 'Sesi 2' });
+  assert.equal(flag(bio1).is_active, 1);
+  assert.equal(flag(kimia1).is_active, 0);
+  assert.equal(flag(kimia1).is_scheduled, 1);
+  assert.equal(flag(fisika2).is_active, 1);
+});
+
+test('aktifkan sekaligus ditolak bila dua jadwal di sesi yang sama untuk kelas yang sama', async (t) => {
+  const { db, op, post, flag } = await setup(t);
+  db.prepare('UPDATE exams SET is_active = 0').run();
+  const a = await post('/api/operator/exams', op, { subject: 'Kimia', title: 'A', class_target: 'X E 1', exam_date: '2026-12-07', session_name: 'Sesi 1' }).then(r => r.json());
+  const b = await post('/api/operator/exams', op, { subject: 'Fisika', title: 'B', class_target: 'X E 1, X E 2', exam_date: '2026-12-07', session_name: 'Sesi 1' }).then(r => r.json());
+  const r = await post('/api/operator/exams/activate-session', op, { exam_date: '2026-12-07', session_name: 'Sesi 1' });
+  assert.equal(r.status, 409);
+  const body = await r.json();
+  assert.equal(body.code, 'CLASS_CONFLICT');
+  assert.match(body.error, /Kimia/);
+  assert.match(body.error, /Fisika/);
+  assert.equal(flag(a.id).is_active, 0);
+  assert.equal(flag(b.id).is_active, 0);
+  assert.equal((await post('/api/operator/exams/activate-session', op, { exam_date: '2030-01-01', session_name: 'Sesi 9' })).status, 404);
+});
+
+test('panel operator: tombol aktifkan semua per tanggal & sesi', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'operator.html'), 'utf8');
+  assert.match(html, /id="sessionActivateBar"/);
+  assert.match(html, /async function activateSession\(/);
+  assert.match(html, /\/api\/operator\/exams\/activate-session/);
+});
+
+test('aktifkan sekaligus tidak mengganti token jadwal yang sudah aktif', async (t) => {
+  const { db, op, post } = await setup(t);
+  db.prepare('UPDATE exams SET is_active = 0').run();
+  const a = await post('/api/operator/exams', op, { subject: 'Kimia', title: 'A', class_target: 'X E 1', exam_date: '2026-12-07', session_name: 'Sesi 1' }).then(r => r.json());
+  await post(`/api/operator/exams/${a.id}/activate`, op);
+  const before = db.prepare('SELECT token FROM exams WHERE id = ?').get(a.id).token;
+  await post('/api/operator/exams', op, { subject: 'Fisika', title: 'B', class_target: 'X E 2', exam_date: '2026-12-07', session_name: 'Sesi 1' });
+  assert.equal((await post('/api/operator/exams/activate-session', op, { exam_date: '2026-12-07', session_name: 'Sesi 1' })).status, 200);
+  assert.equal(db.prepare('SELECT token FROM exams WHERE id = ?').get(a.id).token, before);
+});

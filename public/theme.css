@@ -424,6 +424,15 @@
 .ui-v2 select.input-sm { min-height: 32px; padding: 4px 10px; font-size: 13px; border-radius: 8px; }
 /* Kotak cari di kepala kartu tabel (panel operator) */
 .ui-v2 .search-box { width: min(320px, 100%); flex: 0 1 320px; }
+/* Tombol aktifkan semua per tanggal + sesi (panel operator) */
+.ui-v2 .session-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.ui-v2 .session-bar:empty { display: none; }
+.ui-v2 .session-chip {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex: 1 1 260px; max-width: 100%; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 10px;
+}
+.ui-v2 .session-chip .btn { white-space: nowrap; flex-shrink: 0; }
 
 .ui-v2 .form-grid { gap: 16px 20px; margin-bottom: 20px; }
 

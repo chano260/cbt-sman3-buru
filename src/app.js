@@ -1091,8 +1091,9 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     if (exam_id) {
       const existing = db.prepare('SELECT * FROM exams WHERE id = ?').get(Number(exam_id));
       if (existing) {
-        const token = generateRandomToken();
-        deactivateOverlappingExams(db, existing.id, class_target || existing.class_target);
+        // Menjadwalkan tidak mengaktifkan: ujian diaktifkan operator lewat tombol Aktifkan di hari ujian.
+        // Paket yang sedang berjalan tetap aktif dengan token yang sama.
+        if (existing.is_active) deactivateOverlappingExams(db, existing.id, class_target || existing.class_target);
         db.prepare(`
           UPDATE exams
           SET title = COALESCE(NULLIF(?, ''), title),
@@ -1102,9 +1103,6 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
               start_time = COALESCE(NULLIF(?, ''), start_time),
               session_name = COALESCE(NULLIF(?, ''), session_name),
               duration_minutes = COALESCE(?, duration_minutes),
-              token = ?,
-              token_updated_at = ?,
-              is_active = 1,
               is_scheduled = 1
           WHERE id = ?
         `).run(
@@ -1115,17 +1113,14 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
           start_time || existing.start_time,
           session_name || existing.session_name,
           Number(duration_minutes) || existing.duration_minutes || 90,
-          token,
-          nowIso,
           existing.id
         );
-        return res.json({ id: existing.id, token, updated: true });
+        return res.json({ id: existing.id, updated: true, is_active: existing.is_active ? 1 : 0 });
       }
     }
 
     if (!title) return res.status(400).json({ error: 'Nama ujian wajib diisi' });
     const token = generateRandomToken();
-    deactivateOverlappingExams(db, 0, class_target || 'Semua Kelas');
 
     let targetTeacherId = null;
     if (req.body && req.body.teacher_id) {
@@ -1138,7 +1133,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
 
     const info = db.prepare(`
       INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, shuffle_questions, is_active, teacher_id, is_scheduled)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 1)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 1)
     `).run(
       title,
       subject,
@@ -1159,14 +1154,12 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       autoCopied = copyQuestions(db, donor.id, newExamId);
       invalidateQuestionsCache(newExamId);
     }
-    res.json({ id: newExamId, token, autoCopiedQuestions: autoCopied });
+    res.json({ id: newExamId, is_active: 0, autoCopiedQuestions: autoCopied });
   });
 
-  app.post('/api/operator/exams/:id/activate', requireStaffAuth(['operator']), (req, res) => {
-    const examId = Number(req.params.id);
-    const targetExam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);
-    if (!targetExam) return res.status(404).json({ error: 'Ujian tidak ditemukan' });
-
+  // Aktifkan satu paket: salin soal otomatis bila kosong, hentikan ujian aktif lain di kelas yang sama, token baru keluar
+  function activateExamPackage(targetExam) {
+    const examId = targetExam.id;
     let autoCopied = 0;
     const qCount = db.prepare('SELECT COUNT(*) as c FROM questions WHERE exam_id = ?').get(examId).c;
     if (qCount === 0) {
@@ -1178,8 +1171,52 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     }
 
     deactivateOverlappingExams(db, examId, targetExam.class_target);
-    db.prepare('UPDATE exams SET is_active = 1, is_scheduled = 1, token_updated_at = ? WHERE id = ?').run(new Date().toISOString(), examId);
-    res.json({ activated: examId, total_questions: qCount + autoCopied, autoCopiedQuestions: autoCopied });
+    // Token baru keluar saat ujian diaktifkan (bukan saat dijadwalkan)
+    db.prepare('UPDATE exams SET is_active = 1, is_scheduled = 1, token = ?, prev_token = NULL, token_updated_at = ? WHERE id = ?')
+      .run(generateRandomToken(), new Date().toISOString(), examId);
+    return { activated: examId, total_questions: qCount + autoCopied, autoCopiedQuestions: autoCopied };
+  }
+
+  app.post('/api/operator/exams/:id/activate', requireStaffAuth(['operator']), (req, res) => {
+    const targetExam = db.prepare('SELECT * FROM exams WHERE id = ?').get(Number(req.params.id));
+    if (!targetExam) return res.status(404).json({ error: 'Ujian tidak ditemukan' });
+    res.json(activateExamPackage(targetExam));
+  });
+
+  // Hari ujian: aktifkan sekaligus semua jadwal pada tanggal + sesi yang sama
+  app.post('/api/operator/exams/activate-session', requireStaffAuth(['operator']), (req, res) => {
+    const examDate = String((req.body && req.body.exam_date) || '').trim();
+    const sessionName = String((req.body && req.body.session_name) || '').trim();
+    const exams = db.prepare('SELECT * FROM exams WHERE is_scheduled = 1 AND exam_date = ? AND session_name = ? ORDER BY id')
+      .all(examDate, sessionName);
+    if (exams.length === 0) return res.status(404).json({ error: 'Tidak ada jadwal pada tanggal dan sesi tersebut' });
+
+    // Satu kelas hanya boleh satu ujian aktif: tolak bila dua jadwal di sesi ini bentrok kelas
+    const conflicts = [];
+    for (let i = 0; i < exams.length; i++) {
+      for (let j = i + 1; j < exams.length; j++) {
+        if (classTargetsOverlap(exams[i].class_target, exams[j].class_target)) {
+          conflicts.push(`${exams[i].subject} (${exams[i].class_target}) dan ${exams[j].subject} (${exams[j].class_target})`);
+        }
+      }
+    }
+    if (conflicts.length > 0) {
+      return res.status(409).json({
+        code: 'CLASS_CONFLICT',
+        error: `Ada kelas yang mendapat dua ujian di ${sessionName} tanggal ${examDate}: ${conflicts.join('; ')}. Pindahkan salah satu ke sesi lain atau aktifkan satu per satu.`
+      });
+    }
+
+    // Jadwal yang sudah aktif dibiarkan (token tidak berganti di tengah ujian)
+    const countQ = db.prepare('SELECT COUNT(*) c FROM questions WHERE exam_id = ?');
+    const results = db.transaction(() => exams.map(e => e.is_active
+      ? { activated: e.id, total_questions: countQ.get(e.id).c, autoCopiedQuestions: 0 }
+      : activateExamPackage(e)))();
+    res.json({
+      activated: results.map(r => r.activated),
+      autoCopiedQuestions: results.reduce((n, r) => n + r.autoCopiedQuestions, 0),
+      emptyExams: exams.filter((e, i) => results[i].total_questions === 0).map(e => e.subject)
+    });
   });
 
   // Batalkan jadwal: paket kembali menjadi bank soal guru (soal & nilai yang sudah ada tidak dihapus)

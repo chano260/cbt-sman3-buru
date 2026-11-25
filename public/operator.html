@@ -80,7 +80,7 @@
             <div class="stat-label">Token ujian</div>
             <div class="token-row">
               <div class="token-value" id="statToken">-</div>
-              <button class="btn btn-sm btn-on-board" onclick="refreshToken()"><svg class="icon"><use href="#i-refresh"></use></svg>Acak sekarang</button>
+              <button class="btn btn-sm btn-on-board" id="btnRefreshToken" onclick="refreshToken()"><svg class="icon"><use href="#i-refresh"></use></svg>Acak sekarang</button>
             </div>
             <div class="token-meta"><svg class="icon"><use href="#i-clock"></use></svg><span id="statTokenTimer">Berganti otomatis tiap 15 menit</span></div>
             <div class="token-exam" id="statExamTitle">Memuat jadwal aktif...</div>
@@ -1035,7 +1035,16 @@
             warnBox.style.display = 'none';
           }
         }
+      } else {
+        // Belum ada ujian aktif: tidak ada token yang berjalan
+        document.getElementById('opTokenChip').textContent = 'TOKEN: -';
+        document.getElementById('statToken').textContent = '-';
+        document.getElementById('statTokenTimer').textContent = 'Token muncul setelah ujian diaktifkan';
+        document.getElementById('statExamTitle').textContent = 'Belum ada ujian aktif. Aktifkan jadwal di menu Jadwal & sesi ujian.';
+        const warnBox = document.getElementById('activeExamZeroWarning');
+        if (warnBox) warnBox.style.display = 'none';
       }
+      document.getElementById('btnRefreshToken').disabled = !data.activeExam;
 
       // Populate filter ujian jika belum ada atau diperbarui
       if (data.exams && data.exams.length) {

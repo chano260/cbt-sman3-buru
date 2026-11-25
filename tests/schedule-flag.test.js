@@ -156,3 +156,26 @@ test('panel operator: penolakan batalkan jadwal menampilkan daftar siswa dan tom
   assert.match(fn, /UNFINISHED_SESSIONS/);
   assert.match(fn, /finishUnfinished: true/);
 });
+
+test('kartu token operator kosong bila belum ada ujian aktif (tidak mengambil bank soal terbaru)', async (t) => {
+  const { db, op, guru, post, base } = await setup(t);
+  db.prepare('UPDATE exams SET is_active = 0').run();
+  await post('/api/guru/exams', guru, { subject: 'Kimia', title: 'Bank baru', class_target: 'XII F 1' });
+  const overview = () => fetch(`${base}/api/operator/overview`, { headers: op }).then(r => r.json());
+  let data = await overview();
+  assert.equal(data.activeExam, null, 'tidak ada token yang berjalan tanpa ujian aktif');
+  assert.deepEqual(data.activeExams, []);
+
+  const exam = db.prepare('SELECT id FROM exams ORDER BY id LIMIT 1').get();
+  await post(`/api/operator/exams/${exam.id}/activate`, op);
+  data = await overview();
+  assert.equal(data.activeExam.id, exam.id);
+  assert.equal(data.activeExams.length, 1);
+});
+
+test('panel operator: kartu token menampilkan "belum ada ujian aktif" dan tombol acak dinonaktifkan', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'operator.html'), 'utf8');
+  assert.match(html, /id="btnRefreshToken"/);
+  assert.match(html, /Belum ada ujian aktif/);
+  assert.match(html, /getElementById\('btnRefreshToken'\)\.disabled = !data\.activeExam/);
+});

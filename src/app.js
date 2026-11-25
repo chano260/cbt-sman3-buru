@@ -747,8 +747,10 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       LEFT JOIN users u ON e.teacher_id = u.id
       ORDER BY e.id DESC
     `).all();
-    const rawActive = exams.find(e => e.is_active === 1) || exams[0];
-    const activeExam = ensureFresh15MinToken(db, rawActive);
+    // Hanya ujian yang benar-benar aktif; tanpa ujian aktif tidak ada token yang berjalan
+    // (dulu jatuh ke paket terbaru, sehingga token bank soal yang belum dijadwalkan ikut tampil & berganti)
+    const rawActive = exams.find(e => e.is_active === 1) || null;
+    const activeExam = rawActive ? ensureFresh15MinToken(db, rawActive) : null;
     // Ujian paralel per kelas: kirim SEMUA ujian aktif beserta tokennya (activeExam tetap untuk kompatibilitas)
     const activeExams = exams.filter(e => e.is_active === 1).map(e => {
       const fresh = activeExam && e.id === activeExam.id ? activeExam : ensureFresh15MinToken(db, e);

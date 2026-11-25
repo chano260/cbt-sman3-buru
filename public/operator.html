@@ -1018,13 +1018,28 @@
         document.getElementById('opTokenChip').textContent = multi
           ? `TOKEN: ${actives.map(e => `${e.token} (${e.subject})`).join(' • ')}`
           : `TOKEN: ${data.activeExam.token} (${mm}:${ss})`;
-        document.getElementById('statToken').textContent = actives.map(e => e.token).join(' / ');
-        document.getElementById('statTokenTimer').textContent = `Token baru dalam ${mm}:${ss}`;
-        document.getElementById('statExamTitle').textContent = actives.map(e => {
+        const examInfo = (e) => {
           const pg = e.pg_count != null ? e.pg_count : data.pgCount;
           const es = e.esai_count != null ? e.esai_count : data.esaiCount;
-          return `${e.subject} · ${e.class_target || 'Semua Kelas'} · ${pg} PG, ${es} esai`;
-        }).join('  /  ');
+          return { kelas: e.class_target || 'Semua Kelas', soal: `${pg} PG, ${es} esai` };
+        };
+        // Satu ujian: token besar. Beberapa ujian paralel: daftar ringkas satu baris per mapel
+        const tokenEl = document.getElementById('statToken');
+        tokenEl.classList.toggle('token-list', multi);
+        tokenEl.parentElement.classList.toggle('token-row-list', multi);
+        const titleEl = document.getElementById('statExamTitle');
+        if (multi) {
+          tokenEl.innerHTML = actives.map(e => {
+            const info = examInfo(e);
+            return `<div class="token-item"><span class="token-item-code">${esc(e.token)}</span><span class="token-item-info"><b>${esc(e.subject)}</b><small>${esc(info.kelas)} · ${esc(info.soal)}</small></span></div>`;
+          }).join('');
+          titleEl.textContent = '';
+        } else {
+          const info = examInfo(actives[0]);
+          tokenEl.textContent = actives[0].token;
+          titleEl.textContent = `${actives[0].subject} · ${info.kelas} · ${info.soal}`;
+        }
+        document.getElementById('statTokenTimer').textContent = `Token baru dalam ${mm}:${ss}`;
 
         const warnBox = document.getElementById('activeExamZeroWarning');
         if (warnBox) {
@@ -1039,7 +1054,10 @@
       } else {
         // Belum ada ujian aktif: tidak ada token yang berjalan
         document.getElementById('opTokenChip').textContent = 'TOKEN: -';
-        document.getElementById('statToken').textContent = '-';
+        const tokenEl = document.getElementById('statToken');
+        tokenEl.classList.toggle('token-list', false);
+        tokenEl.parentElement.classList.toggle('token-row-list', false);
+        tokenEl.textContent = '-';
         document.getElementById('statTokenTimer').textContent = 'Token muncul setelah ujian diaktifkan';
         document.getElementById('statExamTitle').textContent = 'Belum ada ujian aktif. Aktifkan jadwal di menu Jadwal & sesi ujian.';
         const warnBox = document.getElementById('activeExamZeroWarning');

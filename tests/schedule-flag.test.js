@@ -274,3 +274,13 @@ test('aktifkan sekaligus tidak mengganti token jadwal yang sudah aktif', async (
   assert.equal((await post('/api/operator/exams/activate-session', op, { exam_date: '2026-12-07', session_name: 'Sesi 1' })).status, 200);
   assert.equal(db.prepare('SELECT token FROM exams WHERE id = ?').get(a.id).token, before);
 });
+
+test('kartu token: beberapa ujian aktif tampil sebagai daftar ringkas per mapel, bukan token besar digabung "/"', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'operator.html'), 'utf8');
+  assert.doesNotMatch(html, /statToken'\)\.textContent = actives\.map\(e => e\.token\)\.join\(' \/ '\)/);
+  assert.match(html, /class="token-item"/);
+  assert.match(html, /classList\.toggle\('token-list', multi\)/);
+  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'theme.css'), 'utf8');
+  assert.match(css, /\.token-value\.token-list/);
+  assert.match(css, /\.token-item-code/);
+});

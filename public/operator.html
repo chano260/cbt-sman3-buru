@@ -453,22 +453,7 @@
             </div>
             <input id="examSearch" class="input input-sm search-box" type="search" placeholder="Cari mapel, kelas, sesi, token" oninput="filterTable('examSearch', 'examsTableBody')">
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Mata pelajaran & guru</th>
-                  <th>Nama ujian</th>
-                  <th>Kelas</th>
-                  <th>Durasi</th>
-                  <th>Token</th>
-                  <th>Status</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody id="examsTableBody"></tbody>
-            </table>
-          </div>
+          <div id="examsTableBody" class="session-grid"></div>
         </div>
       </section>
 
@@ -941,6 +926,8 @@
       if (!input || !body) return;
       // Semua kata harus ada (urutan bebas), misal "xii ipa ruang 2"
       const words = normSearch(input.value).split(' ').filter(Boolean);
+      body.classList.toggle('is-searching', words.length > 0);
+      if (body.classList.contains('session-grid')) return filterScheduleCards(body, words, input.value);
       const old = body.querySelector('tr.search-empty');
       if (old) old.remove();
       let shown = 0;
@@ -953,14 +940,29 @@
         tr.style.display = match ? '' : 'none';
         if (match) shown++;
       });
-      // Kepala kelompok sesi hanya tampil bila ada jadwal di kelompoknya yang cocok
-      body.querySelectorAll('tr.session-group-row').forEach(head => {
-        const anyShown = [...body.querySelectorAll(`tr[data-group="${head.dataset.group}"]:not(.session-group-row)`)].some(tr => tr.style.display !== 'none');
-        head.style.display = anyShown ? '' : 'none';
-      });
       if (words.length && total > 0 && shown === 0) {
         const cols = (body.closest('table').querySelectorAll('thead th') || []).length || 1;
         body.insertAdjacentHTML('beforeend', `<tr class="search-empty"><td colspan="${cols}" class="text-muted" style="text-align:center;padding:20px;">Tidak ada yang cocok dengan "${esc(input.value.trim())}"</td></tr>`);
+      }
+    }
+
+    // Daftar jadwal berupa kartu sesi: saring per mapel, sembunyikan kartu yang tidak punya mapel cocok
+    function filterScheduleCards(body, words, rawQuery) {
+      const old = body.querySelector('.search-empty');
+      if (old) old.remove();
+      let shown = 0;
+      body.querySelectorAll('.session-card').forEach(card => {
+        let inCard = 0;
+        card.querySelectorAll('.sched-item').forEach(item => {
+          const match = words.every(w => normSearch(item.dataset.search).includes(w));
+          item.style.display = match ? '' : 'none';
+          if (match) inCard++;
+        });
+        card.style.display = inCard ? '' : 'none';
+        shown += inCard;
+      });
+      if (words.length && body.querySelector('.session-card') && shown === 0) {
+        body.insertAdjacentHTML('beforeend', `<div class="text-muted session-empty search-empty">Tidak ada yang cocok dengan "${esc(String(rawQuery).trim())}"</div>`);
       }
     }
 
@@ -1169,44 +1171,49 @@
       renderClassOptions(data.classes || []);
 
       // Render tabel jadwal ujian (khusus penjadwalan; urusan soal di menu Bank soal masuk).
-      // Dikelompokkan per tanggal + sesi; kepala kelompok memuat tombol Aktifkan semua.
+      // Tampil sebagai kartu per tanggal + sesi. Kartu sesi aktif terbuka; kartu lain hanya menampilkan
+      // nama mapel sampai kepalanya diklik.
       const scheduleGroups = groupSchedulesBySession(data.exams.filter(e => e.is_scheduled));
-      document.getElementById('examsTableBody').innerHTML = scheduleGroups.map((g, gi) => `
-        <tr class="session-group-row" data-group="${gi}">
-          <td colspan="7">
-            <div class="session-group">
-              <div>
-                <div class="session-group-title">${esc(formatHariTanggal(g.date))} · ${esc(g.session)}</div>
-                <div class="cell-sub">${g.items.length} jadwal${g.active ? ` · ${g.active} aktif` : ''}</div>
+      const defaultOpenKey = pickDefaultOpenGroup(scheduleGroups);
+      document.getElementById('examsTableBody').innerHTML = scheduleGroups.map((g, gi) => {
+        const open = isSessionGroupOpen(g.key, g.key === defaultOpenKey || g.active > 0);
+        const items = g.items.map(e => {
+          const totalQ = Number(e.total_questions || 0);
+          const safeSubject = e.subject || '';
+          const searchText = [e.subject, e.title, e.class_target, e.teacher_name, e.exam_date, e.session_name, e.token].join(' ');
+          return `
+            <li class="sched-item" data-search="${esc(searchText)}">
+              <div class="sched-item-top">
+                <div class="sched-item-name">${esc(e.subject)}</div>
+                ${e.is_active ? '<span class="badge badge-working"><span class="live-dot"></span>Aktif</span>' : '<span class="badge badge-idle">Terjadwal</span>'}
               </div>
-              ${g.active === g.items.length
-                ? '<span class="badge badge-working"><span class="live-dot"></span>Semua aktif</span>'
-                : `<button class="btn btn-xs btn-primary" onclick="activateSession('${escJs(g.date)}', '${escJs(g.session)}', ${g.items.length})">${cbtIcon('play')}Aktifkan semua</button>`}
-            </div>
-          </td>
-        </tr>` + g.items.map(e => {
-        const totalQ = Number(e.total_questions || 0);
-        const safeSubject = e.subject || '';
+              <div class="cell-sub">${esc(e.class_target || 'Semua Kelas')}${e.is_elective ? ' · Mapel pilihan' : ''}</div>
+              <div class="cell-sub">${esc(e.teacher_name || 'Guru mapel')} · ${totalQ > 0 ? `${totalQ} soal` : '<span style="color:var(--red);">0 soal</span>'} · ${e.duration_minutes} menit</div>
+              <div class="sched-item-foot">
+                ${e.is_active ? `<span class="tag-mono">${esc(e.token)}</span>` : '<span class="cell-sub">Token belum aktif</span>'}
+                <div class="cell-actions">
+                  ${!e.is_active ? `<button class="btn btn-xs ${totalQ > 0 ? 'btn-primary' : 'btn-outline'}" onclick="activateExam(${e.id}, ${totalQ})">${cbtIcon('play')}${totalQ > 0 ? 'Aktifkan' : 'Aktifkan (0 soal)'}</button>` : ''}
+                  <button class="btn btn-xs btn-danger-outline" onclick="unscheduleExam(${e.id}, '${escJs(safeSubject + ' — ' + (e.title || ''))}')" title="Paket kembali ke Bank soal masuk; soal tidak dihapus">${cbtIcon('x')}Batalkan</button>
+                </div>
+              </div>
+            </li>`;
+        }).join('');
         return `
-        <tr data-group="${gi}">
-          <td>
-            <div class="cell-name">${esc(e.subject)}</div>
-            <div class="cell-sub">${esc(e.teacher_name || 'Guru mapel')}</div>
-          </td>
-          <td>${esc(e.title)}<div class="cell-sub">${totalQ > 0 ? `${totalQ} soal` : '<span style="color:var(--red);">0 soal</span>'}</div></td>
-          <td><span class="badge badge-neutral">${esc(e.class_target || 'Semua Kelas')}</span>${e.is_elective ? '<div class="cell-sub">Mapel pilihan</div>' : ''}</td>
-          <td class="nowrap">${e.duration_minutes} menit<span hidden>${esc(e.exam_date || '')} ${esc(e.session_name || '')}</span></td>
-          <td>${e.is_active ? `<span class="tag-mono">${esc(e.token)}</span>` : '<span class="cell-sub">Belum aktif</span>'}</td>
-          <td>${e.is_active ? '<span class="badge badge-working"><span class="live-dot"></span>Aktif</span>' : '<span class="badge badge-idle">Terjadwal</span>'}</td>
-          <td>
-            <div class="cell-actions">
-              ${!e.is_active ? `<button class="btn btn-xs ${totalQ > 0 ? 'btn-primary' : 'btn-outline'}" onclick="activateExam(${e.id}, ${totalQ})">${cbtIcon('play')}${totalQ > 0 ? 'Aktifkan' : 'Aktifkan (0 soal)'}</button>` : ''}
-              <button class="btn btn-xs btn-danger-outline" onclick="unscheduleExam(${e.id}, '${escJs(safeSubject + ' — ' + (e.title || ''))}')" title="Paket kembali ke Bank soal masuk; soal tidak dihapus">${cbtIcon('x')}Batalkan jadwal</button>
+        <article class="session-card${open ? ' is-open' : ''}${g.active ? ' has-active' : ''}" data-group="${gi}">
+          <div class="session-card-head" role="button" tabindex="0" onclick="toggleSessionGroup('${escJs(g.key)}', ${gi})" aria-expanded="${open}">
+            ${cbtIcon('chevron', 'session-chevron')}
+            <div class="session-card-title">
+              <div class="session-group-title">${esc(g.session)}</div>
+              <div class="cell-sub">${esc(formatHariTanggal(g.date))} · ${g.items.length} jadwal${g.active ? ` · ${g.active} aktif` : ''}</div>
             </div>
-          </td>
-        </tr>
-      `;
-      }).join('')).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:20px;">Belum ada jadwal ujian. Pilih bank soal di formulir di atas, atau tekan Jadwalkan di menu Bank soal masuk.</td></tr>';
+            ${g.active === g.items.length
+              ? '<span class="badge badge-working"><span class="live-dot"></span>Semua aktif</span>'
+              : `<button class="btn btn-xs btn-primary" onclick="event.stopPropagation(); activateSession('${escJs(g.date)}', '${escJs(g.session)}', ${g.items.length})">${cbtIcon('play')}Aktifkan semua</button>`}
+          </div>
+          <div class="session-card-summary">${g.items.map(e => `<span class="subject-chip">${esc(e.subject)}</span>`).join('')}</div>
+          <ul class="session-card-list">${items}</ul>
+        </article>`;
+      }).join('') || '<div class="text-muted session-empty">Belum ada jadwal ujian. Pilih bank soal di formulir di atas, atau tekan Jadwalkan di menu Bank soal masuk.</div>';
 
       // Render tabel bank soal masuk (urusan butir soal)
       document.getElementById('banksTableBody').innerHTML = data.exams.map(e => {
@@ -1841,7 +1848,37 @@
         g.items.push(e);
         if (e.is_active) g.active++;
       }
-      return [...groups.values()].sort((a, b) => a.date.localeCompare(b.date) || a.session.localeCompare(b.session, 'id', { numeric: true }));
+      return [...groups.values()]
+        .sort((a, b) => a.date.localeCompare(b.date) || a.session.localeCompare(b.session, 'id', { numeric: true }))
+        .map(g => ({ ...g, key: `${g.date}|${g.session}` }));
+    }
+
+    // Buka-tutup kelompok sesi. Pilihan operator diingat (juga setelah halaman dimuat ulang);
+    // tanpa pilihan, yang terbuka hanya sesi yang sedang aktif.
+    const SESSION_GROUP_STORE = 'cbt_operator_session_groups';
+    let sessionGroupState = {};
+    try { sessionGroupState = JSON.parse(localStorage.getItem(SESSION_GROUP_STORE) || '{}') || {}; } catch { sessionGroupState = {}; }
+
+    // Tanpa sesi aktif: buka sesi terdekat mulai hari ini (atau sesi pertama)
+    function pickDefaultOpenGroup(groups) {
+      if (groups.some(g => g.active > 0)) return null;
+      const today = new Date().toISOString().slice(0, 10);
+      const next = groups.find(g => g.date >= today) || groups[0];
+      return next ? next.key : null;
+    }
+
+    function isSessionGroupOpen(key, fallback) {
+      return Object.prototype.hasOwnProperty.call(sessionGroupState, key) ? !!sessionGroupState[key] : !!fallback;
+    }
+
+    function toggleSessionGroup(key, gi) {
+      const card = document.querySelector(`#examsTableBody .session-card[data-group="${gi}"]`);
+      if (!card) return;
+      const open = !card.classList.contains('is-open');
+      card.classList.toggle('is-open', open);
+      card.querySelector('.session-card-head').setAttribute('aria-expanded', String(open));
+      sessionGroupState[key] = open;
+      try { localStorage.setItem(SESSION_GROUP_STORE, JSON.stringify(sessionGroupState)); } catch {}
     }
 
     async function activateSession(date, session, total) {

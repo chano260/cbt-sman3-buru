@@ -257,17 +257,23 @@ test('aktifkan sekaligus ditolak bila dua jadwal di sesi yang sama untuk kelas y
   assert.equal((await post('/api/operator/exams/activate-session', op, { exam_date: '2030-01-01', session_name: 'Sesi 9' })).status, 404);
 });
 
-test('panel operator: daftar jadwal dikelompokkan per tanggal & sesi, tombol aktifkan semua di kepala kelompok', () => {
+test('panel operator: jadwal tampil sebagai kartu per tanggal & sesi (bukan tabel memanjang)', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'operator.html'), 'utf8');
-  assert.doesNotMatch(html, /id="sessionActivateBar"/, 'kotak sesi terpisah di atas tabel tidak dipakai lagi');
+  assert.doesNotMatch(html, /id="sessionActivateBar"/);
+  assert.doesNotMatch(html, /<tbody id="examsTableBody">/, 'daftar jadwal tidak lagi berupa tabel');
+  assert.match(html, /<div id="examsTableBody" class="session-grid">/);
   const renderJadwal = html.slice(html.indexOf('// Render tabel jadwal ujian'), html.indexOf("getElementById('banksTableBody').innerHTML"));
   assert.match(renderJadwal, /groupSchedulesBySession\(/);
-  assert.match(renderJadwal, /class="session-group-row"/);
+  assert.match(renderJadwal, /class="session-card/);
+  assert.match(renderJadwal, /class="sched-item"/);
   assert.match(renderJadwal, /activateSession\(/);
-  // Pencarian: kepala kelompok ikut tersembunyi bila tidak ada jadwal yang cocok
-  assert.match(html, /tr\.session-group-row/);
   assert.match(html, /async function activateSession\(/);
   assert.match(html, /\/api\/operator\/exams\/activate-session/);
+  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'theme.css'), 'utf8');
+  // Susunan kolom rapat: kartu pendek tidak meninggalkan celah di bawahnya
+  assert.match(css, /\.session-grid \{[^}]*column-width/);
+  assert.match(css, /\.session-card \{[^}]*break-inside: avoid/);
+  assert.match(css, /\.session-card \{/);
 });
 
 test('aktifkan sekaligus tidak mengganti token jadwal yang sudah aktif', async (t) => {
@@ -289,4 +295,22 @@ test('kartu token: beberapa ujian aktif tampil sebagai daftar ringkas per mapel,
   const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'theme.css'), 'utf8');
   assert.match(css, /\.token-value\.token-list/);
   assert.match(css, /\.token-item-code/);
+});
+
+test('panel operator: kartu sesi bisa dibuka-tutup; sesi aktif terbuka, sesi lain hanya menampilkan nama mapel', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'operator.html'), 'utf8');
+  const renderJadwal = html.slice(html.indexOf('// Render tabel jadwal ujian'), html.indexOf("getElementById('banksTableBody').innerHTML"));
+  assert.match(renderJadwal, /onclick="toggleSessionGroup\(/);
+  assert.match(renderJadwal, /aria-expanded=/);
+  assert.match(renderJadwal, /class="session-card-summary"/);
+  assert.match(renderJadwal, /event\.stopPropagation\(\)/, 'tombol Aktifkan semua tidak ikut membuka/menutup kartu');
+  assert.match(html, /function isSessionGroupOpen\(/);
+  assert.match(html, /function toggleSessionGroup\(/);
+  // Kotak cari juga menyaring kartu: mapel yang cocok tetap tampil walau kartunya tertutup
+  assert.match(html, /classList\.contains\('session-grid'\)/);
+  assert.match(html, /classList\.toggle\('is-searching'/);
+  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'theme.css'), 'utf8');
+  assert.match(css, /\.session-card\.is-open/);
+  assert.match(css, /\.is-searching \.session-card/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'public', 'icons.js'), 'utf8'), /chevron:/);
 });

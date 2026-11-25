@@ -445,11 +445,37 @@
 .ui-v2 select.input-sm { min-height: 32px; padding: 4px 10px; font-size: 13px; border-radius: 8px; }
 /* Kotak cari di kepala kartu tabel (panel operator) */
 .ui-v2 .search-box { width: min(320px, 100%); flex: 0 1 320px; }
-/* Daftar jadwal dikelompokkan per tanggal + sesi (panel operator) */
-.ui-v2 tr.session-group-row td { background: var(--primary-soft); padding-top: 10px; padding-bottom: 10px; }
-.ui-v2 .session-group { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+/* Daftar jadwal: kartu per tanggal + sesi (panel operator) */
+/* Susunan kolom rapat: kartu menempel di bawah kartu sebelumnya, jadi kartu pendek tidak meninggalkan celah */
+.ui-v2 .session-grid { column-width: 300px; column-gap: 14px; }
+.ui-v2 .session-card {
+  break-inside: avoid; display: inline-block; width: 100%; margin: 0 0 14px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden;
+}
+.ui-v2 .session-card.has-active { border-color: rgba(35, 121, 58, 0.45); }
+.ui-v2 .session-card-head {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+  background: var(--primary-soft); cursor: pointer;
+}
+.ui-v2 .session-card-head:hover { background: #e4eaf7; }
+.ui-v2 .session-card-head .btn { white-space: nowrap; }
+.ui-v2 .session-card-title { flex: 1 1 auto; min-width: 0; }
 .ui-v2 .session-group-title { font-weight: 600; }
-.ui-v2 .session-group .btn { white-space: nowrap; }
+.ui-v2 .session-chevron { flex-shrink: 0; color: var(--primary); transition: transform 0.15s ease; }
+.ui-v2 .session-card.is-open .session-chevron { transform: rotate(90deg); }
+.ui-v2 .session-card-summary { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px 12px; }
+.ui-v2 .subject-chip { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--raised); color: var(--slate); }
+.ui-v2 .session-card-list { list-style: none; margin: 0; padding: 0; display: none; }
+.ui-v2 .session-card.is-open .session-card-list { display: block; }
+.ui-v2 .session-card.is-open .session-card-summary { display: none; }
+/* Saat mencari, mapel yang cocok tampil walau kartunya tertutup */
+.ui-v2 .is-searching .session-card .session-card-list { display: block; }
+.ui-v2 .is-searching .session-card .session-card-summary { display: none; }
+.ui-v2 .sched-item { padding: 10px 14px; border-top: 1px solid var(--hairline); }
+.ui-v2 .sched-item-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ui-v2 .sched-item-name { font-weight: 600; }
+.ui-v2 .sched-item-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.ui-v2 .session-empty { column-span: all; text-align: center; padding: 20px; }
 
 .ui-v2 .form-grid { gap: 16px 20px; margin-bottom: 20px; }
 

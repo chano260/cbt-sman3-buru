@@ -115,7 +115,7 @@
       <!-- PENJADWALAN & SESI (dibaca dari server, tanpa token & tanpa soal) -->
       <section id="viewJadwal" style="display:none;">
         <h2 class="bp3-section-title">Penjadwalan & Sesi</h2>
-        <p class="jadwal-sub">Jadwal ujian yang sudah disiapkan sekolah. Token dibacakan pengawas di ruang ujian.</p>
+        <p class="jadwal-sub">Jadwal ujian yang sudah ditetapkan operator sekolah.</p>
         <div id="jadwalList" class="jadwal-list">
           <div class="bp3-card jadwal-empty">Memuat jadwal...</div>
         </div>
@@ -187,6 +187,13 @@
       return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     }
 
+    // Formulir jadwal operator menulis jam di nama sesi ("Sesi 2 (10:00 WIT)"); jam bawaan tidak ditampilkan dobel
+    function sessionLabel(j) {
+      const sesi = String(j.session_name || '').trim();
+      if (/\d{1,2}[:.]\d{2}/.test(sesi) || !j.start_time) return sesi || '-';
+      return `${sesi} · ${j.start_time}`;
+    }
+
     async function loadJadwal() {
       const box = document.getElementById('jadwalList');
       try {
@@ -201,7 +208,7 @@
           <div class="bp3-card jadwal-item${j.is_active ? ' is-active' : ''}">
             <div class="jadwal-date">
               <div class="jadwal-day">${esc(formatTanggal(j.exam_date))}</div>
-              <div class="jadwal-time">${esc(j.session_name)} · ${esc(j.start_time)}</div>
+              <div class="jadwal-time">${esc(sessionLabel(j))}</div>
             </div>
             <div class="jadwal-main">
               <div class="jadwal-subject">${esc(j.subject)}</div>

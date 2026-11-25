@@ -669,7 +669,8 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       SELECT e.id, e.subject, e.title, e.class_target, e.exam_date, e.start_time, e.session_name,
              e.duration_minutes, e.is_active
       FROM exams e
-      WHERE e.is_active = 1 OR EXISTS (SELECT 1 FROM questions q WHERE q.exam_id = e.id)
+      -- Hanya jadwal yang ditetapkan operator; bank soal guru yang belum dijadwalkan tidak tampil
+      WHERE e.is_active = 1 OR e.is_scheduled = 1
       ORDER BY e.is_active DESC, e.exam_date ASC, e.start_time ASC, e.id ASC
     `).all();
     res.json({ jadwal });

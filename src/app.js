@@ -10,7 +10,7 @@ const QRCode = require('qrcode');
 const { parseDocxBuffer, parseQuestionsFromText, generateWordTemplateBuffer } = require('./wordParser');
 const { hashPassword, verifyPassword, safeEqual, randomToken, isDefaultStaffPassword } = require('./security');
 const { createBackup, backupStatus } = require('./backup');
-const { parseStudentSheet, importStudents, defaultPrefix, cleanPrefix } = require('./studentImport');
+const { cleanElectives, parseStudentSheet, importStudents, defaultPrefix, cleanPrefix } = require('./studentImport');
 
 const STAFF_TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // Token login staf berlaku 12 jam
 const LOGIN_MAX_FAILS = 5;
@@ -139,13 +139,42 @@ function subjectMatches(teacherSubjectStr, examSubjectStr) {
   return !!exam && splitSubjects(teacherSubjectStr).includes(exam);
 }
 
-// Nonaktifkan hanya ujian aktif yang target kelasnya bentrok (ujian paralel per kelas)
-function deactivateOverlappingExams(db, examId, classTarget) {
-  const actives = db.prepare('SELECT id, class_target FROM exams WHERE is_active = 1 AND id != ?').all(Number(examId) || 0);
+// Dua ujian boleh aktif bersamaan bila kelasnya tidak bentrok, atau keduanya mapel pilihan
+// (siswa satu kelas dibagi menurut mapel pilihannya)
+function examsCanRunTogether(a, b) {
+  if (a.is_elective && b.is_elective) return true;
+  return !classTargetsOverlap(a.class_target, b.class_target);
+}
+
+// Nonaktifkan hanya ujian aktif yang bentrok (ujian paralel per kelas / per mapel pilihan)
+function deactivateOverlappingExams(db, examId, classTarget, isElective) {
+  const actives = db.prepare('SELECT id, class_target, is_elective FROM exams WHERE is_active = 1 AND id != ?').all(Number(examId) || 0);
   const off = db.prepare('UPDATE exams SET is_active = 0 WHERE id = ?');
+  const target = { class_target: classTarget, is_elective: isElective ? 1 : 0 };
   for (const e of actives) {
-    if (classTargetsOverlap(e.class_target, classTarget)) off.run(e.id);
+    if (!examsCanRunTogether(e, target)) off.run(e.id);
   }
+}
+
+// Siswa ikut ujian ini bila kelasnya termasuk target; untuk mapel pilihan, mapel itu juga harus pilihannya
+function studentTakesExam(student, exam) {
+  if (!classInTarget(student.class_name, exam.class_target)) return false;
+  return !exam.is_elective || subjectMatches(student.elective_subjects, exam.subject);
+}
+
+// Pilih ujian aktif untuk seorang siswa: utamakan yang menyebut kelasnya, lalu yang untuk "Semua Kelas"
+function pickExamForStudent(activeExams, student) {
+  const mine = activeExams.filter(e => studentTakesExam(student, e));
+  return mine.find(e => parseClassTargets(e.class_target) !== null) || mine[0] || null;
+}
+
+// Pesan bila kelas siswa sedang ujian mapel pilihan, tetapi mapel pilihan siswa itu tidak ada di antaranya
+function electiveMissingMessage(db, student) {
+  const electives = db.prepare('SELECT subject, class_target FROM exams WHERE is_active = 1 AND is_elective = 1').all()
+    .filter(e => classInTarget(student.class_name, e.class_target));
+  if (electives.length === 0) return null;
+  const mine = String(student.elective_subjects || '').trim();
+  return `Mapel pilihan Anda ${mine ? `(${mine}) ` : ''}belum terdaftar untuk ujian yang sedang berlangsung di kelas ${student.class_name} (${electives.map(e => e.subject).join(', ')}). Hubungi operator atau pengawas.`;
 }
 
 function tokenMatches(exam, input) {
@@ -195,9 +224,15 @@ function pickExamForClass(activeExams, className) {
   return specific || activeExams.find(e => isAllClassesTarget(e.class_target)) || null;
 }
 
-// Pencocokan ujian aktif sesuai kelas siswa (ujian paralel per kelas, anti-tertukar)
-function getActiveExamForStudent(db, className) {
+// Pencocokan ujian aktif sesuai kelas (dan mapel pilihan) siswa: ujian paralel, anti-tertukar.
+// Menerima data siswa (disarankan) atau hanya nama kelas.
+function getActiveExamForStudent(db, studentOrClass) {
   const actives = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC').all();
+  if (studentOrClass && typeof studentOrClass === 'object') {
+    const pick = pickExamForStudent(actives, studentOrClass);
+    return pick ? ensureFresh15MinToken(db, pick) : null;
+  }
+  const className = studentOrClass;
   if (className && !isAllClassesTarget(className)) {
     const pick = pickExamForClass(actives, className);
     return pick ? ensureFresh15MinToken(db, pick) : null;
@@ -317,7 +352,7 @@ function calculateExamScores(db, examId) {
   const sessionMap = new Map(sessions.map(s => [s.student_id, s]));
   // Hanya siswa kelas target ujian, ditambah siswa yang sudah punya sesi (misal setelah pindah kelas)
   const students = db.prepare('SELECT * FROM students ORDER BY room ASC, seat_number ASC, full_name ASC').all()
-    .filter(st => sessionMap.has(st.id) || classInTarget(st.class_name, exam.class_target));
+    .filter(st => sessionMap.has(st.id) || studentTakesExam(st, exam));
 
   // Satu query untuk semua jawaban ujian ini (bukan satu query per siswa)
   const answersBySession = new Map();
@@ -759,6 +794,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
         title: fresh.title,
         subject: fresh.subject,
         class_target: fresh.class_target,
+        is_elective: fresh.is_elective ? 1 : 0,
         session_name: fresh.session_name,
         token: fresh.token,
         token_remaining_seconds: fresh.token_remaining_seconds,
@@ -831,12 +867,14 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       monitoring = students.map(st => {
         const sess = latestSessionByStudent.get(st.id);
         if (!sess) {
+          // Belum mulai: tampilkan ujian aktif yang memang untuk siswa ini (kelas & mapel pilihan)
+          const own = pickExamForStudent(activeExams, st);
           return {
             student_id: st.id,
             session_id: null,
-            exam_id: activeExam?.id || null,
-            exam_subject: activeExam?.subject || '-',
-            exam_title: activeExam?.title || '-',
+            exam_id: own?.id || null,
+            exam_subject: own?.subject || '-',
+            exam_title: own?.title || '-',
             exam_number: st.exam_number,
             nisn: st.nisn,
             full_name: st.full_name,
@@ -1084,8 +1122,10 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
   });
 
   app.post('/api/operator/exams', requireStaffAuth(['operator']), (req, res) => {
-    const { exam_id, title, subject, class_target, exam_date, start_time, session_name, duration_minutes, shuffle_questions } = req.body || {};
+    const { exam_id, title, subject, class_target, exam_date, start_time, session_name, duration_minutes, shuffle_questions, is_elective } = req.body || {};
     if (!subject) return res.status(400).json({ error: 'Mata pelajaran wajib diisi' });
+    // Mapel pilihan: satu kelas boleh punya beberapa ujian pilihan di sesi yang sama
+    const electiveFlag = (fallback) => (is_elective === undefined || is_elective === null ? (fallback ? 1 : 0) : (is_elective ? 1 : 0));
     const nowIso = new Date().toISOString();
 
     if (exam_id) {
@@ -1093,7 +1133,8 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       if (existing) {
         // Menjadwalkan tidak mengaktifkan: ujian diaktifkan operator lewat tombol Aktifkan di hari ujian.
         // Paket yang sedang berjalan tetap aktif dengan token yang sama.
-        if (existing.is_active) deactivateOverlappingExams(db, existing.id, class_target || existing.class_target);
+        const elective = electiveFlag(existing.is_elective);
+        if (existing.is_active) deactivateOverlappingExams(db, existing.id, class_target || existing.class_target, elective);
         db.prepare(`
           UPDATE exams
           SET title = COALESCE(NULLIF(?, ''), title),
@@ -1103,6 +1144,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
               start_time = COALESCE(NULLIF(?, ''), start_time),
               session_name = COALESCE(NULLIF(?, ''), session_name),
               duration_minutes = COALESCE(?, duration_minutes),
+              is_elective = ?,
               is_scheduled = 1
           WHERE id = ?
         `).run(
@@ -1113,6 +1155,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
           start_time || existing.start_time,
           session_name || existing.session_name,
           Number(duration_minutes) || existing.duration_minutes || 90,
+          elective,
           existing.id
         );
         return res.json({ id: existing.id, updated: true, is_active: existing.is_active ? 1 : 0 });
@@ -1132,8 +1175,8 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     }
 
     const info = db.prepare(`
-      INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, shuffle_questions, is_active, teacher_id, is_scheduled)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 1)
+      INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, shuffle_questions, is_active, teacher_id, is_scheduled, is_elective)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 1, ?)
     `).run(
       title,
       subject,
@@ -1145,7 +1188,8 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       token,
       nowIso,
       shuffle_questions !== undefined ? (shuffle_questions ? 1 : 0) : 1,
-      targetTeacherId
+      targetTeacherId,
+      electiveFlag(0)
     );
     const newExamId = Number(info.lastInsertRowid);
     let autoCopied = 0;
@@ -1170,7 +1214,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       }
     }
 
-    deactivateOverlappingExams(db, examId, targetExam.class_target);
+    deactivateOverlappingExams(db, examId, targetExam.class_target, targetExam.is_elective);
     // Token baru keluar saat ujian diaktifkan (bukan saat dijadwalkan)
     db.prepare('UPDATE exams SET is_active = 1, is_scheduled = 1, token = ?, prev_token = NULL, token_updated_at = ? WHERE id = ?')
       .run(generateRandomToken(), new Date().toISOString(), examId);
@@ -1195,7 +1239,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     const conflicts = [];
     for (let i = 0; i < exams.length; i++) {
       for (let j = i + 1; j < exams.length; j++) {
-        if (classTargetsOverlap(exams[i].class_target, exams[j].class_target)) {
+        if (!examsCanRunTogether(exams[i], exams[j])) {
           conflicts.push(`${exams[i].subject} (${exams[i].class_target}) dan ${exams[j].subject} (${exams[j].class_target})`);
         }
       }
@@ -1307,18 +1351,28 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     }
   });
 
+  // Mapel pilihan satu siswa (dipisah koma); kosong = tidak ada mapel pilihan
+  app.put('/api/operator/students/:id/electives', requireStaffAuth(['operator']), (req, res) => {
+    const id = Number(req.params.id);
+    if (!db.prepare('SELECT id FROM students WHERE id = ?').get(id)) return res.status(404).json({ error: 'Siswa tidak ditemukan' });
+    const value = cleanElectives(req.body && req.body.elective_subjects);
+    db.prepare('UPDATE students SET elective_subjects = ? WHERE id = ?').run(value || null, id);
+    res.json({ id, elective_subjects: value });
+  });
+
   // Template Excel Import Peserta Ujian (kolom sederhana; ekspor Dapodik juga bisa langsung diunggah)
   app.get('/api/operator/template-students-excel', requireStaffAuth(['operator']), (req, res) => {
     const aoa = [
-      ['NISN', 'Nama Siswa', 'Kelas', 'Tempat Lahir', 'Tanggal Lahir', 'Nomor Peserta', 'Ruang', 'Nomor Meja', 'Password'],
-      ['0081234509', 'Dewi Sartika Wabula', 'X E 1', 'Namlea', '2008-01-14', '', '', '', ''],
-      ['0081234510', 'Hendra Saputra', 'X E 1', 'Waeapo', '2008-03-22', '', '', '', ''],
-      ['0081234511', 'Rina Marasabessy', 'X E 2', 'Ambon', '2008-07-05', '', '', '', '']
+      ['NISN', 'Nama Siswa', 'Kelas', 'Tempat Lahir', 'Tanggal Lahir', 'Nomor Peserta', 'Ruang', 'Nomor Meja', 'Password', 'Mapel Pilihan'],
+      ['0081234509', 'Dewi Sartika Wabula', 'X E 1', 'Namlea', '2008-01-14', '', '', '', '', ''],
+      ['0081234510', 'Hendra Saputra', 'XII F 1', 'Waeapo', '2008-03-22', '', '', '', '', 'Fisika, Kimia'],
+      ['0081234511', 'Rina Marasabessy', 'XII F 1', 'Ambon', '2008-07-05', '', '', '', '', 'Biologi, Kimia']
     ];
     const note = [
       ['Cara mengisi'],
       ['Wajib: Nama Siswa dan Kelas. Dianjurkan: NISN (supaya impor ulang tidak membuat siswa ganda), Tempat Lahir, Tanggal Lahir.'],
       ['Boleh dikosongkan: Nomor Peserta (dibuat otomatis berurutan per kelas), Ruang (= kelas), Nomor Meja (urut nama), Password (acak 6 karakter).'],
+      ['Mapel Pilihan: isi nama mapel pilihan siswa dipisah koma (mis. Fisika, Kimia), ditulis sama dengan nama mapel di jadwal. Kosongkan bila tidak ada.'],
       ['File ekspor Dapodik (kolom Nama, NISN, Tempat Lahir, Tanggal Lahir, Rombel Saat Ini) juga bisa langsung diunggah.']
     ];
     const wb = XLSX.utils.book_new();
@@ -2084,7 +2138,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     };
     const examUse = new Map();
     const students = roomStudents.map(st => {
-      const exam = pickExamForClass(actives, st.class_name);
+      const exam = pickExamForStudent(actives, st);
       if (!exam) {
         return {
           student_id: st.id, session_id: null, exam_id: null, exam_subject: '-', exam_title: '-',
@@ -2258,9 +2312,9 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       });
     }
 
-    const studentExam = getActiveExamForStudent(db, student.class_name);
+    const studentExam = getActiveExamForStudent(db, student);
     if (!studentExam) {
-      return res.status(404).json({ error: `Belum ada jadwal ujian yang aktif untuk kelas ${student.class_name}.` });
+      return res.status(404).json({ error: electiveMissingMessage(db, student) || `Belum ada jadwal ujian yang aktif untuk kelas ${student.class_name}.` });
     }
 
     // 3. Cek apakah siswa sudah menyelesaikan ujian (FINISHED) -> blokir agar tidak bisa masuk lagi
@@ -2331,9 +2385,9 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       return res.status(401).json({ error: 'Verifikasi 4 digit terakhir NISN tidak sesuai.' });
     }
 
-    const activeExam = getActiveExamForStudent(db, student.class_name);
+    const activeExam = getActiveExamForStudent(db, student);
     if (!activeExam) {
-      return res.status(404).json({ error: `Belum ada ujian yang aktif saat ini untuk kelas ${student.class_name}.` });
+      return res.status(404).json({ error: electiveMissingMessage(db, student) || `Belum ada ujian yang aktif saat ini untuk kelas ${student.class_name}.` });
     }
 
     const opened = openStudentSession(student, activeExam, token, device_info, 'Direct Entry Web');
@@ -2393,9 +2447,9 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       return res.status(401).json({ error: 'ID Peserta atau Kata Sandi salah!' });
     }
 
-    const activeExam = getActiveExamForStudent(db, student.class_name);
+    const activeExam = getActiveExamForStudent(db, student);
     if (!activeExam) {
-      return res.status(404).json({ error: `Belum ada jadwal ujian yang aktif untuk kelas ${student.class_name}.` });
+      return res.status(404).json({ error: electiveMissingMessage(db, student) || `Belum ada jadwal ujian yang aktif untuk kelas ${student.class_name}.` });
     }
 
     // Jika token dikirim pada saat login, validasi token. Tanpa token, sesi wajib verifikasi token sebelum menjawab.

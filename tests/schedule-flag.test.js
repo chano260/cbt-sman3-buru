@@ -104,7 +104,7 @@ test('migrasi database lama: paket aktif atau yang sudah punya sesi siswa diangg
 
 test('panel operator: daftar jadwal hanya paket terjadwal; Jadwalkan & Hapus paket ada di Bank soal masuk', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'operator.html'), 'utf8');
-  const renderJadwal = html.slice(html.indexOf("getElementById('examsTableBody').innerHTML"), html.indexOf("getElementById('banksTableBody').innerHTML"));
+  const renderJadwal = html.slice(html.indexOf('// Render tabel jadwal ujian'), html.indexOf("getElementById('banksTableBody').innerHTML"));
   assert.match(renderJadwal, /\.filter\(e => e\.is_scheduled\)/);
   assert.match(renderJadwal, /unscheduleExam\(/);
   assert.doesNotMatch(renderJadwal, /confirmDeleteExam\(/, 'hapus paket (beserta soal) tidak ada di daftar jadwal');
@@ -208,7 +208,7 @@ test('menjadwalkan ulang paket yang sedang aktif tidak mengganti tokennya', asyn
 
 test('panel operator: jadwal yang belum aktif tidak menampilkan token dan berstatus Terjadwal', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'operator.html'), 'utf8');
-  const renderJadwal = html.slice(html.indexOf("getElementById('examsTableBody').innerHTML"), html.indexOf("getElementById('banksTableBody').innerHTML"));
+  const renderJadwal = html.slice(html.indexOf('// Render tabel jadwal ujian'), html.indexOf("getElementById('banksTableBody').innerHTML"));
   assert.match(renderJadwal, /e\.is_active \? `<span class="tag-mono">\$\{esc\(e\.token\)\}<\/span>` : /);
   assert.match(renderJadwal, />Terjadwal</);
   assert.match(html, /Jadwal tersimpan/);
@@ -257,9 +257,15 @@ test('aktifkan sekaligus ditolak bila dua jadwal di sesi yang sama untuk kelas y
   assert.equal((await post('/api/operator/exams/activate-session', op, { exam_date: '2030-01-01', session_name: 'Sesi 9' })).status, 404);
 });
 
-test('panel operator: tombol aktifkan semua per tanggal & sesi', () => {
+test('panel operator: daftar jadwal dikelompokkan per tanggal & sesi, tombol aktifkan semua di kepala kelompok', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'operator.html'), 'utf8');
-  assert.match(html, /id="sessionActivateBar"/);
+  assert.doesNotMatch(html, /id="sessionActivateBar"/, 'kotak sesi terpisah di atas tabel tidak dipakai lagi');
+  const renderJadwal = html.slice(html.indexOf('// Render tabel jadwal ujian'), html.indexOf("getElementById('banksTableBody').innerHTML"));
+  assert.match(renderJadwal, /groupSchedulesBySession\(/);
+  assert.match(renderJadwal, /class="session-group-row"/);
+  assert.match(renderJadwal, /activateSession\(/);
+  // Pencarian: kepala kelompok ikut tersembunyi bila tidak ada jadwal yang cocok
+  assert.match(html, /tr\.session-group-row/);
   assert.match(html, /async function activateSession\(/);
   assert.match(html, /\/api\/operator\/exams\/activate-session/);
 });

@@ -18,8 +18,14 @@ const COLUMN_ALIASES = {
   examNumber: ['nomor peserta', 'no peserta', 'no. peserta', 'nomor ujian', 'exam_number'],
   room: ['ruang', 'ruangan', 'ruang ujian', 'room'],
   seat: ['nomor meja', 'no meja', 'no. meja', 'meja', 'seat_number'],
-  password: ['password', 'kata sandi']
+  password: ['password', 'kata sandi'],
+  electives: ['mapel pilihan', 'mata pelajaran pilihan', 'pilihan mapel', 'elective_subjects']
 };
+
+// "fisika ,  Biologi" -> "fisika, Biologi"
+function cleanElectives(v) {
+  return String(v == null ? '' : v).split(/[,;]+/).map(clean).filter(Boolean).join(', ');
+}
 
 const norm = (v) => String(v == null ? '' : v).toLowerCase().replace(/\s+/g, ' ').trim();
 const clean = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
@@ -99,7 +105,9 @@ function parseStudentSheet(matrix) {
       examNumber: clean(get(cells, 'examNumber')),
       room: clean(get(cells, 'room')),
       seat: Number.isFinite(seat) && seat > 0 ? Math.round(seat) : null,
-      password: clean(get(cells, 'password'))
+      password: clean(get(cells, 'password')),
+      // undefined = kolom tidak ada di file (mapel pilihan lama dipertahankan saat impor ulang)
+      electives: col.electives === undefined ? undefined : cleanElectives(get(cells, 'electives'))
     });
   }
   return rows;
@@ -140,11 +148,11 @@ function importStudents(db, rows, prefix) {
   };
 
   const insert = db.prepare(`
-    INSERT INTO students (exam_number, nisn, full_name, class_name, room, seat_number, password, birth_info)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO students (exam_number, nisn, full_name, class_name, room, seat_number, password, birth_info, elective_subjects)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const update = db.prepare(`
-    UPDATE students SET exam_number = ?, nisn = ?, full_name = ?, class_name = ?, room = ?, seat_number = ?, password = ?, birth_info = ?
+    UPDATE students SET exam_number = ?, nisn = ?, full_name = ?, class_name = ?, room = ?, seat_number = ?, password = ?, birth_info = ?, elective_subjects = ?
     WHERE id = ?
   `);
 
@@ -165,6 +173,7 @@ function importStudents(db, rows, prefix) {
         update.run(
           examNumber, r.nisn || match.nisn, r.name, r.className, room,
           r.seat || match.seat_number, r.password || match.password, r.birthInfo || match.birth_info || '-',
+          r.electives === undefined ? (match.elective_subjects || null) : (r.electives || null),
           match.id
         );
         byExam.delete(match.exam_number);
@@ -174,7 +183,7 @@ function importStudents(db, rows, prefix) {
         updated++;
       } else {
         const examNumber = r.examNumber || nextExamNumber();
-        const info = insert.run(examNumber, r.nisn || '-', r.name, r.className, room, r.seat || 0, r.password || generatePassword(), r.birthInfo || '-');
+        const info = insert.run(examNumber, r.nisn || '-', r.name, r.className, room, r.seat || 0, r.password || generatePassword(), r.birthInfo || '-', r.electives || null);
         const fresh = { id: Number(info.lastInsertRowid), exam_number: examNumber, nisn: r.nisn || '-', seat_number: r.seat || 0 };
         byExam.set(examNumber, fresh);
         if (r.nisn) byNisn.set(r.nisn, fresh);
@@ -195,4 +204,4 @@ function importStudents(db, rows, prefix) {
   return { importedCount: created + updated, createdCount: created, updatedCount: updated };
 }
 
-module.exports = { parseStudentSheet, importStudents, formatBirthInfo, formatBirthDate, generatePassword, defaultPrefix, cleanPrefix };
+module.exports = { cleanElectives, parseStudentSheet, importStudents, formatBirthInfo, formatBirthDate, generatePassword, defaultPrefix, cleanPrefix };

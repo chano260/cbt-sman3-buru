@@ -30,7 +30,7 @@ test('Jadwal & sesi ujian hanya untuk jadwal; urusan soal pindah ke Bank soal ma
   const banks = section('tab-banks');
   assert.match(banks, /id="banksTableBody"/);
   // Tombol soal tidak lagi dibuat di tabel jadwal
-  const renderJadwal = html.slice(html.indexOf("getElementById('examsTableBody').innerHTML"), html.indexOf("getElementById('banksTableBody').innerHTML"));
+  const renderJadwal = html.slice(html.indexOf('// Render tabel jadwal ujian'), html.indexOf("getElementById('banksTableBody').innerHTML"));
   assert.ok(renderJadwal.length > 0, 'tabel jadwal dirender sebelum tabel bank soal');
   assert.doesNotMatch(renderJadwal, /openPreviewQuestionsModal|openUploadWordModal|openCopyQuestionsModal/);
   const renderBanks = html.slice(html.indexOf("getElementById('banksTableBody').innerHTML"));

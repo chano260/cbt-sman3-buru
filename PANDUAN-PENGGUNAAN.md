@@ -68,6 +68,8 @@ docker compose up -d --build
 - **QR Code Exambro Otomatis:** Mendukung aplikasi Exambro sekolah yang menggunakan fitur **Scan QR Code**.
 - **Token Ujian Otomatis Ganti Tiap 15 Menit:** Jika siswa mengalami gangguan / keluar aplikasi di tengah ujian, setelah dibuka kuncinya oleh Pengawas, siswa wajib memasukkan **Token 15-Menit terbaru** agar tidak bisa mengerjakan di luar pengawasan.
 - **Import Data Siswa Sekaligus dari Excel (`.xlsx`):** Unduh template Excel dan upload ratusan siswa (450+ siswa) sekaligus dalam 1 klik.
+- **Jadwal & aktivasi per sesi:** "Simpan jadwal" hanya menyimpan (status Terjadwal, belum ada token). Di hari ujian tekan **Aktifkan semua** pada kotak tanggal + sesi; token setiap jadwal keluar saat itu. Satu kelas hanya satu ujian aktif, kecuali mapel pilihan.
+- **Mapel pilihan:** Bila dalam satu kelas sebagian siswa ujian Fisika dan sebagian Biologi di sesi yang sama, centang **Mapel pilihan** pada kedua jadwal, lalu isi kolom **Mapel Pilihan** siswa (lewat template impor atau tombol "atur mapel pilihan" di Data siswa). Nama mapel harus sama dengan nama mapel di jadwal. Siswa otomatis masuk ke ujian mapel pilihannya.
 - **👁️ Pantau Kerja Siswa (Live Anti-Contek):** Melihat siswa sedang berada di soal nomor berapa dan jawaban apa saja yang dipilih secara *real-time*.
 - **Pusat Cetak 4 Dokumen Administrasi A4/PDF:**
   1. **Daftar Hadir Peserta Ujian** (Kop SMA Negeri 3 Buru & tanda tangan zig-zag).

@@ -438,6 +438,10 @@
               <input id="exDuration" type="number" class="input" value="90">
             </div>
           </div>
+          <label class="check-row" style="margin-bottom:16px;">
+            <input type="checkbox" id="exElective">
+            <span><b>Mapel pilihan.</b> Centang bila hanya siswa yang memilih mapel ini yang ikut (mis. Fisika dan Biologi di kelas yang sama, sesi yang sama). Siswa diarahkan sesuai kolom Mapel pilihan di Data siswa.</span>
+          </label>
           <button class="btn btn-primary" onclick="createExam()"><svg class="icon"><use href="#i-plus"></use></svg>Simpan jadwal</button>
         </div>
 
@@ -449,7 +453,6 @@
             </div>
             <input id="examSearch" class="input input-sm search-box" type="search" placeholder="Cari mapel, kelas, sesi, token" oninput="filterTable('examSearch', 'examsTableBody')">
           </div>
-          <div id="sessionActivateBar" class="session-bar"></div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -457,7 +460,7 @@
                   <th>Mata pelajaran & guru</th>
                   <th>Nama ujian</th>
                   <th>Kelas</th>
-                  <th>Tanggal & sesi</th>
+                  <th>Durasi</th>
                   <th>Token</th>
                   <th>Status</th>
                   <th>Aksi</th>
@@ -648,6 +651,31 @@
       <div class="modal-actions">
         <button class="btn btn-outline" type="button" onclick="closeChangeClassModal()">Batal</button>
         <button class="btn btn-primary" type="button" onclick="submitChangeClass()">Simpan perubahan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL MAPEL PILIHAN SISWA -->
+  <div id="electivesModal" class="modal-overlay" style="z-index:125;">
+    <div class="card modal-card" style="max-width:480px;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Mapel pilihan siswa</div>
+          <p class="card-sub">Siswa otomatis masuk ke ujian mapel pilihannya bila jadwalnya ditandai Mapel pilihan</p>
+        </div>
+        <button class="btn btn-sm btn-ghost" onclick="closeElectivesModal()" aria-label="Tutup"><svg class="icon"><use href="#i-x"></use></svg></button>
+      </div>
+      <input type="hidden" id="elStudentId">
+      <div class="info-box"><div>Nama siswa: <b id="elStudentName">-</b></div></div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label for="elSubjects">Mapel pilihan (pisahkan dengan koma)</label>
+        <div id="elChips" class="row" style="gap:6px;margin-bottom:8px;"></div>
+        <input id="elSubjects" class="input" autocomplete="off" placeholder="Mis. Fisika, Kimia" oninput="syncElectiveChips()">
+        <div class="hint">Tulis sama dengan nama mapel di jadwal. Kosongkan bila siswa tidak punya mapel pilihan.</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" type="button" onclick="closeElectivesModal()">Batal</button>
+        <button class="btn btn-primary" type="button" onclick="submitElectives()">Simpan</button>
       </div>
     </div>
   </div>
@@ -925,6 +953,11 @@
         tr.style.display = match ? '' : 'none';
         if (match) shown++;
       });
+      // Kepala kelompok sesi hanya tampil bila ada jadwal di kelompoknya yang cocok
+      body.querySelectorAll('tr.session-group-row').forEach(head => {
+        const anyShown = [...body.querySelectorAll(`tr[data-group="${head.dataset.group}"]:not(.session-group-row)`)].some(tr => tr.style.display !== 'none');
+        head.style.display = anyShown ? '' : 'none';
+      });
       if (words.length && total > 0 && shown === 0) {
         const cols = (body.closest('table').querySelectorAll('thead th') || []).length || 1;
         body.insertAdjacentHTML('beforeend', `<tr class="search-empty"><td colspan="${cols}" class="text-muted" style="text-align:center;padding:20px;">Tidak ada yang cocok dengan "${esc(input.value.trim())}"</td></tr>`);
@@ -1115,7 +1148,10 @@
           <td><span class="tag-mono">Meja ${esc(s.seat_number)}</span></td>
           <td><span class="tag-mono">${esc(s.exam_number)}</span></td>
           <td class="mono text-muted">${esc(s.nisn)}</td>
-          <td class="cell-name">${esc(s.full_name)}</td>
+          <td>
+            <div class="cell-name">${esc(s.full_name)}</div>
+            <div class="cell-sub">${s.elective_subjects ? `Pilihan: ${esc(s.elective_subjects)} · ` : ''}<button class="btn-link" onclick="editElectives(${s.id}, '${escJs(safeName)}', '${escJs(s.elective_subjects || '')}')">${s.elective_subjects ? 'ubah' : 'atur mapel pilihan'}</button></div>
+          </td>
           <td class="text-muted">${esc(s.birth_info || '-')}</td>
           <td class="nowrap">
             ${esc(s.class_name)}
@@ -1132,21 +1168,34 @@
       renderSubjectOptions(data.exams || [], data.teachers || []);
       renderClassOptions(data.classes || []);
 
-      renderSessionActivateBar(data.exams.filter(e => e.is_scheduled));
-
-      // Render tabel jadwal ujian (khusus penjadwalan; urusan soal di menu Bank soal masuk)
-      document.getElementById('examsTableBody').innerHTML = data.exams.filter(e => e.is_scheduled).map(e => {
+      // Render tabel jadwal ujian (khusus penjadwalan; urusan soal di menu Bank soal masuk).
+      // Dikelompokkan per tanggal + sesi; kepala kelompok memuat tombol Aktifkan semua.
+      const scheduleGroups = groupSchedulesBySession(data.exams.filter(e => e.is_scheduled));
+      document.getElementById('examsTableBody').innerHTML = scheduleGroups.map((g, gi) => `
+        <tr class="session-group-row" data-group="${gi}">
+          <td colspan="7">
+            <div class="session-group">
+              <div>
+                <div class="session-group-title">${esc(formatHariTanggal(g.date))} · ${esc(g.session)}</div>
+                <div class="cell-sub">${g.items.length} jadwal${g.active ? ` · ${g.active} aktif` : ''}</div>
+              </div>
+              ${g.active === g.items.length
+                ? '<span class="badge badge-working"><span class="live-dot"></span>Semua aktif</span>'
+                : `<button class="btn btn-xs btn-primary" onclick="activateSession('${escJs(g.date)}', '${escJs(g.session)}', ${g.items.length})">${cbtIcon('play')}Aktifkan semua</button>`}
+            </div>
+          </td>
+        </tr>` + g.items.map(e => {
         const totalQ = Number(e.total_questions || 0);
         const safeSubject = e.subject || '';
         return `
-        <tr>
+        <tr data-group="${gi}">
           <td>
             <div class="cell-name">${esc(e.subject)}</div>
             <div class="cell-sub">${esc(e.teacher_name || 'Guru mapel')}</div>
           </td>
           <td>${esc(e.title)}<div class="cell-sub">${totalQ > 0 ? `${totalQ} soal` : '<span style="color:var(--red);">0 soal</span>'}</div></td>
-          <td><span class="badge badge-neutral">${esc(e.class_target || 'Semua Kelas')}</span></td>
-          <td class="nowrap">${esc(e.exam_date || '-')}<div class="cell-sub">${esc(e.session_name)} · ${e.duration_minutes} menit</div></td>
+          <td><span class="badge badge-neutral">${esc(e.class_target || 'Semua Kelas')}</span>${e.is_elective ? '<div class="cell-sub">Mapel pilihan</div>' : ''}</td>
+          <td class="nowrap">${e.duration_minutes} menit<span hidden>${esc(e.exam_date || '')} ${esc(e.session_name || '')}</span></td>
           <td>${e.is_active ? `<span class="tag-mono">${esc(e.token)}</span>` : '<span class="cell-sub">Belum aktif</span>'}</td>
           <td>${e.is_active ? '<span class="badge badge-working"><span class="live-dot"></span>Aktif</span>' : '<span class="badge badge-idle">Terjadwal</span>'}</td>
           <td>
@@ -1157,7 +1206,7 @@
           </td>
         </tr>
       `;
-      }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:20px;">Belum ada jadwal ujian. Pilih bank soal di formulir di atas, atau tekan Jadwalkan di menu Bank soal masuk.</td></tr>';
+      }).join('')).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:20px;">Belum ada jadwal ujian. Pilih bank soal di formulir di atas, atau tekan Jadwalkan di menu Bank soal masuk.</td></tr>';
 
       // Render tabel bank soal masuk (urusan butir soal)
       document.getElementById('banksTableBody').innerHTML = data.exams.map(e => {
@@ -1296,6 +1345,59 @@
         btn.classList.toggle('is-on', on);
         btn.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
+    }
+
+    // Mapel pilihan per siswa: tombol cepat dari mapel yang dijadwalkan sebagai Mapel pilihan
+    const electiveList = (text) => String(text || '').split(/[,;]+/).map(v => v.trim()).filter(Boolean);
+
+    async function editElectives(studentId, fullName, current) {
+      document.getElementById('elStudentId').value = studentId;
+      document.getElementById('elStudentName').textContent = fullName;
+      document.getElementById('elSubjects').value = current || '';
+      const subjects = [...new Set(((currentOverview && currentOverview.exams) || [])
+        .filter(e => e.is_elective).map(e => e.subject))].sort((a, b) => a.localeCompare(b, 'id'));
+      document.getElementById('elChips').innerHTML = subjects.length
+        ? subjects.map(sub => `<button type="button" class="class-chip" data-subject="${esc(sub)}" onclick="toggleElectiveChip('${escJs(sub)}')">${esc(sub)}</button>`).join('')
+        : '<span class="hint" style="margin:0;">Belum ada jadwal bertanda Mapel pilihan; ketik nama mapelnya</span>';
+      syncElectiveChips();
+      document.getElementById('electivesModal').style.display = 'flex';
+    }
+
+    function toggleElectiveChip(subject) {
+      const inp = document.getElementById('elSubjects');
+      const list = electiveList(inp.value);
+      const idx = list.findIndex(v => v.toLowerCase() === subject.toLowerCase());
+      if (idx >= 0) list.splice(idx, 1); else list.push(subject);
+      inp.value = list.join(', ');
+      syncElectiveChips();
+    }
+
+    function syncElectiveChips() {
+      const chosen = electiveList(document.getElementById('elSubjects').value).map(v => v.toLowerCase());
+      document.querySelectorAll('#elChips .class-chip').forEach(btn => {
+        const on = chosen.includes(String(btn.dataset.subject || '').toLowerCase());
+        btn.classList.toggle('is-on', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+
+    function closeElectivesModal() {
+      document.getElementById('electivesModal').style.display = 'none';
+    }
+
+    async function submitElectives() {
+      const id = Number(document.getElementById('elStudentId').value);
+      const res = await fetch(`/api/operator/students/${id}/electives`, {
+        method: 'PUT',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ elective_subjects: document.getElementById('elSubjects').value })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return cbtAlert(err.error || 'Gagal menyimpan mapel pilihan');
+      }
+      closeElectivesModal();
+      loadOverview();
     }
 
     function closeChangeClassModal() {
@@ -1698,7 +1800,8 @@
         class_target: document.getElementById('exClass').value,
         exam_date: document.getElementById('exDate').value,
         session_name: document.getElementById('exSession').value,
-        duration_minutes: document.getElementById('exDuration').value
+        duration_minutes: document.getElementById('exDuration').value,
+        is_elective: document.getElementById('exElective').checked
       };
       const res = await fetch('/api/operator/exams', {
         method: 'POST',
@@ -1707,6 +1810,7 @@
       });
       if (res.ok) {
         document.getElementById('selectedBankSoalId').value = '';
+        document.getElementById('exElective').checked = false;
         const banner = document.getElementById('subjectStatusBanner');
         if (banner) banner.style.display = 'none';
         const saved = await res.json();
@@ -1727,26 +1831,17 @@
       return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
     }
 
-    function renderSessionActivateBar(scheduled) {
+    // Kelompok jadwal per tanggal + sesi, urut tanggal lalu sesi
+    function groupSchedulesBySession(scheduled) {
       const groups = new Map();
       for (const e of scheduled) {
         const key = `${e.exam_date || ''}|${e.session_name || ''}`;
-        if (!groups.has(key)) groups.set(key, { date: e.exam_date || '', session: e.session_name || '', total: 0, active: 0 });
+        if (!groups.has(key)) groups.set(key, { date: e.exam_date || '', session: e.session_name || '', items: [], active: 0 });
         const g = groups.get(key);
-        g.total++;
+        g.items.push(e);
         if (e.is_active) g.active++;
       }
-      const list = [...groups.values()].sort((a, b) => a.date.localeCompare(b.date) || a.session.localeCompare(b.session, 'id', { numeric: true }));
-      document.getElementById('sessionActivateBar').innerHTML = list.map(g => `
-        <div class="session-chip">
-          <div>
-            <div class="cell-name">${esc(formatHariTanggal(g.date))} · ${esc(g.session)}</div>
-            <div class="cell-sub">${g.total} jadwal${g.active ? ` · ${g.active} aktif` : ''}</div>
-          </div>
-          ${g.active === g.total
-            ? '<span class="badge badge-working"><span class="live-dot"></span>Semua aktif</span>'
-            : `<button class="btn btn-xs btn-primary" onclick="activateSession('${escJs(g.date)}', '${escJs(g.session)}', ${g.total})">${cbtIcon('play')}Aktifkan semua</button>`}
-        </div>`).join('');
+      return [...groups.values()].sort((a, b) => a.date.localeCompare(b.date) || a.session.localeCompare(b.session, 'id', { numeric: true }));
     }
 
     async function activateSession(date, session, total) {

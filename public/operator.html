@@ -280,9 +280,12 @@
               <label for="printRoomFilter">Ruang ujian</label>
               <select id="printRoomFilter" onchange="loadPrintData()">
                 <option value="ALL">Semua ruang</option>
-                <option value="Ruang 01">Ruang 01</option>
-                <option value="Ruang 02">Ruang 02</option>
-                <option value="Ruang 03">Ruang 03</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="printClassFilter">Kelas</label>
+              <select id="printClassFilter" onchange="loadPrintData()">
+                <option value="ALL">Semua kelas</option>
               </select>
             </div>
             <div class="form-group">
@@ -2195,11 +2198,22 @@
     // ==================== PUSAT CETAK 4 DOKUMEN ADMINISTRASI ====================
     async function loadPrintData() {
       if (!staffToken) return;
-      const room = document.getElementById('printRoomFilter').value;
-      const res = await fetch(`/api/operator/print-data?room=${encodeURIComponent(room)}`, { headers: authHeaders() });
+      const room = document.getElementById('printRoomFilter').value || 'ALL';
+      const cls = document.getElementById('printClassFilter').value || 'ALL';
+      const res = await fetch(`/api/operator/print-data?room=${encodeURIComponent(room)}&class_name=${encodeURIComponent(cls)}`, { headers: authHeaders() });
       if (!res.ok) return;
       currentPrintData = await res.json();
+      // Pilihan ruang & kelas diambil dari data siswa (ruang hasil impor = nama kelas)
+      fillPrintFilter('printRoomFilter', currentPrintData.rooms || [], 'Semua ruang', room);
+      fillPrintFilter('printClassFilter', currentPrintData.classes || [], 'Semua kelas', cls);
       renderPrintPreview();
+    }
+
+    function fillPrintFilter(id, values, allLabel, selected) {
+      const sel = document.getElementById(id);
+      sel.innerHTML = `<option value="ALL">${allLabel}</option>` + values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+      // Pilihan lama yang sudah tidak ada (mis. setelah impor ulang) kembali ke "Semua"
+      sel.value = values.includes(selected) ? selected : 'ALL';
     }
 
     function renderKopSurat(subtitle) {
@@ -2222,7 +2236,10 @@
       const kepsek = document.getElementById('printKepsek').value || 'Kepala SMA Negeri 3 Buru';
       const students = currentPrintData.students || [];
       const exam = currentPrintData.activeExam || { title: 'Ujian Sekolah', subject: '-', session_name: 'Sesi 1', exam_date: '2026-11-02' };
-      const roomLabel = document.getElementById('printRoomFilter').value === 'ALL' ? 'Semua Ruang' : document.getElementById('printRoomFilter').value;
+      const roomVal = document.getElementById('printRoomFilter').value;
+      const classVal = document.getElementById('printClassFilter').value;
+      const roomLabel = esc(roomVal === 'ALL' ? 'Semua Ruang' : roomVal)
+        + (classVal && classVal !== 'ALL' && classVal !== roomVal ? ` · Kelas ${esc(classVal)}` : '');
       const qrImg = (px) => currentPrintData.qrDataUrl
         ? `<img src="${currentPrintData.qrDataUrl}" alt="QR Exambro" style="width:${px}px;height:${px}px;border:1px solid #000;padding:3px;background:#fff;">`
         : '';

@@ -1571,8 +1571,15 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       sql += ' AND class_name = ?';
       params.push(class_name);
     }
-    sql += ' ORDER BY room ASC, seat_number ASC, full_name ASC';
-    const students = db.prepare(sql).all(...params);
+    // Urut alami: "X E 2" sebelum "X E 10"
+    const natural = (a, b) => String(a).localeCompare(String(b), 'id', { numeric: true, sensitivity: 'base' });
+    const students = db.prepare(sql).all(...params)
+      .sort((a, b) => natural(a.room, b.room) || (a.seat_number - b.seat_number) || natural(a.full_name, b.full_name));
+    // Pilihan filter diambil dari data siswa (ruang hasil impor = nama kelas), selalu lengkap walau sedang difilter
+    const distinct = (col) => db.prepare(`SELECT DISTINCT ${col} AS v FROM students WHERE ${col} IS NOT NULL AND ${col} != ''`).all()
+      .map(r => r.v).sort(natural);
+    const rooms = distinct('room');
+    const classes = distinct('class_name');
     const activeExam = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
     const qrBundle = await buildQrBundle(req);
     res.json({
@@ -1585,6 +1592,8 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       lanIp: getLocalLanIp(),
       ...qrBundle,
       activeExam,
+      rooms,
+      classes,
       students
     });
   });

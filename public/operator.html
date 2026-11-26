@@ -2670,6 +2670,7 @@
                 <div class="exam-no" style="margin:0;">${esc(s.exam_number)}</div>
                 <div class="st-name">${esc(s.full_name)}</div>
                 <div style="font-size:12px;font-weight:700;margin-top:3px;">KELAS: ${esc(s.class_name)} | NISN: ${esc(s.nisn)}</div>
+                <div class="desk-pass">PASSWORD: <b>${esc(s.password)}</b></div>
               </div>
               ${qrBlock('SCAN DI APLIKASI UJIAN', 132)}
             </div>
@@ -2693,6 +2694,7 @@
                 <div class="exam-no" style="margin:0;">${esc(s.exam_number)}</div>
                 <div class="st-name">${esc(s.full_name)}</div>
                 <div style="font-size:12px;font-weight:700;margin-top:3px;">KELAS: ${esc(s.class_name)} | NISN: ${esc(s.nisn)}</div>
+                <div class="desk-pass">PASSWORD: <b>${esc(s.password)}</b></div>
               </div>
               <div style="text-align:center;flex-shrink:0;">
                 <img src="${currentPrintData.sebQrDataUrl}" alt="QR Safe Exam Browser" style="width:74px;height:74px;border:1px solid #000;padding:2px;background:#fff;">

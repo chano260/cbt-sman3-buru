@@ -550,6 +550,20 @@ tr:last-child td {
   font-weight: 800;
   text-transform: uppercase;
 }
+/* Password CBT di kartu meja: huruf jelas dan berjarak supaya mudah diketik siswa */
+.desk-card-item .desk-pass {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 10px;
+  border: 1.5px dashed #000;
+  font-size: 13px;
+  font-weight: 700;
+}
+.desk-card-item .desk-pass b {
+  font-family: 'Courier New', monospace;
+  font-size: 16px;
+  letter-spacing: 0.12em;
+}
 
 @media print {
   body { background: #fff !important; }

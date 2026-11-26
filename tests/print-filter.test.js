@@ -71,3 +71,13 @@ test('cetak dokumen: bisa memilih siswa tertentu (cari nama lalu centang) untuk 
   // Pilihan diingat di browser (aman bila penyimpanan diblokir)
   assert.match(html, /localStorage\.setItem\(PRINT_PICK_STORE/);
 });
+
+test('kartu meja (Android & iPhone/SEB) mencantumkan password CBT siswa', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'operator.html'), 'utf8');
+  const between = (from, to) => html.slice(html.indexOf(from), html.indexOf(to, html.indexOf(from)));
+  const meja = between("docType === 'KARTU_MEJA'", "docType === 'QR_SEB'");
+  const seb = between("docType === 'QR_SEB'", 'loadOverview();');
+  for (const block of [meja, seb]) {
+    assert.match(block, /class="desk-pass">PASSWORD: <b>\$\{esc\(s\.password\)\}<\/b>/);
+  }
+});

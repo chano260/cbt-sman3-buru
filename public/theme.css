@@ -445,6 +445,21 @@
 .ui-v2 select.input-sm { min-height: 32px; padding: 4px 10px; font-size: 13px; border-radius: 8px; }
 /* Kotak cari di kepala kartu tabel (panel operator) */
 .ui-v2 .search-box { width: min(320px, 100%); flex: 0 1 320px; }
+/* Cetak dokumen: pilih siswa tertentu */
+.ui-v2 .print-pick { margin-top: 16px; border-top: 1px solid var(--hairline); padding-top: 14px; }
+.ui-v2 .print-pick-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.ui-v2 .print-pick-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px;
+  max-height: 260px; overflow-y: auto; padding: 2px;
+}
+.ui-v2 .print-pick-item {
+  display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; cursor: pointer;
+  border: 1px solid var(--border-subtle); border-radius: 8px;
+}
+.ui-v2 .print-pick-item.is-on { border-color: var(--primary); background: var(--primary-soft); }
+.ui-v2 .print-pick-item span { display: flex; flex-direction: column; min-width: 0; }
+.ui-v2 .print-pick-item small { font-size: 12px; color: var(--muted); }
+
 /* Daftar jadwal: kartu per tanggal + sesi (panel operator) */
 /* Susunan kolom rapat: kartu menempel di bawah kartu sebelumnya, jadi kartu pendek tidak meninggalkan celah */
 .ui-v2 .session-grid { column-width: 300px; column-gap: 14px; }

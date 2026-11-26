@@ -54,3 +54,20 @@ test('panel operator: pilihan ruang tidak ditulis tetap, ada filter kelas, dan k
   assert.match(html, /currentPrintData\.rooms/);
   assert.match(html, /currentPrintData\.classes/);
 });
+
+test('cetak dokumen: bisa memilih siswa tertentu (cari nama lalu centang) untuk dicetak', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'operator.html'), 'utf8');
+  const tab = html.slice(html.indexOf('<section id="tab-print"'), html.indexOf('</section>', html.indexOf('<section id="tab-print"')));
+  assert.match(tab, /id="printPickMode"/);
+  assert.match(tab, /<option value="PICK">/);
+  assert.match(tab, /id="printPickSearch"/);
+  assert.match(tab, /id="printPickList"/);
+  assert.match(html, /function renderPrintPickList\(/);
+  assert.match(html, /function togglePrintPick\(/);
+  // Pratinjau & cetak hanya memakai siswa yang dicentang saat mode "Pilih siswa"
+  const preview = html.slice(html.indexOf('function renderPrintPreview()'));
+  assert.match(preview, /const students = studentsForPrint\(\)/);
+  assert.match(html, /function studentsForPrint\(\)[\s\S]*?printPicked\.has\(/);
+  // Pilihan diingat di browser (aman bila penyimpanan diblokir)
+  assert.match(html, /localStorage\.setItem\(PRINT_PICK_STORE/);
+});

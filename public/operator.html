@@ -292,6 +292,24 @@
               <label for="printKepsek">Penanda tangan kartu</label>
               <input id="printKepsek" class="input" value="Kepala SMA Negeri 3 Buru" oninput="renderPrintPreview()">
             </div>
+            <div class="form-group">
+              <label for="printPickMode">Siswa yang dicetak</label>
+              <select id="printPickMode" onchange="onPrintPickModeChange()">
+                <option value="ALL">Semua siswa sesuai filter</option>
+                <option value="PICK">Pilih siswa (cari nama lalu centang)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Pilih siswa tertentu, mis. hanya siswa yang ujian memakai aplikasi ini -->
+          <div id="printPickPanel" class="print-pick" style="display:none;">
+            <div class="print-pick-bar">
+              <input id="printPickSearch" class="input input-sm search-box" type="search" placeholder="Cari nama, kelas, no. peserta" oninput="renderPrintPickList()">
+              <button class="btn btn-xs btn-outline" type="button" onclick="pickAllVisible(true)">Centang yang tampil</button>
+              <button class="btn btn-xs btn-outline" type="button" onclick="pickAllVisible(false)">Kosongkan</button>
+              <span class="cell-sub" id="printPickCount">0 siswa dicentang</span>
+            </div>
+            <div id="printPickList" class="print-pick-list"></div>
           </div>
         </div>
 
@@ -2422,6 +2440,71 @@
       // Pilihan ruang & kelas diambil dari data siswa (ruang hasil impor = nama kelas)
       fillPrintFilter('printRoomFilter', currentPrintData.rooms || [], 'Semua ruang', room);
       fillPrintFilter('printClassFilter', currentPrintData.classes || [], 'Semua kelas', cls);
+      renderPrintPickList();
+      renderPrintPreview();
+    }
+
+    // ===== Pilih siswa untuk dicetak (centangan diingat di browser ini) =====
+    const PRINT_PICK_STORE = 'cbt_print_picked';
+    let printPicked = new Set();
+    try { printPicked = new Set(JSON.parse(localStorage.getItem(PRINT_PICK_STORE) || '[]').map(Number)); } catch { printPicked = new Set(); }
+
+    function savePrintPicked() {
+      try { localStorage.setItem(PRINT_PICK_STORE, JSON.stringify([...printPicked])); } catch {}
+    }
+
+    function isPrintPickMode() {
+      return document.getElementById('printPickMode').value === 'PICK';
+    }
+
+    // Siswa yang masuk ke pratinjau & cetakan
+    function studentsForPrint() {
+      const all = (currentPrintData && currentPrintData.students) || [];
+      return isPrintPickMode() ? all.filter(s => printPicked.has(Number(s.id))) : all;
+    }
+
+    function onPrintPickModeChange() {
+      document.getElementById('printPickPanel').style.display = isPrintPickMode() ? '' : 'none';
+      renderPrintPickList();
+      renderPrintPreview();
+    }
+
+    function printPickVisible() {
+      const all = (currentPrintData && currentPrintData.students) || [];
+      const words = normSearch(document.getElementById('printPickSearch').value).split(' ').filter(Boolean);
+      return all.filter(s => {
+        const text = normSearch([s.full_name, s.class_name, s.room, s.exam_number, s.nisn].join(' '));
+        return words.every(w => text.includes(w));
+      });
+    }
+
+    function renderPrintPickList() {
+      const list = document.getElementById('printPickList');
+      if (!list || !isPrintPickMode()) return;
+      const all = (currentPrintData && currentPrintData.students) || [];
+      const visible = printPickVisible();
+      list.innerHTML = visible.map(s => `
+        <label class="print-pick-item${printPicked.has(Number(s.id)) ? ' is-on' : ''}">
+          <input type="checkbox" ${printPicked.has(Number(s.id)) ? 'checked' : ''} onchange="togglePrintPick(${Number(s.id)}, this.checked)">
+          <span><b>${esc(s.full_name)}</b><small>${esc(s.class_name)} · ${esc(s.exam_number)}</small></span>
+        </label>`).join('') || '<div class="cell-sub" style="padding:8px;">Tidak ada siswa yang cocok.</div>';
+      const shownPicked = all.filter(s => printPicked.has(Number(s.id))).length;
+      document.getElementById('printPickCount').textContent = `${shownPicked} siswa dicentang`;
+    }
+
+    function togglePrintPick(id, on) {
+      if (on) printPicked.add(Number(id)); else printPicked.delete(Number(id));
+      savePrintPicked();
+      renderPrintPickList();
+      renderPrintPreview();
+    }
+
+    function pickAllVisible(on) {
+      for (const s of printPickVisible()) {
+        if (on) printPicked.add(Number(s.id)); else printPicked.delete(Number(s.id));
+      }
+      savePrintPicked();
+      renderPrintPickList();
       renderPrintPreview();
     }
 
@@ -2450,7 +2533,11 @@
       if (!currentPrintData) return;
       const docType = document.getElementById('printDocType').value;
       const kepsek = document.getElementById('printKepsek').value || 'Kepala SMA Negeri 3 Buru';
-      const students = currentPrintData.students || [];
+      const students = studentsForPrint();
+      if (isPrintPickMode() && students.length === 0) {
+        document.getElementById('printSheetArea').innerHTML = '<div class="notice" style="margin:16px;">Belum ada siswa yang dicentang. Cari nama siswa di atas lalu centang, maka kartunya muncul di sini.</div>';
+        return;
+      }
       const exam = currentPrintData.activeExam || { title: 'Ujian Sekolah', subject: '-', session_name: 'Sesi 1', exam_date: '2026-11-02' };
       const roomVal = document.getElementById('printRoomFilter').value;
       const classVal = document.getElementById('printClassFilter').value;

@@ -376,6 +376,7 @@
   </div>
 
   <script src="/dialog.js"></script>
+  <script src="/math-render.js"></script>
   <script src="/password-gate.js"></script>
   <script>
 
@@ -863,7 +864,7 @@
                 <span class="row"><span class="tag-mono">${q.number}</span><span class="badge badge-warn">Esai · dijawab di kertas</span></span>
                 ${mediaActionBtns}
               </div>
-              <p class="q-body" style="margin-bottom:0;">${esc(q.question_text)}</p>
+              <p class="q-body" style="margin-bottom:0;">${renderMathHtml(q.question_text)}</p>
               ${mediaPreview}
             </div>
           `;
@@ -874,14 +875,14 @@
               <span class="row"><span class="tag-mono">${q.number}</span><span class="badge badge-neutral">Pilihan ganda</span><span class="badge badge-working">Kunci ${esc(q.answer_key)}</span></span>
               ${mediaActionBtns}
             </div>
-            <p class="q-body">${esc(q.question_text)}</p>
+            <p class="q-body">${renderMathHtml(q.question_text)}</p>
             ${mediaPreview}
             <div class="q-options">
-              <div><b>A.</b> ${esc(q.option_a || '-')}</div>
-              <div><b>B.</b> ${esc(q.option_b || '-')}</div>
-              <div><b>C.</b> ${esc(q.option_c || '-')}</div>
-              <div><b>D.</b> ${esc(q.option_d || '-')}</div>
-              <div><b>E.</b> ${esc(q.option_e || '-')}</div>
+              <div><b>A.</b> ${renderMathHtml(q.option_a || '-')}</div>
+              <div><b>B.</b> ${renderMathHtml(q.option_b || '-')}</div>
+              <div><b>C.</b> ${renderMathHtml(q.option_c || '-')}</div>
+              <div><b>D.</b> ${renderMathHtml(q.option_d || '-')}</div>
+              <div><b>E.</b> ${renderMathHtml(q.option_e || '-')}</div>
             </div>
           </div>
         `;

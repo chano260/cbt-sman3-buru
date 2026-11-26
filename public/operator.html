@@ -816,6 +816,7 @@
   </div>
 
   <script src="/dialog.js"></script>
+  <script src="/math-render.js"></script>
   <script src="/password-gate.js"></script>
   <script>
 
@@ -2191,14 +2192,14 @@
                 <span class="row"><span class="tag-mono">${q.number}</span><span class="badge badge-neutral">${isPg ? 'PG' : 'Esai'}</span></span>
                 ${isPg && q.answer_key ? `<span class="badge badge-working">Kunci ${esc(q.answer_key)}</span>` : ''}
               </div>
-              <div class="q-text">${esc(q.question_text || '')}</div>
+              <div class="q-text">${renderMathHtml(q.question_text || '')}</div>
               ${isPg ? `
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-                  <div class="q-opt${q.answer_key === 'A' ? ' is-key' : ''}">A. ${esc(q.option_a || '-')}</div>
-                  <div class="q-opt${q.answer_key === 'B' ? ' is-key' : ''}">B. ${esc(q.option_b || '-')}</div>
-                  <div class="q-opt${q.answer_key === 'C' ? ' is-key' : ''}">C. ${esc(q.option_c || '-')}</div>
-                  <div class="q-opt${q.answer_key === 'D' ? ' is-key' : ''}">D. ${esc(q.option_d || '-')}</div>
-                  ${q.option_e ? `<div class="q-opt${q.answer_key === 'E' ? ' is-key' : ''}">E. ${esc(q.option_e)}</div>` : ''}
+                  <div class="q-opt${q.answer_key === 'A' ? ' is-key' : ''}">A. ${renderMathHtml(q.option_a || '-')}</div>
+                  <div class="q-opt${q.answer_key === 'B' ? ' is-key' : ''}">B. ${renderMathHtml(q.option_b || '-')}</div>
+                  <div class="q-opt${q.answer_key === 'C' ? ' is-key' : ''}">C. ${renderMathHtml(q.option_c || '-')}</div>
+                  <div class="q-opt${q.answer_key === 'D' ? ' is-key' : ''}">D. ${renderMathHtml(q.option_d || '-')}</div>
+                  ${q.option_e ? `<div class="q-opt${q.answer_key === 'E' ? ' is-key' : ''}">E. ${renderMathHtml(q.option_e)}</div>` : ''}
                 </div>
               ` : '<div class="hint" style="margin:0;">Dijawab siswa di lembar kertas</div>'}
             </div>

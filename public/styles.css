@@ -2029,3 +2029,65 @@ tr:last-child td {
   .bp3-dashboard-grid { padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
   .bp3-footer { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important; }
 }
+
+/* Rumus matematika (pecahan bertingkat, pangkat, tanda kurung tinggi) */
+.m-frac {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 0.14em;
+  line-height: 1.15;
+  font-size: 0.92em;
+}
+.m-frac-sm {
+  font-size: 0.86em;
+  margin: 0 0.08em;
+  line-height: 1.05;
+}
+.m-num {
+  padding: 0 0.22em 0.1em;
+  border-bottom: 1.25px solid currentColor;
+  text-align: center;
+  white-space: nowrap;
+}
+.m-den {
+  padding: 0.1em 0.22em 0;
+  text-align: center;
+  white-space: nowrap;
+}
+.m-group {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+.m-paren {
+  font-size: 2.05em;
+  font-weight: 300;
+  line-height: 0.9;
+  transform: scaleX(0.68);
+  display: inline-block;
+  margin: 0 -0.06em;
+}
+.m-sup {
+  font-size: 0.74em;
+  line-height: 0;
+  vertical-align: 0.55em;
+  margin-left: 0.04em;
+}
+.m-sup .m-frac {
+  vertical-align: -0.22em;
+}
+.m-sup-tall {
+  align-self: flex-start;
+  vertical-align: top;
+  margin-top: -0.15em;
+  margin-left: 0.06em;
+  line-height: 1;
+}
+.m-sub {
+  font-size: 0.74em;
+  line-height: 0;
+  vertical-align: -0.25em;
+  margin-left: 0.04em;
+}

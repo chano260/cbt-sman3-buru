@@ -68,3 +68,28 @@ test('parseDocxBuffer: soal & opsi berisi persamaan Word tidak lagi kosong', asy
   assert.strictEqual(qs[0].option_e, '2x');
   assert.strictEqual(qs[0].answer_key, 'B');
 });
+
+const { renderMathHtml } = require('../public/math-render');
+
+test('renderMathHtml: pecahan bertingkat, pangkat pecahan, dan kurung tinggi seperti Word', () => {
+  const q7 = renderMathHtml('Sederhanakanlah bentuk dari ((5^(2/3) · 5^(1/2))/(5^(1/6)))² adalah...');
+  assert.ok(q7.includes('<span class="m-group"><span class="m-paren">(</span><span class="m-frac">'));
+  assert.ok(q7.includes('<sup class="m-sup"><span class="m-frac m-frac-sm"><span class="m-num">2</span><span class="m-den">3</span></span></sup>'));
+  assert.ok(q7.includes('<sup class="m-sup m-sup-tall">2</sup>'));
+
+  assert.strictEqual(
+    renderMathHtml('1/25'),
+    '<span class="m-frac"><span class="m-num">1</span><span class="m-den">25</span></span>'
+  );
+  assert.ok(renderMathHtml('1/(2^(13/6))').includes('<span class="m-num">1</span><span class="m-den">2<sup class="m-sup"><span class="m-frac m-frac-sm"><span class="m-num">13</span><span class="m-den">6</span></span></sup></span>'));
+  assert.ok(renderMathHtml('h(a/3)').includes('<span class="m-num">a</span><span class="m-den">3</span>'));
+});
+
+test('renderMathHtml: aman dari XSS dan tidak merusak tanggal, tahun ajaran, satuan, atau URL', () => {
+  const xss = renderMathHtml('2^(<script>alert(1)</script>) & <b>x</b>');
+  assert.ok(!xss.includes('<script>'));
+  assert.ok(!xss.includes('<b>'));
+  assert.strictEqual(renderMathHtml('Tanggal 17/08/1945 tahun 2025/2026'), 'Tanggal 17/08/1945 tahun 2025/2026');
+  assert.strictEqual(renderMathHtml('Kecepatan 10 m/s atau 36 km/jam'), 'Kecepatan 10 m/s atau 36 km/jam');
+  assert.strictEqual(renderMathHtml('Buka https://smanegeri3buru.my.id/ujian'), 'Buka https://smanegeri3buru.my.id/ujian');
+});

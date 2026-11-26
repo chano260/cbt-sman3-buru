@@ -463,6 +463,7 @@
   </div>
 
   <script src="/dialog.js"></script>
+  <script src="/math-render.js"></script>
   <script>
     // Escape teks dari server sebelum dimasukkan ke innerHTML (mencegah XSS)
     function esc(v) {
@@ -981,7 +982,7 @@
         const done = Boolean(essayAnswered[q.id]);
         card.innerHTML = `
           <span style="display:inline-block;background:#fffbeb;color:#b45309;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-bottom:12px;">Soal Esai • Nomor ${displayNumber(q)}</span>
-          <div class="q-body-text" style="line-height:1.7;margin-bottom:18px;white-space:pre-line;">${esc(q.question_text)}</div>
+          <div class="q-body-text" style="line-height:1.7;margin-bottom:18px;white-space:pre-line;">${renderMathHtml(q.question_text)}</div>
           ${mediaHtml}
           <div class="essay-paper-box${done ? ' is-done' : ''}" id="essayBox_${q.id}">
             <div class="essay-paper-title">Lembar jawaban kertas · soal esai nomor ${displayNumber(q)}</div>
@@ -1005,7 +1006,7 @@
         ].filter(([, text]) => text !== null && text !== '');
 
         card.innerHTML = `
-          <div class="q-body-text" style="line-height:1.7;font-weight:500;margin-bottom:20px;white-space:pre-line;">${esc(q.question_text)}</div>
+          <div class="q-body-text" style="line-height:1.7;font-weight:500;margin-bottom:20px;white-space:pre-line;">${renderMathHtml(q.question_text)}</div>
           ${mediaHtml}
           <div>
             ${opts.map(([letter, text]) => `
@@ -1014,7 +1015,7 @@
                   <div class="exambppp-radio-dot"></div>
                 </div>
                 <div style="flex:1;font-size:14px;color:#1e293b;line-height:1.5;">
-                  <b style="color:#172033;margin-right:6px;">${letter}.</b> ${esc(text)}
+                  <b style="color:#172033;margin-right:6px;">${letter}.</b> ${renderMathHtml(text)}
                 </div>
               </div>
             `).join('')}

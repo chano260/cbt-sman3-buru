@@ -1,5 +1,7 @@
 const mammoth = require('mammoth');
 const { Document, Packer, Paragraph, TextRun, HeadingLevel } = require('docx');
+const JSZip = require('jszip');
+const { replaceMathInDocumentXml } = require('./ommlText');
 
 // Rentang nomor soal pada judul bacaan, mis. "question 32 to 35", "soal nomor 5–6", "soal 1 sampai 2", "no. 3 s.d. 4"
 const PASSAGE_RANGE_RE = /\b(?:questions?|numbers?|soal|nomor|no\.?)\s*(\d+)\s*(?:-|–|—|to|until|through|sampai|hingga|s\.?\s*d\.?|and|dan)\s*(\d+)/i;
@@ -223,7 +225,24 @@ function linkSharedPassages(questions) {
   flush();
 }
 
+// Persamaan Word (OMML) dibuang mammoth; ubah dulu menjadi teks biasa di dalam document.xml.
+async function convertMathToText(buffer) {
+  let zip;
+  try {
+    zip = await JSZip.loadAsync(buffer);
+  } catch (e) {
+    return buffer; // bukan zip yang sah: biarkan mammoth yang melaporkan galatnya
+  }
+  const file = zip.file('word/document.xml');
+  if (!file) return buffer;
+  const xml = await file.async('string');
+  if (!/<m:oMath/.test(xml)) return buffer;
+  zip.file('word/document.xml', replaceMathInDocumentXml(xml));
+  return zip.generateAsync({ type: 'nodebuffer' });
+}
+
 async function parseDocxBuffer(buffer) {
+  buffer = await convertMathToText(buffer);
   const images = [];
   const htmlRes = await mammoth.convertToHtml(
     { buffer },

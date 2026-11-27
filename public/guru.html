@@ -36,6 +36,29 @@
       .ui-v2 .side-preview-frame { width: 100%; height: min(760px, calc(100vh - 110px)); border: 8px solid #1f2937; border-radius: 28px; background: #fff; display: block; }
       .ui-v2 .side-preview-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--dark); }
     }
+    /* Lembar cetak rekap nilai: tersembunyi di layar, satu-satunya isi saat dicetak */
+    #scorePrintSheet { display: none; }
+    .score-print { font-family: 'Times New Roman', Times, serif; color: #000; font-size: 12px; }
+    .score-print .kop-surat { border-bottom: 3px double #000; }
+    .score-print .sp-title { text-align: center; font-size: 15px; font-weight: 700; text-decoration: underline; margin: 10px 0 12px; }
+    .score-print .sp-info { border-collapse: collapse; margin-bottom: 10px; }
+    .score-print .sp-info td { padding: 1px 8px 1px 0; vertical-align: top; }
+    .score-print .sp-table { width: 100%; border-collapse: collapse; }
+    .score-print .sp-table th, .score-print .sp-table td { border: 1px solid #000; padding: 3px 5px; }
+    .score-print .sp-table th { background: #e5e7eb; font-weight: 700; text-align: center; }
+    .score-print .sp-table td.c { text-align: center; }
+    .score-print .sp-table tr { break-inside: avoid; }
+    .score-print .sp-summary { margin-top: 8px; }
+    .score-print .sp-sign { display: flex; justify-content: flex-end; margin-top: 22px; break-inside: avoid; }
+    .score-print .sp-sign > div { width: 240px; text-align: center; }
+    .score-print .sp-sign .sp-name { margin-top: 62px; font-weight: 700; text-decoration: underline; }
+    @media print {
+      @page { size: A4 portrait; margin: 14mm 12mm; }
+      body.print-scores { background: #fff !important; }
+      body.print-scores > *:not(#scorePrintSheet) { display: none !important; }
+      body.print-scores #scorePrintSheet { display: block; }
+      .score-print .sp-table th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
   </style>
 </head>
 <body class="ui-v2">
@@ -214,7 +237,13 @@
               <div class="card-title">Rekap nilai pilihan ganda</div>
               <p class="card-sub">Skor PG = jawaban benar ÷ jumlah soal PG × 100, dibulatkan ke bilangan bulat (,5 ke atas)</p>
             </div>
-            <button class="btn btn-soft" onclick="downloadExcel()"><svg class="icon"><use href="#i-sheet"></use></svg>Ekspor ke Excel (.xlsx)</button>
+            <div class="row">
+              <select id="scoreClassFilter" class="input input-sm" style="width:auto;" onchange="renderScoresTable()" aria-label="Kelas">
+                <option value="ALL">Semua kelas</option>
+              </select>
+              <button class="btn btn-primary" onclick="printScores()"><svg class="icon"><use href="#i-printer"></use></svg>Cetak rekap</button>
+              <button class="btn btn-soft" onclick="downloadExcel()"><svg class="icon"><use href="#i-sheet"></use></svg>Ekspor ke Excel (.xlsx)</button>
+            </div>
           </div>
           <div class="table-wrap">
             <table>
@@ -1028,16 +1057,36 @@
       confirmDeleteQuestion(qId, '');
     }
 
+    let lastScoreData = null;
+
     async function loadScores() {
       if (!currentExamId || !staffToken) return;
       const res = await fetch(`/api/guru/exams/${currentExamId}/scores`, { headers: authHeaders() });
       if (!res.ok) return;
-      const data = await res.json();
-      if (!(data.scores || []).length) {
+      lastScoreData = await res.json();
+      const sel = document.getElementById('scoreClassFilter');
+      const prev = sel.value;
+      const classes = [...new Set((lastScoreData.scores || []).map(s => s.class_name).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, 'id', { numeric: true }));
+      sel.innerHTML = '<option value="ALL">Semua kelas</option>' + classes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      sel.value = classes.includes(prev) ? prev : 'ALL';
+      renderScoresTable();
+    }
+
+    // Nilai yang tampil (dan dicetak) mengikuti pilihan kelas
+    function visibleScores() {
+      const list = (lastScoreData && lastScoreData.scores) || [];
+      const cls = document.getElementById('scoreClassFilter').value;
+      return cls === 'ALL' ? list : list.filter(s => s.class_name === cls);
+    }
+
+    function renderScoresTable() {
+      const scores = visibleScores();
+      if (!scores.length) {
         document.getElementById('guruScoresBody').innerHTML = '<tr><td colspan="10" class="text-muted table-empty">Belum ada siswa yang login di ujian ini. Siswa yang ujian lewat SMANTRI CBT tidak masuk rekap ini.</td></tr>';
         return;
       }
-      document.getElementById('guruScoresBody').innerHTML = (data.scores || []).map(s => `
+      document.getElementById('guruScoresBody').innerHTML = scores.map(s => `
         <tr>
           <td><span class="tag-mono">${esc(s.exam_number)}</span></td>
           <td class="cell-name">${esc(s.full_name)}</td>
@@ -1053,6 +1102,80 @@
       `).join('');
     }
 
+    function scoreSummary(scores) {
+      if (!scores.length) return { count: 0, avg: 0, max: 0, min: 0 };
+      const vals = scores.map(s => Number(s.score) || 0);
+      const avg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10;
+      return { count: vals.length, avg, max: Math.max(...vals), min: Math.min(...vals) };
+    }
+
+    const PRINT_STATUS = { FINISHED: 'Selesai', WORKING: 'Mengerjakan', LOCKED: 'Terkunci' };
+    // Tanggal ujian ditulis lengkap dengan hari; tanggal cetak tanpa hari
+    function printDate(d) {
+      const t = d ? new Date(`${d}T00:00:00`) : new Date();
+      if (Number.isNaN(t.getTime())) return d || '-';
+      return t.toLocaleDateString('id-ID', d ? { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' } : { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function renderScorePrint() {
+      const data = lastScoreData || {};
+      const exam = data.exam || {};
+      const scores = visibleScores();
+      const cls = document.getElementById('scoreClassFilter').value;
+      const sum = scoreSummary(scores);
+      const hasEsai = Number(data.esaiCount || 0) > 0;
+      const teacher = (currentTeacherProfile && currentTeacherProfile.full_name) || '';
+      const rows = scores.map((s, i) => `
+        <tr>
+          <td class="c">${i + 1}</td>
+          <td class="c">${esc(s.exam_number)}</td>
+          <td>${esc(s.full_name)}</td>
+          <td class="c">${esc(s.class_name)}</td>
+          <td class="c">${PRINT_STATUS[s.status] || '-'}</td>
+          <td class="c">${s.correct_pg}</td>
+          <td class="c">${s.wrong_pg}</td>
+          <td class="c"><b>${s.score}</b></td>
+          ${hasEsai ? '<td></td>' : ''}
+        </tr>`).join('');
+      return `
+        <div class="score-print">
+          <div class="kop-surat">
+            <h4>PEMERINTAH PROVINSI MALUKU</h4>
+            <h4>DINAS PENDIDIKAN DAN KEBUDAYAAN</h4>
+            <h2>SMA NEGERI 3 BURU</h2>
+            <p>Kabupaten Buru, Provinsi Maluku • Sistem Ujian Berbasis Komputer & Android (CBT)</p>
+          </div>
+          <div class="sp-title">REKAP NILAI PILIHAN GANDA</div>
+          <table class="sp-info">
+            <tr><td>Mata pelajaran</td><td>: <b>${esc(exam.subject || '-')}</b>${exam.title ? ` — ${esc(exam.title)}` : ''}</td></tr>
+            <tr><td>Kelas</td><td>: ${esc(cls === 'ALL' ? (exam.class_target || 'Semua kelas') : cls)}</td></tr>
+            <tr><td>Tanggal</td><td>: ${esc(printDate(exam.exam_date))}</td></tr>
+            <tr><td>Sesi</td><td>: ${esc(exam.session_name || '-')}</td></tr>
+            <tr><td>Jumlah soal</td><td>: ${Number(data.pgCount || 0)} pilihan ganda${hasEsai ? `, ${Number(data.esaiCount)} esai (dinilai di kertas)` : ''}</td></tr>
+          </table>
+          <table class="sp-table">
+            <thead><tr>
+              <th style="width:28px;">No</th><th>No. peserta</th><th>Nama siswa</th><th>Kelas</th><th>Status</th>
+              <th>Benar</th><th>Salah</th><th>Nilai PG</th>${hasEsai ? '<th style="width:64px;">Nilai esai</th>' : ''}
+            </tr></thead>
+            <tbody>${rows || `<tr><td colspan="${hasEsai ? 9 : 8}" class="c">Belum ada siswa yang login</td></tr>`}</tbody>
+          </table>
+          <div class="sp-summary">Jumlah peserta: <b>${sum.count}</b> · Rata-rata: <b>${sum.avg}</b> · Tertinggi: <b>${sum.max}</b> · Terendah: <b>${sum.min}</b></div>
+          <div class="sp-sign"><div>
+            Buru, ${esc(printDate(''))}<br>Guru Mata Pelajaran,
+            <div class="sp-name">${esc(teacher) || '(..............................)'}</div>
+          </div></div>
+        </div>`;
+    }
+
+    function printScores() {
+      if (!lastScoreData) return;
+      document.getElementById('scorePrintSheet').innerHTML = renderScorePrint();
+      document.body.classList.add('print-scores');
+      window.print();
+    }
+    window.addEventListener('afterprint', () => document.body.classList.remove('print-scores'));
+
     function downloadExcel() {
       if (!currentExamId || !staffToken) return;
       window.location.href = `/api/guru/exams/${currentExamId}/export-excel?staffToken=${encodeURIComponent(staffToken)}`;
@@ -1060,5 +1183,7 @@
 
     loadExams();
   </script>
+  <!-- Lembar cetak rekap nilai (diisi printScores) -->
+  <div id="scorePrintSheet"></div>
 </body>
 </html>

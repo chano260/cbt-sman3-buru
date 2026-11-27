@@ -27,6 +27,9 @@ function parseQuestionsFromText(rawText) {
   // Nomor bagian ([PG] / [ESAI]) untuk setiap soal, supaya bacaan tidak menyeberang antarbagian
   let section = 0;
 
+  // Soal PG sudah punya opsi A, berupa teks atau gambar
+  const hasOptions = (q) => Boolean(q && (q.option_a || (q.option_images && q.option_images.A)));
+
   const pushCurrent = () => {
     if (current && current.prefix) {
       current.question_text = [current.prefix, current.question_text].filter(Boolean).join('\n\n');
@@ -36,9 +39,11 @@ function parseQuestionsFromText(rawText) {
     if (!current || (!current.question_text.trim() && !current.image_data)) return;
     delete current.lastTarget;
     delete current.prefix;
+    if (!current.option_images || !Object.keys(current.option_images).length) current.option_images = null;
     if (current.type === 'PG') {
       current.answer_key = (current.answer_key || 'A').toUpperCase();
     } else {
+      current.option_images = null;
       current.answer_key = null;
       current.option_a = null;
       current.option_b = null;
@@ -73,8 +78,8 @@ function parseQuestionsFromText(rawText) {
       continue;
     }
 
-    // Cek opsi A. / B) di mode PG
-    const optMatch = currentMode === 'PG' && line.match(/^([A-Ea-e])\s*[\.\)]\s*(.+)$/);
+    // Cek opsi A. / B) di mode PG. Teks opsi boleh kosong bila isinya gambar ("A." lalu gambar)
+    const optMatch = currentMode === 'PG' && line.match(/^([A-Ea-e])\s*[\.\)]\s*(.*)$/);
     if (optMatch && current) {
       const letter = optMatch[1].toLowerCase();
       const targetKey = `option_${letter}`;
@@ -88,7 +93,7 @@ function parseQuestionsFromText(rawText) {
     const rangeMatch = !/^\d+\s*[\.\)]/.test(line) && !/^[A-Ea-e]\s*[\.\)]/.test(line) && line.match(PASSAGE_RANGE_RE);
     if (rangeMatch && Number(rangeMatch[2]) >= Number(rangeMatch[1])) {
       // Hanya bila soal sebelumnya sudah lengkap (esai, atau PG yang sudah punya opsi)
-      const finished = !current || current.type === 'ESAI' || Boolean(current.option_a);
+      const finished = !current || current.type === 'ESAI' || hasOptions(current);
       if (finished) {
         pushCurrent();
         started = true;
@@ -103,7 +108,7 @@ function parseQuestionsFromText(rawText) {
     // Teks boleh kosong: banyak bank soal menulis "1." sendirian, lalu gambar, lalu teks soal di baris berikutnya.
     const numMatch = line.match(/^(\d+)\s*[\.\)]\s*(.*)$/);
     if (numMatch) {
-      const isCompletePg = current && current.type === 'PG' && Boolean(current.option_a);
+      const isCompletePg = current && current.type === 'PG' && hasOptions(current);
       // Pada mode esai, "1." / "2." yang nomornya tidak lebih besar dari nomor soal saat ini
       // adalah sub-butir di dalam soal esai (mis. soal 23 berisi "1. Kondisi pertama"), BUKAN soal baru.
       const isNextEsai = current && current.type === 'ESAI' && Number(numMatch[1]) > current.number;
@@ -135,6 +140,7 @@ function parseQuestionsFromText(rawText) {
           option_c: '',
           option_d: '',
           option_e: '',
+          option_images: {},
           answer_key: currentMode === 'PG' ? 'A' : null,
           lastTarget: 'question_text'
         };
@@ -147,7 +153,10 @@ function parseQuestionsFromText(rawText) {
     if (line.startsWith('IMG_DATA:')) {
       const src = line.replace('IMG_DATA:', '').trim();
       // Gambar di atas nomor soal (belum ada soal yang sedang dibaca) disimpan untuk soal berikutnya
-      if (current) current.image_data = src;
+      // Gambar sesudah "A." / "B." adalah isi opsi itu, bukan gambar soal
+      if (current && /^option_[a-e]$/.test(current.lastTarget || '')) {
+        current.option_images[current.lastTarget.slice(-1).toUpperCase()] = src;
+      } else if (current) current.image_data = src;
       else if (passage && passage.collecting) passage.image = passage.image || src;
       else pendingImage = src;
       continue;

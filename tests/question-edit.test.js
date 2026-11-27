@@ -138,3 +138,14 @@ test('panel guru: tombol Edit soal dan Pratinjau ujian; ujian.html punya mode pr
   // Di mode pratinjau, panggilan /api/ujian/* tidak dikirim ke server
   assert.match(ujian, /if \(PREVIEW_EXAM_ID && typeof url === 'string' && url\.startsWith\('\/api\/ujian\/'\)\)/);
 });
+
+test('edit soal: kunci boleh opsi bergambar tanpa teks, gambar opsi tetap tersimpan', async (t) => {
+  const { db, pg, put } = await setup(t);
+  const imgs = JSON.stringify({ C: 'data:image/png;base64,QUJD' });
+  db.prepare("UPDATE questions SET option_c = '', option_images = ? WHERE id = ?").run(imgs, pg.id);
+  const res = await put(pg.id, fullPg(pg, { option_c: '', answer_key: 'C', question_text: 'Teks baru' }));
+  assert.equal(res.status, 200, await res.clone().text());
+  const body = await res.json();
+  assert.deepEqual(body.question.option_images, { C: 'data:image/png;base64,QUJD' });
+  assert.equal(db.prepare('SELECT option_images FROM questions WHERE id = ?').get(pg.id).option_images, imgs);
+});

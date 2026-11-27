@@ -2382,11 +2382,11 @@
               <div class="q-text">${renderMathHtml(q.question_text || '')}</div>
               ${isPg ? `
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-                  <div class="q-opt${q.answer_key === 'A' ? ' is-key' : ''}">A. ${renderMathHtml(q.option_a || '-')}</div>
-                  <div class="q-opt${q.answer_key === 'B' ? ' is-key' : ''}">B. ${renderMathHtml(q.option_b || '-')}</div>
-                  <div class="q-opt${q.answer_key === 'C' ? ' is-key' : ''}">C. ${renderMathHtml(q.option_c || '-')}</div>
-                  <div class="q-opt${q.answer_key === 'D' ? ' is-key' : ''}">D. ${renderMathHtml(q.option_d || '-')}</div>
-                  ${q.option_e ? `<div class="q-opt${q.answer_key === 'E' ? ' is-key' : ''}">E. ${renderMathHtml(q.option_e)}</div>` : ''}
+                  <div class="q-opt${q.answer_key === 'A' ? ' is-key' : ''}">A. ${renderOptionHtml(q.option_a || (q.option_images && q.option_images.A ? '' : '-'), q.option_images && q.option_images.A)}</div>
+                  <div class="q-opt${q.answer_key === 'B' ? ' is-key' : ''}">B. ${renderOptionHtml(q.option_b || (q.option_images && q.option_images.B ? '' : '-'), q.option_images && q.option_images.B)}</div>
+                  <div class="q-opt${q.answer_key === 'C' ? ' is-key' : ''}">C. ${renderOptionHtml(q.option_c || (q.option_images && q.option_images.C ? '' : '-'), q.option_images && q.option_images.C)}</div>
+                  <div class="q-opt${q.answer_key === 'D' ? ' is-key' : ''}">D. ${renderOptionHtml(q.option_d || (q.option_images && q.option_images.D ? '' : '-'), q.option_images && q.option_images.D)}</div>
+                  ${q.option_e || (q.option_images && q.option_images.E) ? `<div class="q-opt${q.answer_key === 'E' ? ' is-key' : ''}">E. ${renderOptionHtml(q.option_e, q.option_images && q.option_images.E)}</div>` : ''}
                 </div>
               ` : '<div class="hint" style="margin:0;">Dijawab siswa di lembar kertas</div>'}
             </div>

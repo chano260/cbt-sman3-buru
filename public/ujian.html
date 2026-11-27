@@ -1000,13 +1000,15 @@
         `;
       } else {
         const selected = answers[q.id] || '';
+        // Opsi boleh hanya berupa gambar (teks kosong)
+        const optionImage = (q, letter) => (q.option_images && q.option_images[letter]) || '';
         const opts = [
           ['A', q.option_a],
           ['B', q.option_b],
           ['C', q.option_c],
           ['D', q.option_d],
           ['E', q.option_e]
-        ].filter(([, text]) => text !== null && text !== '');
+        ].filter(([letter, text]) => (text !== null && text !== '') || optionImage(q, letter));
 
         card.innerHTML = `
           <div class="q-body-text" style="line-height:1.7;font-weight:500;margin-bottom:20px;white-space:pre-line;">${renderMathHtml(q.question_text)}</div>
@@ -1018,7 +1020,7 @@
                   <div class="exambppp-radio-dot"></div>
                 </div>
                 <div style="flex:1;font-size:14px;color:#1e293b;line-height:1.5;">
-                  <b style="color:#172033;margin-right:6px;">${letter}.</b> ${renderMathHtml(text)}
+                  <b style="color:#172033;margin-right:6px;">${letter}.</b> ${renderOptionHtml(text, optionImage(q, letter))}
                 </div>
               </div>
             `).join('')}

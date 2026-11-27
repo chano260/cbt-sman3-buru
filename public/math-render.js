@@ -200,9 +200,19 @@
     return renderSegment(String(text), false);
   }
 
+  // Isi opsi PG: teks (dengan rumus) lalu gambar opsi bila ada. Sumber gambar hanya data:image/ atau /uploads/.
+  const SAFE_IMG_SRC = /^(data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\s]+|\/uploads\/[\w.-]+)$/i;
+  function renderOptionHtml(text, imgSrc) {
+    const textHtml = renderMathHtml(text);
+    const src = String(imgSrc || '');
+    if (!src || !SAFE_IMG_SRC.test(src)) return textHtml;
+    return `${textHtml}<img class="opt-img" src="${escHtml(src)}" alt="Gambar opsi" loading="lazy">`;
+  }
+
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { renderMathHtml };
+    module.exports = { renderMathHtml, renderOptionHtml };
   } else {
     root.renderMathHtml = renderMathHtml;
+    root.renderOptionHtml = renderOptionHtml;
   }
 })(typeof window !== 'undefined' ? window : globalThis);

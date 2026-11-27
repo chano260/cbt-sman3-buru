@@ -169,7 +169,9 @@ function initDb(dbPath = DEFAULT_DB_PATH) {
     "ALTER TABLE exam_sessions ADD COLUMN supervisor_exit_at TEXT",
     // Mapel pilihan: daftar mapel pilihan siswa (dipisah koma) dan tanda jadwal mapel pilihan
     "ALTER TABLE students ADD COLUMN elective_subjects TEXT",
-    "ALTER TABLE exams ADD COLUMN is_elective INTEGER NOT NULL DEFAULT 0"
+    "ALTER TABLE exams ADD COLUMN is_elective INTEGER NOT NULL DEFAULT 0",
+    // Gambar opsi PG per huruf, JSON {"A": "data:image/...", ...}
+    "ALTER TABLE questions ADD COLUMN option_images TEXT"
   ];
   for (const sql of safeAlter) {
     try { db.exec(sql); } catch {}

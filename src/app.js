@@ -267,13 +267,26 @@ function seededShufflePgQuestions(questions, seedNumber) {
   return [...arr, ...esaiList];
 }
 
+// Gambar opsi disimpan sebagai JSON {"A": src}; dikirim ke halaman sebagai objek (atau null)
+function parseOptionImages(raw) {
+  if (!raw) return null;
+  try {
+    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const out = {};
+    for (const k of ['A', 'B', 'C', 'D', 'E']) if (obj && typeof obj[k] === 'string' && obj[k]) out[k] = obj[k];
+    return Object.keys(out).length ? out : null;
+  } catch { return null; }
+}
+const withOptionImages = (q) => (q ? { ...q, option_images: parseOptionImages(q.option_images) } : q);
+const optionImagesJson = (v) => { const o = parseOptionImages(v); return o ? JSON.stringify(o) : null; };
+
 function copyQuestions(db, sourceExamId, targetExamId) {
   const sourceQuestions = db.prepare('SELECT * FROM questions WHERE exam_id = ? ORDER BY number ASC, id ASC').all(Number(sourceExamId));
   if (!sourceQuestions || sourceQuestions.length === 0) return 0;
 
   const insert = db.prepare(`
-    INSERT INTO questions (exam_id, number, type, question_text, image_data, audio_data, option_a, option_b, option_c, option_d, option_e, answer_key)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO questions (exam_id, number, type, question_text, image_data, audio_data, option_a, option_b, option_c, option_d, option_e, answer_key, option_images)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const tx = db.transaction((qs) => {
@@ -290,7 +303,8 @@ function copyQuestions(db, sourceExamId, targetExamId) {
         q.option_c,
         q.option_d,
         q.option_e,
-        q.answer_key
+        q.answer_key,
+        q.option_images || null
       );
     }
   });
@@ -547,11 +561,11 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
   function getCachedExamQuestions(examId) {
     if (questionsCache.has(examId)) return questionsCache.get(examId);
     const qs = db.prepare(`
-      SELECT id, exam_id, number, type, question_text, image_data, audio_data, option_a, option_b, option_c, option_d, option_e
+      SELECT id, exam_id, number, type, question_text, image_data, audio_data, option_a, option_b, option_c, option_d, option_e, option_images
       FROM questions
       WHERE exam_id = ?
       ORDER BY CASE WHEN type = 'PG' THEN 0 ELSE 1 END, number ASC, id ASC
-    `).all(examId);
+    `).all(examId).map(withOptionImages);
     questionsCache.set(examId, qs);
     return qs;
   }
@@ -1947,7 +1961,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     if (!teacherCanAccessExam(req.staffUser, exam)) {
       return res.status(403).json({ error: 'Akses ditolak: Anda tidak memiliki akses ke paket ujian ini.' });
     }
-    const questions = db.prepare('SELECT * FROM questions WHERE exam_id = ? ORDER BY number ASC, id ASC').all(examId);
+    const questions = db.prepare('SELECT * FROM questions WHERE exam_id = ? ORDER BY number ASC, id ASC').all(examId).map(withOptionImages);
     res.json({ exam, questions });
   });
 
@@ -2047,7 +2061,8 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     if (type === 'PG') {
       key = String(body.answer_key || '').trim().toUpperCase();
       if (!/^[A-E]$/.test(key)) return res.status(400).json({ error: 'Kunci jawaban harus A, B, C, D, atau E.' });
-      if (!opt(`option_${key.toLowerCase()}`)) return res.status(400).json({ error: `Opsi ${key} kosong, padahal dipilih sebagai kunci jawaban.` });
+      const keyImage = (parseOptionImages(existing.option_images) || {})[key];
+      if (!opt(`option_${key.toLowerCase()}`) && !keyImage) return res.status(400).json({ error: `Opsi ${key} kosong, padahal dipilih sebagai kunci jawaban.` });
     }
 
     const answeredCount = db.prepare('SELECT COUNT(*) AS c FROM answers WHERE question_id = ?').get(questionId).c;
@@ -2073,7 +2088,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       questionId
     );
     invalidateQuestionsCache(existing.exam_id);
-    const question = db.prepare('SELECT * FROM questions WHERE id = ?').get(questionId);
+    const question = withOptionImages(db.prepare('SELECT * FROM questions WHERE id = ?').get(questionId));
     res.json({ ok: true, question, answeredCount });
   });
 
@@ -2131,8 +2146,8 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       }
 
       const insertQ = db.prepare(`
-        INSERT INTO questions (exam_id, number, type, question_text, image_data, option_a, option_b, option_c, option_d, option_e, answer_key)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO questions (exam_id, number, type, question_text, image_data, option_a, option_b, option_c, option_d, option_e, answer_key, option_images)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       const importTx = db.transaction(() => {
       if (replaceExisting) {
@@ -2150,7 +2165,8 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
           q.option_c || null,
           q.option_d || null,
           q.option_e || null,
-          q.answer_key || null
+          q.answer_key || null,
+          optionImagesJson(q.option_images)
         );
       }
       });

@@ -907,11 +907,11 @@
             <p class="q-body">${renderMathHtml(q.question_text)}</p>
             ${mediaPreview}
             <div class="q-options">
-              <div><b>A.</b> ${renderMathHtml(q.option_a || '-')}</div>
-              <div><b>B.</b> ${renderMathHtml(q.option_b || '-')}</div>
-              <div><b>C.</b> ${renderMathHtml(q.option_c || '-')}</div>
-              <div><b>D.</b> ${renderMathHtml(q.option_d || '-')}</div>
-              <div><b>E.</b> ${renderMathHtml(q.option_e || '-')}</div>
+              <div><b>A.</b> ${renderOptionHtml(q.option_a || (q.option_images && q.option_images.A ? '' : '-'), q.option_images && q.option_images.A)}</div>
+              <div><b>B.</b> ${renderOptionHtml(q.option_b || (q.option_images && q.option_images.B ? '' : '-'), q.option_images && q.option_images.B)}</div>
+              <div><b>C.</b> ${renderOptionHtml(q.option_c || (q.option_images && q.option_images.C ? '' : '-'), q.option_images && q.option_images.C)}</div>
+              <div><b>D.</b> ${renderOptionHtml(q.option_d || (q.option_images && q.option_images.D ? '' : '-'), q.option_images && q.option_images.D)}</div>
+              <div><b>E.</b> ${renderOptionHtml(q.option_e || (q.option_images && q.option_images.E ? '' : '-'), q.option_images && q.option_images.E)}</div>
             </div>
           </div>
         `;

@@ -272,7 +272,7 @@
   <!-- ==========================================
        SCREEN 4: LEMBAR PENGERJAAN SOAL (Sesuai PDF Hal 10-13)
        ========================================== -->
-  <div id="screenExam" style="display:none;padding-bottom:80px;">
+  <div id="screenExam" class="exam-screen" style="display:none;">
     <!-- TOP HEADER -->
     <header class="exambppp-top-header" style="position:sticky;top:0;z-index:40;">
       <div style="display:flex;align-items:center;gap:10px;">
@@ -325,12 +325,14 @@
       </div>
     </div>
 
-    <!-- CONTAINER SOAL AKTIF -->
-    <div class="exambppp-container" style="padding-top:16px;">
-      <div class="exambppp-data-card" id="activeQuestionCard" style="padding:22px 20px;">
-        <!-- Konten soal dirender dinamis via renderCurrentQuestion() -->
+    <!-- CONTAINER SOAL AKTIF: hanya area ini yang bergulir, bilah navigasi tetap di bawah -->
+    <main id="examScroll" class="exam-scroll">
+      <div class="exambppp-container" style="padding-top:16px;">
+        <div class="exambppp-data-card" id="activeQuestionCard" style="padding:22px 20px;">
+          <!-- Konten soal dirender dinamis via renderCurrentQuestion() -->
+        </div>
       </div>
-    </div>
+    </main>
 
     <!-- BOTTOM BAR NAVIGASI SOAL (PDF Hal 10) -->
     <footer class="exambppp-bottom-nav">
@@ -526,7 +528,8 @@
       const screens = ['screenLogin', 'screenConfirmData', 'screenInstructions', 'screenExam', 'screenFinished'];
       screens.forEach(s => {
         const el = document.getElementById(s);
-        if (el) el.style.display = (s === screenId) ? 'block' : 'none';
+        // Layar ujian memakai flex: area soal bergulir, bilah navigasi tetap di bawah (juga di SEB)
+        if (el) el.style.display = (s === screenId) ? (s === 'screenExam' ? 'flex' : 'block') : 'none';
       });
     }
 
@@ -1046,15 +1049,23 @@
       }
     }
 
+    // Soal baru dibaca dari atas
+    function scrollQuestionToTop() {
+      const area = document.getElementById('examScroll');
+      if (area) area.scrollTop = 0;
+    }
+
     function jumpToQuestion(idx) {
       currentIndex = idx;
       renderCurrentQuestion();
+      scrollQuestionToTop();
     }
 
     function prevQuestion() {
       if (currentIndex > 0) {
         currentIndex--;
         renderCurrentQuestion();
+        scrollQuestionToTop();
       }
     }
 
@@ -1062,6 +1073,7 @@
       if (currentIndex < questions.length - 1) {
         currentIndex++;
         renderCurrentQuestion();
+        scrollQuestionToTop();
       }
     }
 

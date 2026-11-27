@@ -2091,3 +2091,27 @@ tr:last-child td {
   vertical-align: -0.25em;
   margin-left: 0.04em;
 }
+
+/* Layar ujian: setinggi jendela, hanya area soal yang bergulir. Bilah navigasi soal tidak lagi
+   bergantung pada position: fixed (di Safe Exam Browser bilah fixed ikut tergulir bersama soal). */
+.exam-screen {
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+.exam-screen > .exambppp-top-header,
+.exam-screen > .exambppp-exam-subbar { position: static !important; flex: none; }
+.exam-screen .exam-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.exam-screen .exam-scroll .exambppp-container { padding-bottom: 24px; }
+.exam-screen .exambppp-bottom-nav {
+  position: static;
+  flex: none;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}

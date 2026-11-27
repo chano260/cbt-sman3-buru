@@ -1015,3 +1015,28 @@
   padding: 8px;
 }
 .ui-v2 .seb-qr-empty svg.icon { width: 20px; height: 20px; }
+
+/* ===== Statistik login per sesi (donat) di Pantauan langsung ===== */
+.ui-v2 .table-empty { text-align: center; padding: 22px 12px; }
+.ui-v2 .login-stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.ui-v2 .login-stats-grid .session-empty { grid-column: 1 / -1; }
+.ui-v2 .login-stat { border: 1px solid var(--border-subtle); border-radius: 12px; padding: 12px 14px; background: var(--surface); }
+.ui-v2 .login-stat.is-active { border-color: color-mix(in srgb, var(--green) 40%, transparent); }
+.ui-v2 .login-stat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.ui-v2 .login-stat-body { display: flex; align-items: center; gap: 14px; }
+.ui-v2 .login-donut { width: 112px; height: 112px; flex: none; }
+.ui-v2 .login-donut circle { fill: none; stroke-width: 12; }
+.ui-v2 .donut-track { stroke: var(--raised); }
+.ui-v2 .donut-seg { transition: stroke-dasharray .4s var(--ease); }
+.ui-v2 .donut-working { stroke: var(--green); background: var(--green); }
+.ui-v2 .donut-finished { stroke: var(--primary); background: var(--primary); }
+.ui-v2 .donut-locked { stroke: var(--red); background: var(--red); }
+.ui-v2 .donut-none { background: var(--raised); box-shadow: inset 0 0 0 1px var(--border); }
+.ui-v2 .donut-num { font: 700 20px var(--font); fill: var(--dark); text-anchor: middle; }
+.ui-v2 .donut-of { font: 500 8.5px var(--font); fill: var(--muted); text-anchor: middle; }
+.ui-v2 .donut-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; color: var(--slate); }
+.ui-v2 .donut-legend li { display: flex; align-items: center; gap: 6px; }
+.ui-v2 .donut-legend b { margin-left: auto; padding-left: 8px; color: var(--dark); font-variant-numeric: tabular-nums; }
+.ui-v2 .donut-legend .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.ui-v2 .login-stat-exams { list-style: none; margin: 10px 0 0; padding: 8px 0 0; border-top: 1px solid var(--hairline); display: grid; gap: 3px; font-size: 13px; }
+.ui-v2 .login-stat-exams li { display: flex; justify-content: space-between; gap: 8px; }

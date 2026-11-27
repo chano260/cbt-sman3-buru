@@ -916,10 +916,9 @@ test('Operator can copy questions between exam packages, auto-copies questions w
   assert.equal(monStudent.status, 'WORKING');
   assert.equal(monStudent.exam_subject, 'Matematika Peminatan');
 
-  // Siswa lain yang belum login tetap NOT_STARTED
+  // Siswa yang belum login (mis. ujian lewat SMANTRI CBT) tidak tampil di pantauan
   const unloggedStudent = overviewAll.monitoring.find(m => m.exam_number === '26-03-002');
-  assert.ok(unloggedStudent);
-  assert.equal(unloggedStudent.status, 'NOT_STARTED');
+  assert.equal(unloggedStudent, undefined);
 
   // 6. Operator menghapus examC agar tidak menumpuk
   const delOp = await fetch(`${base}/api/operator/exams/${examCId}`, {

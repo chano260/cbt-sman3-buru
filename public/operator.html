@@ -215,6 +215,18 @@
           <button class="btn btn-sm btn-red" onclick="switchTab('tab-exams', document.querySelectorAll('.nav-btn')[3])">Buka jadwal ujian</button>
         </div>
 
+        <!-- STATISTIK LOGIN PER SESI (DONAT) -->
+        <div class="card" id="loginStatsCard">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Siswa login per sesi</div>
+              <p class="card-sub">Peserta yang sudah login di aplikasi ini dibanding jumlah peserta jadwal. Siswa yang ujian lewat SMANTRI CBT terhitung belum login.</p>
+            </div>
+            <select id="loginStatsDate" class="input input-sm" style="width:auto;" onchange="loadOverview()" aria-label="Tanggal ujian"></select>
+          </div>
+          <div id="loginStatsGrid" class="login-stats-grid"></div>
+        </div>
+
         <!-- PEMANTAUAN SELURUH RUANG -->
         <div class="card">
           <div class="card-header">
@@ -1032,8 +1044,12 @@
       if (!staffToken) return;
       loadBackupStatus();
       const monExamSel = document.getElementById('monExamFilter');
-      const examQuery = (monExamSel && monExamSel.value && monExamSel.value !== 'ALL') ? `?exam_id=${monExamSel.value}` : '';
-      const res = await fetch(`/api/operator/overview${examQuery}`, { headers: authHeaders() });
+      const params = new URLSearchParams();
+      if (monExamSel && monExamSel.value && monExamSel.value !== 'ALL') params.set('exam_id', monExamSel.value);
+      const statsDateSel = document.getElementById('loginStatsDate');
+      if (statsDateSel && statsDateSel.value) params.set('stats_date', statsDateSel.value);
+      const query = params.toString() ? `?${params}` : '';
+      const res = await fetch(`/api/operator/overview${query}`, { headers: authHeaders() });
       if (res.status === 401) {
         document.getElementById('loginOverlay').style.display = 'flex';
         return;
@@ -1159,6 +1175,7 @@
 
       currentMonitoringList = data.monitoring || [];
       renderMonitoringTable();
+      renderLoginStats(data.loginStats);
 
       // Render tabel siswa
       document.getElementById('studentCount').textContent = data.students.length;
@@ -1301,6 +1318,10 @@
         ? currentMonitoringList
         : currentMonitoringList.filter(m => m.class_name === filterCls);
 
+      if (filtered.length === 0) {
+        mBody.innerHTML = '<tr><td colspan="8" class="text-muted table-empty">Belum ada siswa yang login. Siswa yang ujian lewat SMANTRI CBT tidak tampil di sini.</td></tr>';
+        return;
+      }
       mBody.innerHTML = filtered.map(m => {
         let badge = '<span class="badge badge-idle">Belum login</span>';
         if (m.status === 'WORKING') badge = `<span class="badge badge-working"><span class="live-dot"></span>Soal ${m.current_question_number || 1}</span>`;
@@ -1339,6 +1360,63 @@
           </tr>
         `;
       }).join('');
+    }
+
+    // Donat login per sesi: mengerjakan, selesai, terkunci, sisanya belum login
+    function loginDonutSvg(s) {
+      const r = 42, c = 2 * Math.PI * r;
+      const total = Math.max(1, s.total);
+      let offset = 0;
+      const parts = [['working', s.working], ['finished', s.finished], ['locked', s.locked]]
+        .filter(([, n]) => n > 0)
+        .map(([cls, n]) => {
+          const len = Math.min(n, total) / total * c;
+          const seg = `<circle class="donut-seg donut-${cls}" cx="50" cy="50" r="${r}" stroke-dasharray="${len} ${c - len}" stroke-dashoffset="${-offset}"></circle>`;
+          offset += len;
+          return seg;
+        }).join('');
+      const pct = s.total ? Math.round(s.logged_in / s.total * 100) : 0;
+      return `
+        <svg class="login-donut" viewBox="0 0 100 100" role="img" aria-label="${s.logged_in} dari ${s.total} siswa sudah login">
+          <circle class="donut-track" cx="50" cy="50" r="${r}"></circle>
+          <g transform="rotate(-90 50 50)">${parts}</g>
+          <text x="50" y="49" class="donut-num">${s.logged_in}</text>
+          <text x="50" y="64" class="donut-of">dari ${s.total} · ${pct}%</text>
+        </svg>`;
+    }
+
+    function renderLoginStats(stats) {
+      const grid = document.getElementById('loginStatsGrid');
+      const sel = document.getElementById('loginStatsDate');
+      if (!grid || !sel) return;
+      const dates = (stats && stats.dates) || [];
+      sel.innerHTML = dates.map(d => `<option value="${esc(d)}">${esc(formatHariTanggal(d))}</option>`).join('');
+      sel.style.display = dates.length ? '' : 'none';
+      if (stats && stats.date) sel.value = stats.date;
+      const sessions = (stats && stats.sessions) || [];
+      if (sessions.length === 0) {
+        grid.innerHTML = '<div class="text-muted session-empty">Belum ada jadwal ujian. Statistik login muncul setelah jadwal dibuat.</div>';
+        return;
+      }
+      grid.innerHTML = sessions.map(s => `
+        <article class="login-stat${s.active ? ' is-active' : ''}">
+          <div class="login-stat-head">
+            <div class="session-group-title">${esc(s.session_name)}</div>
+            ${s.active ? '<span class="badge badge-working"><span class="live-dot"></span>Aktif</span>' : ''}
+          </div>
+          <div class="login-stat-body">
+            ${loginDonutSvg(s)}
+            <ul class="donut-legend">
+              <li><i class="dot donut-working"></i>Mengerjakan <b>${s.working}</b></li>
+              <li><i class="dot donut-finished"></i>Selesai <b>${s.finished}</b></li>
+              <li><i class="dot donut-locked"></i>Terkunci <b>${s.locked}</b></li>
+              <li><i class="dot donut-none"></i>Belum login <b>${Math.max(0, s.total - s.logged_in)}</b></li>
+            </ul>
+          </div>
+          <ul class="login-stat-exams">
+            ${s.exams.map(e => `<li><span>${esc(e.subject)}<span class="cell-sub"> · ${esc(e.class_target || 'Semua Kelas')}</span></span><b class="mono">${e.logged_in}/${e.total}</b></li>`).join('')}
+          </ul>
+        </article>`).join('');
     }
 
     function openChangeClassModal(studentId, fullName, currentClass) {

@@ -89,6 +89,11 @@ test('pemantauan & nilai mapel pilihan hanya memuat siswa yang mengambil mapel i
   const fis = await schedule('Fisika', 'XII IPA 1', true);
   const bio = await schedule('Biologi', 'XII IPA 1', true);
   await post('/api/operator/exams/activate-session', op, { exam_date: '2026-12-07', session_name: 'Sesi 1' });
+  // Pantauan hanya memuat siswa yang sudah login: keduanya mulai mengerjakan mapel pilihannya
+  const begin = db.prepare(`INSERT INTO exam_sessions (exam_id, student_id, status, current_question_number, last_activity_at, violation_count, started_at)
+    VALUES (?, ?, 'WORKING', 1, datetime('now'), 0, datetime('now'))`);
+  begin.run(fis, a.id);
+  begin.run(bio, b.id);
 
   const ov = await json(fetch(`${base}/api/operator/overview?exam_id=${fis}`, { headers: op }));
   const ids = ov.monitoring.map(m => m.student_id);

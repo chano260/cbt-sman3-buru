@@ -1033,6 +1033,10 @@
       const res = await fetch(`/api/guru/exams/${currentExamId}/scores`, { headers: authHeaders() });
       if (!res.ok) return;
       const data = await res.json();
+      if (!(data.scores || []).length) {
+        document.getElementById('guruScoresBody').innerHTML = '<tr><td colspan="10" class="text-muted table-empty">Belum ada siswa yang login di ujian ini. Siswa yang ujian lewat SMANTRI CBT tidak masuk rekap ini.</td></tr>';
+        return;
+      }
       document.getElementById('guruScoresBody').innerHTML = (data.scores || []).map(s => `
         <tr>
           <td><span class="tag-mono">${esc(s.exam_number)}</span></td>

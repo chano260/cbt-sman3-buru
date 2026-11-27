@@ -455,6 +455,76 @@ function calculateExamScores(db, examId) {
   return { exam, pgCount, esaiCount, scores };
 }
 
+// Sebagian siswa ujian lewat SMANTRI CBT (Google Form) dan tidak pernah login di sini:
+// rekap guru dan Pantauan operator hanya memuat siswa yang punya sesi ujian.
+const loggedInOnly = (rows) => rows.filter(r => r.session_id);
+
+// Statistik login per sesi (tanggal + nama sesi) untuk donat di Pantauan langsung.
+// Tanggal bawaan: tanggal ujian yang sedang aktif, lalu hari ini, lalu tanggal jadwal terdekat.
+function computeLoginStats(db, requestedDate) {
+  const exams = db.prepare('SELECT * FROM exams WHERE is_scheduled = 1').all();
+  const dates = [...new Set(exams.map(e => e.exam_date).filter(Boolean))].sort();
+  const today = new Date().toISOString().slice(0, 10);
+  const activeDate = exams.find(e => e.is_active && e.exam_date)?.exam_date;
+  const date = (requestedDate && dates.includes(requestedDate) && requestedDate)
+    || activeDate
+    || (dates.includes(today) && today)
+    || dates.find(d => d >= today)
+    || dates[dates.length - 1]
+    || null;
+
+  const dayExams = exams.filter(e => e.exam_date === date);
+  if (dayExams.length === 0) return { date, dates, sessions: [] };
+
+  const students = db.prepare('SELECT * FROM students').all();
+  const ids = dayExams.map(e => e.id);
+  const sessRows = db.prepare(`SELECT exam_id, student_id, status FROM exam_sessions WHERE exam_id IN (${ids.map(() => '?').join(',')})`).all(...ids);
+  const sessByExam = new Map();
+  for (const s of sessRows) {
+    if (!sessByExam.has(s.exam_id)) sessByExam.set(s.exam_id, new Map());
+    sessByExam.get(s.exam_id).set(s.student_id, s.status);
+  }
+
+  const groups = new Map();
+  for (const e of dayExams) {
+    const name = e.session_name || 'Tanpa sesi';
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(e);
+  }
+
+  const sessions = [...groups.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0], 'id', { numeric: true }))
+    .map(([session_name, list]) => {
+      const participants = new Set();
+      const statusByStudent = new Map();
+      const examStats = list.map(e => {
+        const sess = sessByExam.get(e.id) || new Map();
+        const target = students.filter(st => studentTakesExam(st, e) || sess.has(st.id));
+        target.forEach(st => participants.add(st.id));
+        for (const [sid, status] of sess) {
+          // Satu siswa dihitung sekali per sesi; status yang perlu perhatian (terkunci) didahulukan
+          const prev = statusByStudent.get(sid);
+          if (!prev || status === 'LOCKED' || (status === 'WORKING' && prev === 'FINISHED')) statusByStudent.set(sid, status);
+        }
+        return { id: e.id, subject: e.subject, class_target: e.class_target, is_active: e.is_active ? 1 : 0, total: target.length, logged_in: sess.size };
+      }).sort((a, b) => String(a.subject).localeCompare(String(b.subject), 'id'));
+      const statuses = [...statusByStudent.values()];
+      const count = (st) => statuses.filter(s => s === st).length;
+      return {
+        session_name,
+        exam_date: date,
+        total: participants.size,
+        logged_in: statusByStudent.size,
+        working: count('WORKING'),
+        finished: count('FINISHED'),
+        locked: count('LOCKED'),
+        active: list.some(e => e.is_active) ? 1 : 0,
+        exams: examStats
+      };
+    });
+  return { date, dates, sessions };
+}
+
 function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enforceDefaultPasswordChange = true } = {}) {
   const app = express();
   app.use(express.json({ limit: '15mb' }));
@@ -955,7 +1025,8 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       staff,
       classes,
       teachers,
-      monitoring,
+      monitoring: loggedInOnly(monitoring),
+      loginStats: computeLoginStats(db, String(req.query.stats_date || '')),
       pgCount,
       esaiCount
     });
@@ -2075,7 +2146,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       return res.status(403).json({ error: 'Akses ditolak: Anda tidak memiliki akses ke nilai paket ujian ini.' });
     }
     const data = calculateExamScores(db, examId);
-    res.json(data);
+    res.json({ ...data, scores: loggedInOnly(data.scores) });
   });
 
   app.get('/api/guru/exams/:id/export-excel', requireStaffAuth(['guru', 'operator']), (req, res) => {
@@ -2088,7 +2159,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     const data = calculateExamScores(db, examId);
     if (!data.exam) return res.status(404).send('Ujian tidak ditemukan');
 
-    const rows = data.scores.map((s, idx) => ({
+    const rows = loggedInOnly(data.scores).map((s, idx) => ({
       'No': idx + 1,
       'Nomor Peserta': s.exam_number,
       'NISN': s.nisn,

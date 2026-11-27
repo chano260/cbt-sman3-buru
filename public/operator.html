@@ -495,7 +495,10 @@
               <div class="card-title">Bank soal masuk</div>
               <p class="card-sub">Paket soal yang dibuat guru. Lihat, unggah, atau salin soal di sini; penjadwalan di menu Jadwal & sesi ujian</p>
             </div>
-            <input id="bankSearch" class="input input-sm search-box" type="search" placeholder="Cari mapel, guru, kelas" oninput="filterTable('bankSearch', 'banksTableBody')">
+            <div class="row">
+              <button class="btn btn-sm btn-outline" type="button" onclick="openRenamePackagesModal()" title="Ganti kata di nama banyak paket sekaligus; soal tidak berubah"><svg class="icon"><use href="#i-pencil"></use></svg>Ubah nama paket</button>
+              <input id="bankSearch" class="input input-sm search-box" type="search" placeholder="Cari mapel, guru, kelas" oninput="filterTable('bankSearch', 'banksTableBody')">
+            </div>
           </div>
           <div class="table-wrap">
             <table>
@@ -806,6 +809,32 @@
       <div class="modal-actions">
         <button class="btn btn-outline" type="button" onclick="closeCopyQuestionsModal()">Batal</button>
         <button class="btn btn-primary" type="button" onclick="submitCopyQuestions()"><svg class="icon"><use href="#i-copy"></use></svg>Salin soal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL GANTI NAMA PAKET SEKALIGUS -->
+  <div id="modalRenamePackages" class="modal-overlay" style="z-index:150;">
+    <div class="card modal-card" style="max-width:620px;">
+      <div class="card-header">
+        <div class="card-title">Ubah nama paket sekaligus</div>
+        <button class="btn btn-sm btn-ghost" onclick="closeRenamePackagesModal()" aria-label="Tutup"><svg class="icon"><use href="#i-x"></use></svg></button>
+      </div>
+      <p class="card-sub" style="margin:-8px 0 16px;">Kata yang dicari diganti di semua paket yang dicentang. Hanya nama paket yang berubah; soal, jadwal, token, dan nilai tetap.</p>
+      <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group">
+          <label for="renameFind">Cari teks</label>
+          <input id="renameFind" class="input" placeholder="mis. ASAS Ganjil" oninput="renderRenamePreview()">
+        </div>
+        <div class="form-group">
+          <label for="renameReplace">Ganti dengan</label>
+          <input id="renameReplace" class="input" placeholder="mis. PAS Genap" oninput="renderRenamePreview()">
+        </div>
+      </div>
+      <div id="renamePreview" class="rename-preview"></div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" type="button" onclick="closeRenamePackagesModal()">Batal</button>
+        <button class="btn btn-primary" type="button" id="renameSubmitBtn" onclick="submitRenamePackages()" disabled>Simpan nama baru</button>
       </div>
     </div>
   </div>
@@ -2014,6 +2043,86 @@
         cbtAlert(`Paket ujian diaktifkan. ${data.autoCopiedQuestions} butir soal disalin otomatis dari bank soal yang tersedia.`, 'success');
       }
       loadOverview();
+    }
+
+    // Sama persis dengan replaceTitleText di src/app.js (pratinjau = hasil simpan)
+    function replaceTitleText(title, find, replace) {
+      const needle = String(find || '').trim();
+      const source = String(title || '');
+      if (!needle) return source;
+      const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return source.replace(new RegExp(escaped, 'gi'), () => String(replace || '')).replace(/\s+/g, ' ').trim();
+    }
+
+    function openRenamePackagesModal() {
+      if (!(currentOverview?.exams || []).length) return cbtAlert('Belum ada paket ujian.');
+      document.getElementById('renameFind').value = '';
+      document.getElementById('renameReplace').value = '';
+      renderRenamePreview();
+      document.getElementById('modalRenamePackages').style.display = 'flex';
+      document.getElementById('renameFind').focus();
+    }
+
+    function closeRenamePackagesModal() {
+      document.getElementById('modalRenamePackages').style.display = 'none';
+    }
+
+    // Daftar paket yang memuat teks dicari: nama lama → nama baru, semua tercentang
+    function renderRenamePreview() {
+      const find = document.getElementById('renameFind').value;
+      const replace = document.getElementById('renameReplace').value;
+      const box = document.getElementById('renamePreview');
+      const btn = document.getElementById('renameSubmitBtn');
+      if (!find.trim()) {
+        box.innerHTML = '<div class="text-muted rename-empty">Ketik teks yang ingin diganti untuk melihat paket yang terkena.</div>';
+        btn.disabled = true;
+        return;
+      }
+      const hits = (currentOverview?.exams || [])
+        .map(e => ({ e, next: replaceTitleText(e.title, find, replace) }))
+        .filter(h => h.next !== h.e.title);
+      if (!hits.length) {
+        box.innerHTML = '<div class="text-muted rename-empty">Tidak ada nama paket yang memuat teks ini.</div>';
+        btn.disabled = true;
+        return;
+      }
+      box.innerHTML = hits.map(({ e, next }) => `
+        <label class="rename-row">
+          <input type="checkbox" class="rename-check" value="${e.id}" checked onchange="updateRenameButton()">
+          <span class="rename-subject">${esc(e.subject)}<span class="cell-sub">${esc(e.class_target || 'Semua kelas')}</span></span>
+          <span class="rename-names"><s class="text-muted">${esc(e.title)}</s><b class="${next ? '' : 'text-red'}">${next ? esc(next) : '(kosong)'}</b></span>
+        </label>`).join('');
+      updateRenameButton();
+    }
+
+    function updateRenameButton() {
+      const n = document.querySelectorAll('#renamePreview .rename-check:checked').length;
+      const btn = document.getElementById('renameSubmitBtn');
+      btn.disabled = n === 0;
+      btn.textContent = n ? `Simpan nama baru (${n} paket)` : 'Simpan nama baru';
+    }
+
+    async function submitRenamePackages() {
+      const ids = [...document.querySelectorAll('#renamePreview .rename-check:checked')].map(c => Number(c.value));
+      if (!ids.length) return;
+      try {
+        const res = await fetch('/api/operator/exams/rename-titles', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            exam_ids: ids,
+            find: document.getElementById('renameFind').value,
+            replace: document.getElementById('renameReplace').value
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) return cbtAlert(data.error || 'Gagal mengganti nama paket', 'warning');
+        closeRenamePackagesModal();
+        cbtAlert(`${data.renamed} nama paket diganti. Soal tidak berubah.`, 'success');
+        loadOverview();
+      } catch (err) {
+        cbtAlert('Terjadi kesalahan: ' + err.message);
+      }
     }
 
     function openCopyQuestionsModal(targetExamId, targetSubject) {

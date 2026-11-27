@@ -459,6 +459,16 @@ function calculateExamScores(db, examId) {
 // rekap guru dan Pantauan operator hanya memuat siswa yang punya sesi ujian.
 const loggedInOnly = (rows) => rows.filter(r => r.session_id);
 
+// Cari & ganti teks di nama paket: semua kemunculan, tanpa beda huruf besar/kecil, teks apa adanya
+// (bukan regex), lalu spasi dirapikan. Fungsi yang sama dipakai pratinjau di operator.html.
+function replaceTitleText(title, find, replace) {
+  const needle = String(find || '').trim();
+  const source = String(title || '');
+  if (!needle) return source;
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return source.replace(new RegExp(escaped, 'gi'), () => String(replace || '')).replace(/\s+/g, ' ').trim();
+}
+
 // Statistik login per sesi (tanggal + nama sesi) untuk donat di Pantauan langsung.
 // Tanggal bawaan: tanggal ujian yang sedang aktif, lalu hari ini, lalu tanggal jadwal terdekat.
 function computeLoginStats(db, requestedDate) {
@@ -1332,6 +1342,26 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       autoCopiedQuestions: results.reduce((n, r) => n + r.autoCopiedQuestions, 0),
       emptyExams: exams.filter((e, i) => results[i].total_questions === 0).map(e => e.subject)
     });
+  });
+
+  // Ganti nama banyak paket sekaligus. Hanya kolom title yang diubah: soal, token, jadwal, nilai tetap.
+  app.post('/api/operator/exams/rename-titles', requireStaffAuth(['operator']), (req, res) => {
+    const { exam_ids, find, replace } = req.body || {};
+    if (!String(find || '').trim()) return res.status(400).json({ error: 'Isi teks yang ingin diganti.' });
+    const ids = [...new Set((Array.isArray(exam_ids) ? exam_ids : []).map(Number).filter(Number.isInteger))];
+    if (!ids.length) return res.status(400).json({ error: 'Pilih minimal satu paket.' });
+    const changes = [];
+    for (const id of ids) {
+      const exam = db.prepare('SELECT id, title FROM exams WHERE id = ?').get(id);
+      if (!exam) continue;
+      const title = replaceTitleText(exam.title, find, replace);
+      if (title === exam.title) continue;
+      if (!title) return res.status(400).json({ error: `Nama paket "${exam.title}" akan menjadi kosong. Isi teks pengganti.` });
+      changes.push({ id, title });
+    }
+    const update = db.prepare('UPDATE exams SET title = ? WHERE id = ?');
+    db.transaction(() => changes.forEach(c => update.run(c.title, c.id)))();
+    res.json({ renamed: changes.length, exams: changes });
   });
 
   // Batalkan jadwal: paket kembali menjadi bank soal guru (soal & nilai yang sudah ada tidak dihapus)
@@ -2888,4 +2918,4 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
   return app;
 }
 
-module.exports = { createApp, getLocalLanIp, calculateExamScores, pgScore };
+module.exports = { createApp, getLocalLanIp, calculateExamScores, pgScore, replaceTitleText };

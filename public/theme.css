@@ -1040,3 +1040,14 @@
 .ui-v2 .donut-legend .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .ui-v2 .login-stat-exams { list-style: none; margin: 10px 0 0; padding: 8px 0 0; border-top: 1px solid var(--hairline); display: grid; gap: 3px; font-size: 13px; }
 .ui-v2 .login-stat-exams li { display: flex; justify-content: space-between; gap: 8px; }
+
+/* Ganti nama paket sekaligus: pratinjau nama lama → baru */
+.rename-preview { max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; }
+.rename-preview .rename-empty { padding: 18px; text-align: center; font-size: 13px; }
+.rename-row { display: grid; grid-template-columns: auto minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 10px; align-items: start; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+.rename-row:last-child { border-bottom: 0; }
+.rename-row input { margin-top: 3px; }
+.rename-subject { font-weight: 600; min-width: 0; }
+.rename-subject .cell-sub { display: block; font-weight: 400; }
+.rename-names { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 560px) { .rename-row { grid-template-columns: auto 1fr; } .rename-names { grid-column: 2; } }

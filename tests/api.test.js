@@ -497,15 +497,16 @@ test('Multi-teacher class targeting, active token retrieval modal, and operator 
   // Guru B: XII IPA 3, XII IPA 4 (Token: TOKNB2)
   db.prepare('UPDATE exams SET is_active = 0').run();
   const nowIso = new Date().toISOString();
+  // Tanggal ke depan: ujian aktif bertanggal lewat dimatikan otomatis
   db.prepare(`
     INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, is_active)
-    VALUES ('Matematika Paket A (Guru 1)', 'Matematika', 'XII IPA 1, XII IPA 2', '2026-11-20', '08:00 WIT', 'Sesi 1', 90, 'TOKNA1', ?, 1)
+    VALUES ('Matematika Paket A (Guru 1)', 'Matematika', 'XII IPA 1, XII IPA 2', '2030-01-01', '08:00 WIT', 'Sesi 1', 90, 'TOKNA1', ?, 1)
   `).run(nowIso);
   const examAId = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
   db.prepare(`
     INSERT INTO exams (title, subject, class_target, exam_date, start_time, session_name, duration_minutes, token, token_updated_at, is_active)
-    VALUES ('Matematika Paket B (Guru 2)', 'Matematika', 'XII IPA 3, XII IPA 4', '2026-11-20', '08:00 WIT', 'Sesi 1', 90, 'TOKNB2', ?, 1)
+    VALUES ('Matematika Paket B (Guru 2)', 'Matematika', 'XII IPA 3, XII IPA 4', '2030-01-01', '08:00 WIT', 'Sesi 1', 90, 'TOKNB2', ?, 1)
   `).run(nowIso);
   const examBId = db.prepare('SELECT last_insert_rowid() as id').get().id;
 

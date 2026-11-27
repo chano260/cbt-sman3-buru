@@ -9,6 +9,7 @@ const XLSX = require('xlsx');
 const QRCode = require('qrcode');
 const { parseDocxBuffer, parseQuestionsFromText, generateWordTemplateBuffer } = require('./wordParser');
 const { hashPassword, verifyPassword, safeEqual, randomToken, isDefaultStaffPassword } = require('./security');
+const { schoolToday, deactivatePastExams } = require('./schoolDate');
 const { createBackup, backupStatus } = require('./backup');
 const { cleanElectives, parseStudentSheet, importStudents, defaultPrefix, cleanPrefix } = require('./studentImport');
 
@@ -227,6 +228,8 @@ function pickExamForClass(activeExams, className) {
 // Pencocokan ujian aktif sesuai kelas (dan mapel pilihan) siswa: ujian paralel, anti-tertukar.
 // Menerima data siswa (disarankan) atau hanya nama kelas.
 function getActiveExamForStudent(db, studentOrClass) {
+  // Ujian kemarin yang lupa dimatikan tidak boleh lagi dibuka siswa
+  deactivatePastExams(db);
   const actives = db.prepare('SELECT * FROM exams WHERE is_active = 1 ORDER BY id DESC').all();
   if (studentOrClass && typeof studentOrClass === 'object') {
     const pick = pickExamForStudent(actives, studentOrClass);
@@ -488,7 +491,7 @@ function replaceTitleText(title, find, replace) {
 function computeLoginStats(db, requestedDate) {
   const exams = db.prepare('SELECT * FROM exams WHERE is_scheduled = 1').all();
   const dates = [...new Set(exams.map(e => e.exam_date).filter(Boolean))].sort();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = schoolToday();
   const activeDate = exams.find(e => e.is_active && e.exam_date)?.exam_date;
   const date = (requestedDate && dates.includes(requestedDate) && requestedDate)
     || activeDate
@@ -865,6 +868,8 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
 
   // ==================== PANEL OPERATOR ====================
   app.get('/api/operator/overview', requireStaffAuth(['operator']), async (req, res) => {
+    const today = schoolToday();
+    deactivatePastExams(db, today);
     const exams = db.prepare(`
       SELECT e.*,
         u.full_name AS teacher_name,
@@ -1051,6 +1056,7 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       teachers,
       monitoring: loggedInOnly(monitoring),
       loginStats: computeLoginStats(db, String(req.query.stats_date || '')),
+      today,
       pgCount,
       esaiCount
     });

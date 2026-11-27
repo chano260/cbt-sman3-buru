@@ -428,6 +428,8 @@
           <div class="form-grid">
             <div class="form-group span-2">
               <label for="exSubjectSelect">Mata pelajaran / bank soal guru</label>
+              <input id="exSubjectSearch" class="input subject-search" type="search" autocomplete="off" placeholder="Cari mapel, nama paket, atau guru" oninput="filterSubjectOptions()" onkeydown="if (event.key === 'Enter') { event.preventDefault(); pickFirstSubjectMatch(); }" aria-label="Cari mata pelajaran">
+              <div id="exSubjectSearchHint" class="hint subject-search-hint"></div>
               <select id="exSubjectSelect" class="input" onchange="handleSubjectDropdownChange(this.value)">
                 <option value="">Pilih mata pelajaran atau bank soal dari panel guru</option>
               </select>
@@ -483,7 +485,7 @@
             </div>
             <input id="examSearch" class="input input-sm search-box" type="search" placeholder="Cari mapel, kelas, sesi, token" oninput="filterTable('examSearch', 'examsTableBody')">
           </div>
-          <div id="examsTableBody" class="session-grid"></div>
+          <div id="examsTableBody" class="schedule-days"></div>
         </div>
       </section>
 
@@ -987,7 +989,7 @@
       // Semua kata harus ada (urutan bebas), misal "xii ipa ruang 2"
       const words = normSearch(input.value).split(' ').filter(Boolean);
       body.classList.toggle('is-searching', words.length > 0);
-      if (body.classList.contains('session-grid')) return filterScheduleCards(body, words, input.value);
+      if (body.classList.contains('schedule-days')) return filterScheduleCards(body, words, input.value);
       const old = body.querySelector('tr.search-empty');
       if (old) old.remove();
       let shown = 0;
@@ -1021,6 +1023,15 @@
         card.style.display = inCard ? '' : 'none';
         shown += inCard;
       });
+      body.querySelectorAll('.day-block').forEach(day => {
+        day.style.display = [...day.querySelectorAll('.session-card')].some(c => c.style.display !== 'none') ? '' : 'none';
+      });
+      const pastBox = body.querySelector('.past-days');
+      if (pastBox && words.length) {
+        const hasPast = [...pastBox.querySelectorAll('.session-card')].some(c => c.style.display !== 'none');
+        pastBox.style.display = hasPast ? '' : 'none';
+        if (hasPast) pastBox.open = true;
+      } else if (pastBox) pastBox.style.display = '';
       if (words.length && body.querySelector('.session-card') && shown === 0) {
         body.insertAdjacentHTML('beforeend', `<div class="text-muted session-empty search-empty">Tidak ada yang cocok dengan "${esc(String(rawQuery).trim())}"</div>`);
       }
@@ -1236,49 +1247,76 @@
       renderClassOptions(data.classes || []);
 
       // Render tabel jadwal ujian (khusus penjadwalan; urusan soal di menu Bank soal masuk).
-      // Tampil sebagai kartu per tanggal + sesi. Kartu sesi aktif terbuka; kartu lain hanya menampilkan
-      // nama mapel sampai kepalanya diklik.
+      // Satu blok per tanggal berisi kartu-kartu sesinya. Kartu sesi aktif terbuka; kartu lain hanya
+      // menampilkan nama mapel sampai kepalanya diklik. Tanggal yang sudah lewat dikumpulkan di bagian
+      // "Tanggal sebelumnya" yang tertutup; ujiannya sudah dimatikan otomatis oleh server.
       const scheduleGroups = groupSchedulesBySession(data.exams.filter(e => e.is_scheduled));
-      const defaultOpenKey = pickDefaultOpenGroup(scheduleGroups);
-      document.getElementById('examsTableBody').innerHTML = scheduleGroups.map((g, gi) => {
-        const open = isSessionGroupOpen(g.key, g.key === defaultOpenKey || g.active > 0);
-        const items = g.items.map(e => {
-          const totalQ = Number(e.total_questions || 0);
-          const safeSubject = e.subject || '';
-          const searchText = [e.subject, e.title, e.class_target, e.teacher_name, e.exam_date, e.session_name, e.token].join(' ');
-          return `
+      const scheduleDays = groupSchedulesByDate(scheduleGroups, data.today || '');
+      const defaultOpenKey = pickDefaultOpenGroup(scheduleDays.upcoming.flatMap(d => d.sessions));
+      let groupIndex = 0;
+      const schedItemHtml = (e, isPast) => {
+        const totalQ = Number(e.total_questions || 0);
+        const safeSubject = e.subject || '';
+        const searchText = [e.subject, e.title, e.class_target, e.teacher_name, e.exam_date, e.session_name, e.token].join(' ');
+        return `
             <li class="sched-item" data-search="${esc(searchText)}">
               <div class="sched-item-top">
                 <div class="sched-item-name">${esc(e.subject)}</div>
-                ${e.is_active ? '<span class="badge badge-working"><span class="live-dot"></span>Aktif</span>' : '<span class="badge badge-idle">Terjadwal</span>'}
+                ${e.is_active ? '<span class="badge badge-working"><span class="live-dot"></span>Aktif</span>' : isPast ? '<span class="badge badge-idle">Selesai</span>' : '<span class="badge badge-idle">Terjadwal</span>'}
               </div>
               <div class="cell-sub">${esc(e.class_target || 'Semua Kelas')}${e.is_elective ? ' · Mapel pilihan' : ''}</div>
               <div class="cell-sub">${esc(e.teacher_name || 'Guru mapel')} · ${totalQ > 0 ? `${totalQ} soal` : '<span style="color:var(--red);">0 soal</span>'} · ${e.duration_minutes} menit</div>
               <div class="sched-item-foot">
-                ${e.is_active ? `<span class="tag-mono">${esc(e.token)}</span>` : '<span class="cell-sub">Token belum aktif</span>'}
+                ${e.is_active ? `<span class="tag-mono">${esc(e.token)}</span>` : `<span class="cell-sub">${isPast ? 'Dinonaktifkan otomatis' : 'Token belum aktif'}</span>`}
                 <div class="cell-actions">
-                  ${!e.is_active ? `<button class="btn btn-xs ${totalQ > 0 ? 'btn-primary' : 'btn-outline'}" onclick="activateExam(${e.id}, ${totalQ})">${cbtIcon('play')}${totalQ > 0 ? 'Aktifkan' : 'Aktifkan (0 soal)'}</button>` : ''}
+                  ${!e.is_active && !isPast ? `<button class="btn btn-xs ${totalQ > 0 ? 'btn-primary' : 'btn-outline'}" onclick="activateExam(${e.id}, ${totalQ})">${cbtIcon('play')}${totalQ > 0 ? 'Aktifkan' : 'Aktifkan (0 soal)'}</button>` : ''}
                   <button class="btn btn-xs btn-danger-outline" onclick="unscheduleExam(${e.id}, '${escJs(safeSubject + ' — ' + (e.title || ''))}')" title="Paket kembali ke Bank soal masuk; soal tidak dihapus">${cbtIcon('x')}Batalkan</button>
                 </div>
               </div>
             </li>`;
-        }).join('');
+      };
+      const sessionCardHtml = (g, isPast) => {
+        const gi = groupIndex++;
+        const open = isSessionGroupOpen(g.key, !isPast && (g.key === defaultOpenKey || g.active > 0));
+        const headAction = isPast
+          ? ''
+          : g.active === g.items.length
+            ? '<span class="badge badge-working"><span class="live-dot"></span>Semua aktif</span>'
+            : `<button class="btn btn-xs btn-primary" onclick="event.stopPropagation(); activateSession('${escJs(g.date)}', '${escJs(g.session)}', ${g.items.length})">${cbtIcon('play')}Aktifkan semua</button>`;
         return `
         <article class="session-card${open ? ' is-open' : ''}${g.active ? ' has-active' : ''}" data-group="${gi}">
           <div class="session-card-head" role="button" tabindex="0" onclick="toggleSessionGroup('${escJs(g.key)}', ${gi})" aria-expanded="${open}">
             ${cbtIcon('chevron', 'session-chevron')}
             <div class="session-card-title">
-              <div class="session-group-title">${esc(g.session)}</div>
-              <div class="cell-sub">${esc(formatHariTanggal(g.date))} · ${g.items.length} jadwal${g.active ? ` · ${g.active} aktif` : ''}</div>
+              <div class="session-group-title">${esc(g.session || 'Tanpa sesi')}</div>
+              <div class="cell-sub">${g.items.length} jadwal${g.active ? ` · ${g.active} aktif` : ''}</div>
             </div>
-            ${g.active === g.items.length
-              ? '<span class="badge badge-working"><span class="live-dot"></span>Semua aktif</span>'
-              : `<button class="btn btn-xs btn-primary" onclick="event.stopPropagation(); activateSession('${escJs(g.date)}', '${escJs(g.session)}', ${g.items.length})">${cbtIcon('play')}Aktifkan semua</button>`}
+            ${headAction}
           </div>
           <div class="session-card-summary">${g.items.map(e => `<span class="subject-chip">${esc(e.subject)}</span>`).join('')}</div>
-          <ul class="session-card-list">${items}</ul>
+          <ul class="session-card-list">${g.items.map(e => schedItemHtml(e, isPast)).join('')}</ul>
         </article>`;
-      }).join('') || '<div class="text-muted session-empty">Belum ada jadwal ujian. Pilih bank soal di formulir di atas, atau tekan Jadwalkan di menu Bank soal masuk.</div>';
+      };
+      const dayBlockHtml = (d, isPast) => `
+        <section class="day-block${d.isToday ? ' is-today' : ''}${isPast ? ' is-past' : ''}">
+          <header class="day-block-head">
+            <div>
+              <div class="day-block-title">${esc(d.date ? formatHariTanggal(d.date) : 'Tanpa tanggal')}</div>
+              <div class="cell-sub">${d.sessions.length} sesi · ${d.total} jadwal${d.active ? ` · ${d.active} aktif` : ''}</div>
+            </div>
+            ${d.isToday ? '<span class="badge badge-working">Hari ini</span>' : isPast ? '<span class="badge badge-idle">Selesai</span>' : ''}
+          </header>
+          <div class="session-grid">${d.sessions.map(g => sessionCardHtml(g, isPast)).join('')}</div>
+        </section>`;
+      const pastHtml = scheduleDays.past.length ? `
+        <details class="past-days">
+          <summary>${cbtIcon('chevron', 'session-chevron')}<span class="past-days-title">Tanggal sebelumnya</span><span class="badge badge-neutral">${scheduleDays.past.length} tanggal</span><span class="cell-sub">Disembunyikan dan dinonaktifkan otomatis setelah tanggalnya lewat</span></summary>
+          ${scheduleDays.past.map(d => dayBlockHtml(d, true)).join('')}
+        </details>` : '';
+      const upcomingHtml = scheduleDays.upcoming.map(d => dayBlockHtml(d, false)).join('')
+        || (scheduleDays.past.length ? '<div class="text-muted session-empty">Belum ada jadwal untuk hari ini atau tanggal berikutnya.</div>' : '');
+      document.getElementById('examsTableBody').innerHTML = (upcomingHtml + pastHtml)
+        || '<div class="text-muted session-empty">Belum ada jadwal ujian. Pilih bank soal di formulir di atas, atau tekan Jadwalkan di menu Bank soal masuk.</div>';
 
       // Render tabel bank soal masuk (urusan butir soal)
       document.getElementById('banksTableBody').innerHTML = data.exams.map(e => {
@@ -1979,6 +2017,25 @@
         .map(g => ({ ...g, key: `${g.date}|${g.session}` }));
     }
 
+    // Kelompok sesi disatukan per tanggal. Tanggal sebelum hari ini dipisah ke "past" (terbaru dulu);
+    // jadwal tanpa tanggal tetap di daftar utama.
+    function groupSchedulesByDate(sessionGroups, today) {
+      const days = new Map();
+      for (const g of sessionGroups) {
+        if (!days.has(g.date)) days.set(g.date, { date: g.date, sessions: [], total: 0, active: 0 });
+        const d = days.get(g.date);
+        d.sessions.push(g);
+        d.total += g.items.length;
+        d.active += g.active;
+      }
+      const all = [...days.values()].map(d => ({ ...d, isToday: Boolean(today) && d.date === today }));
+      const isPast = (d) => Boolean(today && d.date && d.date < today);
+      return {
+        upcoming: all.filter(d => !isPast(d)),
+        past: all.filter(isPast).reverse()
+      };
+    }
+
     // Buka-tutup kelompok sesi. Pilihan operator diingat (juga setelah halaman dimuat ulang);
     // tanpa pilihan, yang terbuka hanya sesi yang sedang aktif.
     const SESSION_GROUP_STORE = 'cbt_operator_session_groups';
@@ -2235,6 +2292,9 @@
     function scheduleBank(examId) {
       const btn = [...document.querySelectorAll('.nav-btn')].find(b => (b.getAttribute('onclick') || '').includes("'tab-exams'"));
       switchTab('tab-exams', btn);
+      // Kosongkan pencarian supaya bank soal ini pasti ada di daftar
+      document.getElementById('exSubjectSearch').value = '';
+      filterSubjectOptions();
       const sel = document.getElementById('exSubjectSelect');
       sel.value = 'exam:' + examId;
       handleSubjectDropdownChange(sel.value);
@@ -2248,42 +2308,84 @@
     let currentClassesList = [];
     let uploadTargetExamId = null;
 
+    // Daftar pilihan mapel / bank soal untuk formulir Buat jadwal. Kata cari dicocokkan dengan mapel,
+    // nama paket, dan nama guru (semua kata harus ada). Pilihan kosong & "ketik baru" selalu ada.
+    function buildSubjectOptions(exams, teachers, query) {
+      const words = normSearch(query).split(' ').filter(Boolean);
+      const hit = (text) => words.every(w => normSearch(text).includes(w));
+      const out = [{ value: '', label: 'Pilih mata pelajaran atau bank soal dari panel guru', fixed: true }];
+      (exams || []).forEach(e => {
+        const totalQ = Number(e.total_questions || 0);
+        const teacher = e.teacher_name ? `Guru: ${e.teacher_name}` : 'Guru Mapel';
+        const status = totalQ > 0 ? `${totalQ} soal siap (${e.pg_count} PG, ${e.esai_count} esai)` : '0 soal (kosong)';
+        if (!hit([e.subject, e.title, e.teacher_name].join(' '))) return;
+        out.push({ value: `exam:${e.id}`, label: `${e.subject} — ${e.title} [${teacher}] • ${status}`, group: 'Bank soal guru' });
+      });
+      const subjects = [...new Set((teachers || []).map(t => t.subject).filter(Boolean))];
+      subjects.forEach(s => {
+        const names = (teachers || []).filter(t => t.subject === s).map(t => t.full_name).join(', ');
+        if (!hit(`${s} ${names}`)) return;
+        out.push({ value: `subj:${s}`, label: `${s} (${names})`, group: 'Mata pelajaran guru' });
+      });
+      out.push({ value: 'CUSTOM', label: 'Ketik mata pelajaran baru', fixed: true });
+      return out;
+    }
+
+    let subjectOptionSource = { exams: [], teachers: [] };
+
     function renderSubjectOptions(exams, teachers) {
+      subjectOptionSource = { exams: exams || [], teachers: teachers || [] };
+      filterSubjectOptions();
+    }
+
+    // Isi ulang pilihan sesuai kata cari. Saat mencari, daftar tampil terbuka (tanpa harus membuka dropdown).
+    function filterSubjectOptions() {
       const sel = document.getElementById('exSubjectSelect');
       if (!sel) return;
+      const search = document.getElementById('exSubjectSearch');
+      const query = search ? search.value : '';
       const prevVal = sel.value;
-
-      let html = '<option value="">Pilih mata pelajaran atau bank soal dari panel guru</option>';
-
-      if (exams && exams.length) {
-        html += '<optgroup label="Bank soal guru">';
-        exams.forEach(e => {
-          const totalQ = Number(e.total_questions || 0);
-          const teacher = e.teacher_name ? `Guru: ${esc(e.teacher_name)}` : 'Guru Mapel';
-          const status = totalQ > 0 ? `${totalQ} soal siap (${e.pg_count} PG, ${e.esai_count} esai)` : '0 soal (kosong)';
-          html += `<option value="exam:${e.id}">${esc(e.subject)} — ${esc(e.title)} [${teacher}] • ${status}</option>`;
-        });
-        html += '</optgroup>';
-      }
-
-      if (teachers && teachers.length) {
-        const uniqueSubjs = [...new Set(teachers.map(t => t.subject).filter(Boolean))];
-        if (uniqueSubjs.length) {
-          html += '<optgroup label="Mata pelajaran guru">';
-          uniqueSubjs.forEach(s => {
-            const tNames = teachers.filter(t => t.subject === s).map(t => t.full_name).join(', ');
-            html += `<option value="subj:${esc(s)}">${esc(s)} (${esc(tNames)})</option>`;
-          });
-          html += '</optgroup>';
+      const opts = buildSubjectOptions(subjectOptionSource.exams, subjectOptionSource.teachers, query);
+      let html = '';
+      let group = null;
+      for (const o of opts) {
+        if ((o.group || null) !== group) {
+          if (group) html += '</optgroup>';
+          group = o.group || null;
+          if (group) html += `<optgroup label="${esc(group)}">`;
         }
+        html += `<option value="${esc(o.value)}">${esc(o.label)}</option>`;
       }
-
-      html += '<option value="CUSTOM">Ketik mata pelajaran baru</option>';
+      if (group) html += '</optgroup>';
       sel.innerHTML = html;
-      if (prevVal) sel.value = prevVal;
+      if (prevVal && opts.some(o => o.value === prevVal)) sel.value = prevVal;
+      const matches = opts.filter(o => !o.fixed).length;
+      const searching = normSearch(query) !== '';
+      sel.size = searching ? Math.min(Math.max(matches + 2, 3), 8) : 1;
+      sel.classList.toggle('is-list', searching);
+      const hint = document.getElementById('exSubjectSearchHint');
+      if (hint) hint.textContent = searching ? (matches ? `${matches} cocok · tekan Enter untuk memilih yang pertama` : 'Tidak ada yang cocok. Pilih "Ketik mata pelajaran baru" bila mapelnya belum ada.') : '';
+    }
+
+    // Enter di kotak cari: pilih hasil pertama lalu tutup daftar
+    function pickFirstSubjectMatch() {
+      const sel = document.getElementById('exSubjectSelect');
+      const first = [...sel.options].find(o => o.value && o.value !== 'CUSTOM');
+      if (!first) return;
+      sel.value = first.value;
+      document.getElementById('exSubjectSearch').value = '';
+      filterSubjectOptions();
+      sel.value = first.value;
+      handleSubjectDropdownChange(first.value);
     }
 
     function handleSubjectDropdownChange(val) {
+      const search = document.getElementById('exSubjectSearch');
+      if (search && search.value) {
+        search.value = '';
+        filterSubjectOptions();
+        document.getElementById('exSubjectSelect').value = val;
+      }
       const hiddenId = document.getElementById('selectedBankSoalId');
       const subjInp = document.getElementById('exSubject');
       const titleInp = document.getElementById('exTitle');

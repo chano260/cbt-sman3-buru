@@ -491,6 +491,22 @@
 .ui-v2 .sched-item-name { font-weight: 600; }
 .ui-v2 .sched-item-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .ui-v2 .session-empty { column-span: all; text-align: center; padding: 20px; }
+/* Satu blok per tanggal berisi semua sesinya; tanggal yang sudah lewat dikumpulkan dan tertutup */
+.ui-v2 .schedule-days { display: flex; flex-direction: column; gap: 16px; }
+.ui-v2 .day-block { border: 1px solid var(--border-subtle); border-radius: 14px; padding: 14px 14px 0; background: var(--raised); }
+.ui-v2 .day-block.is-today { border-color: rgba(35, 121, 58, 0.45); background: #f3f8f4; }
+.ui-v2 .day-block-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.ui-v2 .day-block-title { font-weight: 700; font-size: 15px; }
+/* Di dalam satu tanggal sesi berurutan kiri ke kanan: Sesi 1, Sesi 2, Sesi 3 */
+.ui-v2 .day-block .session-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; align-items: start; column-width: auto; padding-bottom: 14px; }
+.ui-v2 .day-block .session-card { display: block; margin: 0; }
+.ui-v2 .past-days { border: 1px dashed var(--border); border-radius: 14px; padding: 0 14px; }
+.ui-v2 .past-days > summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px 0; cursor: pointer; list-style: none; }
+.ui-v2 .past-days > summary::-webkit-details-marker { display: none; }
+.ui-v2 .past-days > summary .cell-sub { flex-basis: 100%; padding-left: 26px; }
+.ui-v2 .past-days[open] > summary .session-chevron { transform: rotate(90deg); }
+.ui-v2 .past-days-title { font-weight: 600; }
+.ui-v2 .past-days .day-block { margin-bottom: 14px; opacity: 0.85; }
 
 .ui-v2 .form-grid { gap: 16px 20px; margin-bottom: 20px; }
 
@@ -1051,3 +1067,10 @@
 .rename-subject .cell-sub { display: block; font-weight: 400; }
 .rename-names { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 560px) { .rename-row { grid-template-columns: auto 1fr; } .rename-names { grid-column: 2; } }
+
+/* Cari mata pelajaran di formulir Buat jadwal ujian */
+.ui-v2 .subject-search { margin-bottom: 4px; }
+.ui-v2 .subject-search-hint:empty { display: none; }
+.ui-v2 .subject-search-hint { margin: 0 0 6px; }
+.ui-v2 select.is-list { height: auto; padding: 4px; }
+.ui-v2 select.is-list option { padding: 6px 8px; border-radius: 6px; }

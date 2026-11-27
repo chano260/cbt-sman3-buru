@@ -261,7 +261,8 @@ test('panel operator: jadwal tampil sebagai kartu per tanggal & sesi (bukan tabe
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'operator.html'), 'utf8');
   assert.doesNotMatch(html, /id="sessionActivateBar"/);
   assert.doesNotMatch(html, /<tbody id="examsTableBody">/, 'daftar jadwal tidak lagi berupa tabel');
-  assert.match(html, /<div id="examsTableBody" class="session-grid">/);
+  // Satu blok per tanggal; kartu sesi tersusun di .session-grid di dalam tiap blok
+  assert.match(html, /<div id="examsTableBody" class="schedule-days">/);
   const renderJadwal = html.slice(html.indexOf('// Render tabel jadwal ujian'), html.indexOf("getElementById('banksTableBody').innerHTML"));
   assert.match(renderJadwal, /groupSchedulesBySession\(/);
   assert.match(renderJadwal, /class="session-card/);
@@ -307,7 +308,7 @@ test('panel operator: kartu sesi bisa dibuka-tutup; sesi aktif terbuka, sesi lai
   assert.match(html, /function isSessionGroupOpen\(/);
   assert.match(html, /function toggleSessionGroup\(/);
   // Kotak cari juga menyaring kartu: mapel yang cocok tetap tampil walau kartunya tertutup
-  assert.match(html, /classList\.contains\('session-grid'\)/);
+  assert.match(html, /classList\.contains\('schedule-days'\)/);
   assert.match(html, /classList\.toggle\('is-searching'/);
   const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'theme.css'), 'utf8');
   assert.match(css, /\.session-card\.is-open/);

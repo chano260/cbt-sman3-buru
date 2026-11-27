@@ -1,5 +1,6 @@
 const path = require('node:path');
 const { hashPassword, isHashed } = require('./security');
+const { schoolToday } = require('./schoolDate');
 
 function createSqliteConnection(dbPath) {
   try {
@@ -221,7 +222,7 @@ function initDb(dbPath = DEFAULT_DB_PATH) {
       'Penilaian Akhir Semester (PAS) Ganjil',
       'Kimia',
       'XII IPA 1',
-      '2026-11-02',
+      schoolToday(), // contoh ujian aktif hari ini (ujian bertanggal lewat dimatikan otomatis)
       '08:00 WIT',
       'Sesi 1',
       90,

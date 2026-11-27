@@ -666,7 +666,9 @@ test('Teacher can create Bank Soal in guru panel, and Operator can select from d
   // 7. Setelah tombol Aktifkan, jadwal aktif di server
   const afterActive = db.prepare('SELECT * FROM exams WHERE id = ?').get(newExamId);
   assert.equal(afterActive.is_active, 1);
-  assert.equal(afterActive.session_name, 'Sesi 1 (08:00 WIT)');
+  // Label gabungan lama dipecah: sesi dan jam mulai tersimpan terpisah
+  assert.equal(afterActive.session_name, 'Sesi 1');
+  assert.equal(afterActive.start_time, '08:00 WIT');
 });
 
 test('Teacher account subject isolation: teachers only see/edit their own subjects, multi-subject teachers manage both, cross-access is 403 Forbidden', async (t) => {

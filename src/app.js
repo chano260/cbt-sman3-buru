@@ -10,6 +10,7 @@ const QRCode = require('qrcode');
 const { parseDocxBuffer, parseQuestionsFromText, generateWordTemplateBuffer } = require('./wordParser');
 const { hashPassword, verifyPassword, safeEqual, randomToken, isDefaultStaffPassword } = require('./security');
 const { schoolToday, deactivatePastExams } = require('./schoolDate');
+const { normalizeStartTime, splitSessionLabel } = require('./examTime');
 const { createBackup, backupStatus } = require('./backup');
 const { cleanElectives, parseStudentSheet, importStudents, defaultPrefix, cleanPrefix } = require('./studentImport');
 
@@ -1228,6 +1229,14 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
     // Mapel pilihan: satu kelas boleh punya beberapa ujian pilihan di sesi yang sama
     const electiveFlag = (fallback) => (is_elective === undefined || is_elective === null ? (fallback ? 1 : 0) : (is_elective ? 1 : 0));
     const nowIso = new Date().toISOString();
+    // Sesi dan jam mulai terpisah. Label gabungan lama "Sesi 1 (08:00 WIT)" tetap diterima lalu dipecah.
+    const sessionParts = splitSessionLabel(session_name);
+    const sessionName = sessionParts.session;
+    let startTime = sessionParts.time;
+    if (start_time) {
+      startTime = normalizeStartTime(start_time);
+      if (!startTime) return res.status(400).json({ error: 'Jam mulai tidak sah. Pakai jam kelipatan 5 menit, mis. 07.00, 07.05, 07.10.' });
+    }
 
     if (exam_id) {
       const existing = db.prepare('SELECT * FROM exams WHERE id = ?').get(Number(exam_id));
@@ -1253,8 +1262,8 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
           subject,
           class_target || existing.class_target,
           exam_date || existing.exam_date,
-          start_time || existing.start_time,
-          session_name || existing.session_name,
+          startTime || existing.start_time,
+          sessionName || existing.session_name,
           Number(duration_minutes) || existing.duration_minutes || 90,
           elective,
           existing.id
@@ -1282,9 +1291,9 @@ function createApp(db, { backupDir = path.join(__dirname, '..', 'backups'), enfo
       title,
       subject,
       class_target || 'Semua Kelas',
-      exam_date || new Date().toISOString().slice(0, 10),
-      start_time || '08:00 WIT',
-      session_name || 'Sesi 1',
+      exam_date || schoolToday(),
+      startTime || '08:00 WIT',
+      sessionName || 'Sesi 1',
       Number(duration_minutes) || 90,
       token,
       nowIso,

@@ -1,6 +1,21 @@
 const path = require('node:path');
 const { hashPassword, isHashed } = require('./security');
 const { schoolToday } = require('./schoolDate');
+const { splitSessionLabel } = require('./examTime');
+
+// Data lama: "Sesi 1 (08:00 WIT)" di session_name dipecah menjadi session_name "Sesi 1" + start_time "08:00 WIT"
+function splitLegacySessionNames(db) {
+  const rows = db.prepare("SELECT id, session_name FROM exams WHERE session_name LIKE '%(%)%'").all();
+  const update = db.prepare('UPDATE exams SET session_name = ?, start_time = ? WHERE id = ?');
+  let changed = 0;
+  for (const r of rows) {
+    const { session, time } = splitSessionLabel(r.session_name);
+    if (!time) continue;
+    update.run(session, time, r.id);
+    changed++;
+  }
+  return changed;
+}
 
 function createSqliteConnection(dbPath) {
   try {
@@ -177,6 +192,7 @@ function initDb(dbPath = DEFAULT_DB_PATH) {
   for (const sql of safeAlter) {
     try { db.exec(sql); } catch {}
   }
+  splitLegacySessionNames(db);
 
   // Tanda "sudah dijadwalkan". Untuk database lama: paket yang aktif atau sudah pernah dipakai siswa
   // dianggap jadwal; paket lain tetap sebagai bank soal guru.
@@ -311,4 +327,4 @@ function initDb(dbPath = DEFAULT_DB_PATH) {
   return db;
 }
 
-module.exports = { initDb, DEFAULT_DB_PATH };
+module.exports = { initDb, DEFAULT_DB_PATH, splitLegacySessionNames };

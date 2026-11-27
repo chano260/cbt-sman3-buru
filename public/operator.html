@@ -462,8 +462,16 @@
               <input id="exDate" type="date" class="input" value="2026-11-21">
             </div>
             <div class="form-group">
-              <label for="exSession">Jam mulai & sesi</label>
-              <input id="exSession" class="input" value="Sesi 1 (08:00 WIT)">
+              <label for="exSession">Sesi</label>
+              <select id="exSession" class="input">
+                <option>Sesi 1</option><option>Sesi 2</option><option>Sesi 3</option>
+                <option>Sesi 4</option><option>Sesi 5</option><option>Sesi 6</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="exStartTime">Jam mulai (WIT)</label>
+              <select id="exStartTime" class="input"></select>
+              <div class="hint">Pilihan tiap 5 menit</div>
             </div>
             <div class="form-group">
               <label for="exDuration">Durasi (menit)</label>
@@ -1265,7 +1273,7 @@
                 ${e.is_active ? '<span class="badge badge-working"><span class="live-dot"></span>Aktif</span>' : isPast ? '<span class="badge badge-idle">Selesai</span>' : '<span class="badge badge-idle">Terjadwal</span>'}
               </div>
               <div class="cell-sub">${esc(e.class_target || 'Semua Kelas')}${e.is_elective ? ' · Mapel pilihan' : ''}</div>
-              <div class="cell-sub">${esc(e.teacher_name || 'Guru mapel')} · ${totalQ > 0 ? `${totalQ} soal` : '<span style="color:var(--red);">0 soal</span>'} · ${e.duration_minutes} menit</div>
+              <div class="cell-sub">${esc(e.teacher_name || 'Guru mapel')} · ${totalQ > 0 ? `${totalQ} soal` : '<span style="color:var(--red);">0 soal</span>'} · mulai ${esc(formatJam(e.start_time) || '-')} · ${e.duration_minutes} menit</div>
               <div class="sched-item-foot">
                 ${e.is_active ? `<span class="tag-mono">${esc(e.token)}</span>` : `<span class="cell-sub">${isPast ? 'Dinonaktifkan otomatis' : 'Token belum aktif'}</span>`}
                 <div class="cell-actions">
@@ -1289,7 +1297,7 @@
             ${cbtIcon('chevron', 'session-chevron')}
             <div class="session-card-title">
               <div class="session-group-title">${esc(g.session || 'Tanpa sesi')}</div>
-              <div class="cell-sub">${g.items.length} jadwal${g.active ? ` · ${g.active} aktif` : ''}</div>
+              <div class="cell-sub">${[...new Set(g.items.map(e => formatJam(e.start_time)).filter(Boolean))].map(esc).join(', ') || 'Jam belum diatur'} · ${g.items.length} jadwal${g.active ? ` · ${g.active} aktif` : ''}</div>
             </div>
             ${headAction}
           </div>
@@ -1971,6 +1979,7 @@
         class_target: document.getElementById('exClass').value,
         exam_date: document.getElementById('exDate').value,
         session_name: document.getElementById('exSession').value,
+        start_time: document.getElementById('exStartTime').value,
         duration_minutes: document.getElementById('exDuration').value,
         is_elective: document.getElementById('exElective').checked
       };
@@ -1996,6 +2005,27 @@
     }
 
     // Hari ujian: satu tombol per tanggal + sesi untuk mengaktifkan semua jadwal di sesi itu
+    // Jam mulai tiap 5 menit, 06:00 sampai 17:55
+    function startTimeOptions() {
+      const out = [];
+      for (let m = 6 * 60; m < 18 * 60; m += 5) {
+        out.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
+      }
+      return out;
+    }
+
+    // "07:15 WIT" ditulis "07.15 WIT" (format jam Indonesia)
+    function formatJam(value) {
+      return String(value || '').replace(/(\d{1,2}):(\d{2})/, '$1.$2');
+    }
+
+    (function fillStartTimeSelect() {
+      const sel = document.getElementById('exStartTime');
+      if (!sel) return;
+      sel.innerHTML = startTimeOptions().map(t => `<option value="${t}">${formatJam(t)}</option>`).join('');
+      sel.value = '08:00';
+    })();
+
     function formatHariTanggal(dateStr) {
       const d = new Date(`${dateStr}T00:00:00`);
       if (isNaN(d)) return dateStr || '-';
@@ -2870,7 +2900,7 @@
             </div>
             <div>
               <div><b>Ruang Ujian:</b> ${roomLabel}</div>
-              <div><b>Tanggal / Sesi:</b> ${exam.exam_date} (${esc(exam.session_name)})</div>
+              <div><b>Tanggal / Sesi:</b> ${exam.exam_date} (${esc(exam.session_name)}${exam.start_time ? ` · ${esc(formatJam(exam.start_time))}` : ''})</div>
             </div>
           </div>
           <table style="width:100%;border-collapse:collapse;border:1px solid #000;font-size:12px;">
